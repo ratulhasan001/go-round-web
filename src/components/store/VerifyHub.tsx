@@ -53,8 +53,8 @@ export function VerifyHub() {
               if (clean.length >= 6) router.push(links.staff(clean));
             }}
           >
-            <SeaField label="Or type the code under the QR" htmlFor="v-staff">
-              <SeaInput id="v-staff" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. xwtzpxw8gy4f" autoCapitalize="none" autoComplete="off" spellCheck={false} className="text-center font-mono text-[17px] tracking-[0.1em]" />
+            <SeaField label="Or paste the link from the QR code" htmlFor="v-staff">
+              <SeaInput id="v-staff" value={code} onChange={(e) => setCode(e.target.value)} placeholder="verify.goroundbd.com/…" autoCapitalize="none" autoComplete="off" spellCheck={false} className="text-center font-mono text-[17px] tracking-[0.1em]" />
             </SeaField>
             <button type="submit" disabled={clean.length < 6} className={btn("primary", "lg", "w-full")}>
               Verify staff member

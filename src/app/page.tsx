@@ -12,7 +12,7 @@ import { onSite, siteSettings } from "@/lib/site";
 import { cx, useClientValue } from "@/components/ui";
 import { FlipClock } from "@/components/FlipClock";
 import { Aquarium } from "@/components/Aquarium";
-import { AquariumTank } from "@/components/aquarium/AquariumTank";
+import { PlantedTank } from "@/components/PlantedTank";
 import { Fish, Grass } from "@/components/store/Art";
 import { CalendarTile } from "@/components/CalendarTile";
 
@@ -158,7 +158,7 @@ export default function Home() {
             <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-aqua-deep">Our aquarium</p>
             <h2 className="mt-1 font-display text-2xl font-extrabold text-ink sm:text-3xl">Witness the Underwater World Through Us</h2>
           </div>
-          <AquariumTank />
+          <PlantedTank />
         </div>
         <p className="animate-home-in mt-6 hidden text-center text-[12.5px] text-muted [animation-delay:700ms] sm:block">
           Tip: press <Kbd>1</Kbd>–<Kbd>{SECTIONS.length}</Kbd> to jump straight to a section.

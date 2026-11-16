@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import { loadCatalog } from "@/lib/server/catalog";
 import { prettyPhone, waLink } from "@/lib/site";
 import { FacebookIcon, WhatsAppIcon } from "@/components/store/Icons";
@@ -39,6 +39,18 @@ export default async function ContactPage() {
           </Reveal>
         ))}
       </div>
+      {s.openingHours.trim() && (
+        <Reveal className="mt-4 flex items-start gap-4 rounded-[24px] border border-sea-line bg-sea-paper p-5">
+          <span className="grid size-14 shrink-0 place-items-center rounded-full bg-white ring-1 ring-sea-line">
+            <Clock className="size-6 text-sea-teal" />
+          </span>
+          <span>
+            <span className="store-eyebrow block">Opening hours</span>
+            <span className="mt-1 block text-[17px] font-extrabold">{s.openingHours}</span>
+            <span className="block text-[13px] text-sea-muted">Order online any time - we&apos;re always open</span>
+          </span>
+        </Reveal>
+      )}
       {s.address.trim() && (
         <Reveal className="mt-4 flex items-start gap-4 rounded-[24px] border border-sea-line bg-sea-paper p-5">
           <span className="grid size-14 shrink-0 place-items-center rounded-full bg-white ring-1 ring-sea-line">

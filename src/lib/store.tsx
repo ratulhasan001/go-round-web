@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import type { CouponCode, Customer, Employee, Invoice, Letter, Order, Product, Shop } from "./types";
+import type { CouponCode, Customer, Employee, Invoice, Letter, Order, Product, Review, Shop } from "./types";
 import { DEFAULT_SHOP, SEED_CUSTOMERS, SEED_INVOICES, SEED_PRODUCTS } from "./seed";
 import { uid } from "./calc";
 import { couponProblem, givenBy, usedBy } from "./coupons";
@@ -22,6 +22,7 @@ interface Data {
   letters: Letter[];
   orders: Order[]; // from the customer website
   employees: Employee[]; // staff records
+  reviews: Review[]; // product reviews (from the website or added by the shop)
 }
 
 /** "local" = no database configured (data lives in this browser); "cloud" = saved to the database. */
@@ -38,6 +39,7 @@ interface Store extends Data {
   setCustomers: (c: Customer[]) => void;
   setCoupons: (c: CouponCode[]) => void;
   setEmployees: (e: Employee[]) => void;
+  setReviews: (r: Review[]) => void;
   /** Saves changes to a website order (status, payment check, notes…). */
   saveOrder: (o: Order) => void;
   deleteOrder: (id: string) => void;
@@ -64,6 +66,7 @@ const seed = (): Data => ({
   letters: [],
   orders: [],
   employees: [],
+  reviews: [],
 });
 
 const Ctx = createContext<Store | null>(null);
@@ -130,7 +133,7 @@ const withDefaults = (shop?: Partial<Shop> | null): Shop => ({
 
 // ---------- document diffing (what changed since the last sync) ----------
 
-type Kind = "shop" | "product" | "customer" | "coupon" | "invoice" | "letter" | "order" | "employee";
+type Kind = "shop" | "product" | "customer" | "coupon" | "invoice" | "letter" | "order" | "employee" | "review";
 interface Change {
   kind: Kind;
   id: string;
@@ -144,6 +147,7 @@ const LISTS: [Kind, keyof Omit<Data, "shop">][] = [
   ["letter", "letters"],
   ["order", "orders"],
   ["employee", "employees"],
+  ["review", "reviews"],
 ];
 
 function docs(d: Data) {
@@ -163,7 +167,7 @@ function diff(prev: Data, next: Data): Change[] {
 }
 
 function applyChanges(d: Data, changes: Change[]): Data {
-  const next: Data = { ...d, products: [...d.products], customers: [...d.customers], coupons: [...d.coupons], invoices: [...d.invoices], letters: [...d.letters], orders: [...d.orders], employees: [...d.employees] };
+  const next: Data = { ...d, products: [...d.products], customers: [...d.customers], coupons: [...d.coupons], invoices: [...d.invoices], letters: [...d.letters], orders: [...d.orders], employees: [...d.employees], reviews: [...d.reviews] };
   for (const c of changes) {
     if (c.kind === "shop") {
       if (c.data) next.shop = withDefaults(c.data as Shop);
@@ -284,6 +288,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
       letters: body.letters ?? [],
       orders: body.orders ?? [],
       employees: body.employees ?? [],
+      reviews: body.reviews ?? [],
     };
     const pending: Change[] = [];
     let merged = server;
@@ -302,7 +307,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
       }
       if (serverEmpty && pending.every((c) => c.kind === "shop")) {
         // brand-new shop: start with the default settings and product list (keeping this device's settings, if any)
-        const starter = docs({ shop: DEFAULT_SHOP, products: SEED_PRODUCTS, customers: [], coupons: [], invoices: [], letters: [], orders: [], employees: [] });
+        const starter = docs({ shop: DEFAULT_SHOP, products: SEED_PRODUCTS, customers: [], coupons: [], invoices: [], letters: [], orders: [], employees: [], reviews: [] });
         pending.unshift(...[...starter.values()].filter((c) => !pending.some((p) => p.kind === c.kind)));
       }
       merged = applyChanges(server, pending);
@@ -446,6 +451,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
       setCustomers: (customers) => setData((d) => ({ ...d, customers })),
       setCoupons: (coupons) => setData((d) => ({ ...d, coupons })),
       setEmployees: (employees) => setData((d) => ({ ...d, employees })),
+      setReviews: (reviews) => setData((d) => ({ ...d, reviews })),
       saveOrder: (o) => setData((d) => ({ ...d, orders: d.orders.map((x) => (x.id === o.id ? { ...o, updatedAt: Date.now() } : x)) })),
       deleteOrder: (id) =>
         setData((d) => ({
@@ -489,6 +495,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
           letters: parsed.letters ?? [],
           orders: parsed.orders ?? [],
           employees: parsed.employees ?? [],
+          reviews: parsed.reviews ?? [],
         });
       },
       resetAll: () => setData(seed()),

@@ -47,12 +47,25 @@ export function PaymentInfo({ shop, method, amount, code }: { shop: PublicShop; 
         <p className="text-[13.5px] font-bold text-[#b0105a]">
           {bkash.type === "Merchant" ? "Make a payment" : bkash.type === "Agent" ? "Cash out" : "Send money"} with bKash
         </p>
-        <div className="mt-1 divide-y divide-[#e2136e]/10">
-          <Row k={`bKash (${bkash.type})`} v={prettyPhone(bkash.number)} copy />
-          <Row k="Amount" v={tk(amount)} />
-          {code && <Row k="Reference" v={code} copy />}
+        <div className={bkash.qr ? "mt-2 grid gap-4 sm:grid-cols-[150px_1fr] sm:items-center" : undefined}>
+          {bkash.qr && (
+            <figure className="mx-auto w-[170px] sm:w-auto">
+              <a href={bkash.qr} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-2xl bg-white p-2 ring-1 ring-[#e2136e]/20" aria-label="Open the bKash QR code">
+                {/* eslint-disable-next-line @next/next/no-img-element -- the shop's uploaded QR code */}
+                <img src={bkash.qr} alt={`bKash QR code for ${prettyPhone(bkash.number)}`} className="aspect-square w-full object-contain" />
+              </a>
+              <figcaption className="mt-1.5 text-center text-[11.5px] font-bold text-[#b0105a]">Scan with the bKash app</figcaption>
+            </figure>
+          )}
+          <div className="mt-1 divide-y divide-[#e2136e]/10">
+            <Row k={`bKash (${bkash.type})`} v={prettyPhone(bkash.number)} copy />
+            <Row k="Amount" v={tk(amount)} />
+            {code && <Row k="Reference" v={code} copy />}
+          </div>
         </div>
-        <p className="mt-2 text-[12.5px] leading-relaxed text-sea-body">After paying, type the transaction ID (TrxID) from the bKash message below.</p>
+        <p className="mt-2 text-[12.5px] leading-relaxed text-sea-body">
+          {bkash.qr ? "Scan the QR code or send to the number above. " : ""}After paying, type the transaction ID (TrxID) from the bKash message below.
+        </p>
       </div>
     );
   const hasBank = bank.accountNumber.trim();

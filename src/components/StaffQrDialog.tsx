@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { Copy, Download, ExternalLink, IdCard, QrCode } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { absolute, publicLinks } from "@/lib/site";
-import { logoUrl } from "@/lib/theme";
+import { absolute, prettyPhone, publicLinks } from "@/lib/site";
+import { supportEmail } from "@/lib/letter";
+import { initials, logoUrl } from "@/lib/theme";
 import type { Employee } from "@/lib/types";
 import { saveBlob } from "@/lib/download";
 import { Modal } from "./Modal";
@@ -27,74 +28,112 @@ const loadImage = (src: string) =>
     img.src = src;
   });
 
-/** A printable staff ID card (CR80 proportions, 1012 x 638 px ≈ 300 dpi) with the verification QR. */
-async function renderCard(e: Employee, shop: { name: string; logo: string }) {
-  await document.fonts?.load('600 40px "Fraunces"').catch(() => null);
+/** Draws `text` centred at y, shrinking the font until it fits `max` px wide. */
+function fitText(g: CanvasRenderingContext2D, text: string, y: number, font: (px: number) => string, size: number, max: number, min = 18) {
+  g.font = font(size);
+  while (g.measureText(text).width > max && size > min) g.font = font((size -= 2));
+  g.fillText(text, W / 2, y);
+}
+
+// portrait CR80 (54 x 85.6 mm) at about 300 dpi
+const W = 638;
+const H = 1012;
+
+/** A printable vertical staff ID card with the verification QR; team heads get their photo on it. */
+async function renderCard(e: Employee, shop: { name: string; logo: string; email: string; phone: string }) {
+  await Promise.all([document.fonts?.load('600 40px "Fraunces"'), document.fonts?.load('italic 400 30px "Fraunces"')]).catch(() => null);
   const sans = getComputedStyle(document.body).fontFamily; // Manrope, under the name next/font gave it
-  const W = 1012;
-  const H = 638;
+  const serif = (w: string) => (px: number) => `${w} ${px}px "Fraunces", Georgia, serif`;
   const c = document.createElement("canvas");
   c.width = W;
   c.height = H;
   const g = c.getContext("2d")!;
   g.fillStyle = CREAM;
   g.fillRect(0, 0, W, H);
-  // green rule + grass strip along the bottom, as on the visiting card
-  g.fillStyle = "#5E9E39";
-  g.fillRect(56, 214, 48, 4);
+  g.textAlign = "center";
+
+  // grass strip along the bottom, as on the visiting card
   const greens = ["#1E5A45", "#2F6B3A", "#4C8C3A", "#6FAE45", "#8CBF5A"];
-  for (let x = 0; x < W; x += 9) {
+  for (let x = 0; x < W; x += 8) {
     g.strokeStyle = greens[(x * 7) % greens.length]!;
     g.globalAlpha = 0.55;
     g.lineWidth = 3;
     g.beginPath();
     g.moveTo(x, H);
-    g.quadraticCurveTo(x + ((x * 13) % 20) - 10, H - 30, x + ((x * 17) % 24) - 12, H - 40 - ((x * 31) % 50));
+    g.quadraticCurveTo(x + ((x * 13) % 20) - 10, H - 26, x + ((x * 17) % 24) - 12, H - 34 - ((x * 31) % 42));
     g.stroke();
   }
   g.globalAlpha = 1;
 
+  // logo + shop name
   const logo = await loadImage(logoUrl(shop.logo));
-  if (logo) g.drawImage(logo, 56, 52, 96, 96);
+  if (logo) g.drawImage(logo, W / 2 - 42, 38, 84, 84);
   g.fillStyle = INK;
-  g.font = '600 46px "Fraunces", Georgia, serif';
-  g.fillText(shop.name, logo ? 170 : 56, 116);
-
-  g.font = `800 17px ${sans}`;
+  fitText(g, shop.name, logo ? 166 : 110, serif("600"), 40, W - 96);
+  g.font = `800 15px ${sans}`;
   g.fillStyle = "rgba(17,58,45,0.6)";
-  g.fillText("S T A F F   I D", 56, 196);
+  g.fillText("S T A F F   I D", W / 2, 200);
+  g.fillStyle = "#5E9E39";
+  g.fillRect(W / 2 - 24, 214, 48, 4);
 
-  const name = e.name.trim() || "Staff member";
-  let size = 50;
-  g.font = `400 ${size}px "Fraunces", Georgia, serif`;
-  while (g.measureText(name).width > 520 && size > 28) g.font = `400 ${(size -= 2)}px "Fraunces", Georgia, serif`;
-  g.fillStyle = INK;
-  g.fillText(name, 56, 290);
-  if (e.role.trim()) {
-    g.font = 'italic 400 34px "Fraunces", Georgia, serif';
-    g.fillStyle = TEAL;
-    g.fillText(e.role.trim(), 56, 342);
+  // photo (team heads) or initials
+  const cy = 318;
+  const r = 88;
+  const photo = e.head && e.photo ? await loadImage(e.photo) : null;
+  g.save();
+  g.beginPath();
+  g.arc(W / 2, cy, r, 0, Math.PI * 2);
+  g.closePath();
+  if (photo) {
+    g.clip();
+    const k = Math.max((2 * r) / photo.width, (2 * r) / photo.height); // cover
+    g.drawImage(photo, W / 2 - (photo.width * k) / 2, cy - (photo.height * k) / 2, photo.width * k, photo.height * k);
+  } else {
+    g.fillStyle = "#E3ECDD";
+    g.fill();
+    g.fillStyle = INK;
+    g.font = serif("600")(70);
+    g.textBaseline = "middle";
+    g.fillText(initials(e.name.trim() || "?"), W / 2, cy + 4);
+    g.textBaseline = "alphabetic";
   }
-  g.font = `600 20px ${sans}`;
-  g.fillStyle = "rgba(17,58,45,0.7)";
-  g.fillText("Scan the code to check this person works with us.", 56, 410);
+  g.restore();
+  g.strokeStyle = "#5E9E39";
+  g.lineWidth = 6;
+  g.beginPath();
+  g.arc(W / 2, cy, r + 3, 0, Math.PI * 2);
+  g.stroke();
 
-  const qr = await QRCode.toDataURL(verifyUrl(e), { errorCorrectionLevel: "M", margin: 1, width: 340, color: { dark: INK, light: "#FFFFFF" } });
+  // name and role
+  g.fillStyle = INK;
+  fitText(g, e.name.trim() || "Staff member", 464, serif("400"), 46, W - 80, 26);
+  if (e.role.trim()) {
+    g.fillStyle = TEAL;
+    fitText(g, e.role.trim(), 504, serif("italic 400"), 30, W - 80);
+  }
+
+  // QR
+  const qr = await QRCode.toDataURL(verifyUrl(e), { errorCorrectionLevel: "M", margin: 1, width: 224, color: { dark: INK, light: "#FFFFFF" } });
   const img = await loadImage(qr);
   g.fillStyle = "#FFFFFF";
   g.beginPath();
-  g.roundRect(W - 56 - 360, 120, 360, 360, 28);
+  g.roundRect(W / 2 - 122, 530, 244, 244, 24);
   g.fill();
-  if (img) g.drawImage(img, W - 56 - 350, 130, 340, 340);
-  g.font = `800 16px ${sans}`;
+  if (img) g.drawImage(img, W / 2 - 112, 540, 224, 224);
+  g.font = `800 15px ${sans}`;
   g.fillStyle = TEAL;
-  g.textAlign = "center";
-  g.fillText("SCAN TO VERIFY", W - 56 - 180, 512);
-  // the code itself, for typing in at verify.goroundbd.com when a camera isn't handy
-  g.font = '600 22px ui-monospace, "SF Mono", Menlo, monospace';
+  g.fillText("SCAN TO VERIFY", W / 2, 804);
+
+  // support contact
   g.fillStyle = INK;
-  g.fillText(e.code, W - 56 - 180, 546);
-  return new Promise<Blob>((r) => c.toBlob((b) => r(b!), "image/png"));
+  g.font = `700 18px ${sans}`;
+  g.fillText(`Support: ${supportEmail(shop)}`, W / 2, 846);
+  if (shop.phone.trim()) {
+    g.font = `600 17px ${sans}`;
+    g.fillStyle = "rgba(17,58,45,0.75)";
+    g.fillText(prettyPhone(shop.phone), W / 2, 874);
+  }
+  return new Promise<Blob>((res) => c.toBlob((b) => res(b!), "image/png"));
 }
 
 /** The staff member's verification QR code: preview, download (QR alone or a printable ID card) and the link it opens. */
@@ -138,7 +177,7 @@ export function StaffQrDialog({ employee, onClose }: { employee: Employee | null
             className="flex-1"
             onClick={async () => {
               saveBlob(await renderCard(e, shop), fileName(e, "ID-card"));
-              toast("ID card downloaded - print it at card size (85.6 × 54 mm)");
+              toast("ID card downloaded - print it at card size (54 × 85.6 mm, portrait)");
             }}
           >
             <IdCard className="size-4" /> ID card

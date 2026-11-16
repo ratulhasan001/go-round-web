@@ -66,10 +66,37 @@ export interface Shop {
 
 // ---------- customer website ----------
 
+export type DeliveryArea = "inside" | "outside";
+export const DELIVERY_AREAS: { id: DeliveryArea; label: string }[] = [
+  { id: "inside", label: "Inside Dhaka" },
+  { id: "outside", label: "Outside Dhaka" },
+];
+
+/** One way to deliver an order: an area (inside / outside Dhaka), a courier and its service, e.g. Steadfast Express. */
 export interface DeliveryZone {
   id: string;
-  name: string; // e.g. "Inside Dhaka"
-  fee: number; // BDT
+  name: string; // the service, e.g. "Express delivery" (older saved shops: a whole zone name like "Inside Dhaka")
+  fee: number; // BDT, for parcels up to 1 kg
+  area?: DeliveryArea; // missing on shops saved before couriers were listed
+  courier?: string; // e.g. "Steadfast", "Pathao"
+  eta?: string; // e.g. "Within 8 hours after dispatch"
+  perKg?: number; // BDT added for every kg over the first
+  quote?: boolean; // the charge depends on the location: the shop tells the customer after the order
+  note?: string; // e.g. "Requires 100% product prepayment"
+}
+
+/** A product review: written by a customer on the website, or added by the shop. */
+export interface Review {
+  id: string;
+  productId: string; // "" = about the shop in general
+  productName?: string;
+  name: string;
+  rating: number; // 1-5
+  text: string;
+  approved: boolean; // shown on the website
+  source: "customer" | "shop";
+  createdAt: number;
+  updatedAt?: number;
 }
 
 export interface Faq {
@@ -80,10 +107,11 @@ export interface Faq {
 /** Settings for the public store, edited on the admin "Website" page. */
 export interface SiteSettings {
   open: boolean; // taking orders on the website
-  announcement: string; // thin bar above the store header ("" = none)
+  announcement: string; // notice / news headlines scrolling above the store header, one per line ("" = none)
+  openingHours: string; // e.g. "24/7"
   whatsapp: string; // WhatsApp number customers message
   facebook: string; // Facebook page link
-  bkash: { number: string; type: "Personal" | "Merchant" | "Agent" };
+  bkash: { number: string; type: "Personal" | "Merchant" | "Agent"; qr?: string }; // qr: photo of the bKash QR code
   bank: { bank: string; accountName: string; accountNumber: string; branch: string; routing: string };
   zones: DeliveryZone[];
   freeDeliveryOver: number; // order subtotal from which delivery is free (0 = never)
@@ -91,6 +119,8 @@ export interface SiteSettings {
   deliveryNote: string; // how orders reach customers, shown on product pages and Contact us
   about: string; // About us page text (blank lines start a new paragraph)
   faq: Faq[];
+  featuredCategories: string[]; // shown as big tiles on the store's home page
+  autoApproveReviews: boolean; // customer reviews go live straight away (off = the shop approves each one)
 }
 
 export type OrderStatus = "placed" | "confirmed" | "shipped" | "delivered" | "cancelled";
@@ -112,12 +142,14 @@ export interface Order {
   code: string; // what the customer tracks it with, e.g. GR7K3F9Q
   status: OrderStatus;
   history: { status: OrderStatus; at: number }[];
-  customer: { name: string; phone: string; email?: string; address: string };
+  customer: { name: string; phone: string; email?: string; address: string }; // address ends with ", P.S.: <police station>"
   accountId?: string; // placed while logged in to a customer account
   items: OrderItem[];
   subtotal: number;
   delivery: number;
-  zone: string; // delivery zone name
+  zone: string; // how it is delivered, e.g. "Inside Dhaka · Steadfast Express delivery"
+  weight?: number; // kg, from the products' weights (when they have one)
+  deliveryQuote?: boolean; // the delivery charge depends on the location and isn't in the total yet
   total: number;
   payment: {
     method: OrderPayMethod;
@@ -141,7 +173,9 @@ export interface Order {
 export interface Product {
   id: string;
   name: string;
-  price: number;
+  price: number; // what the customer pays (the discounted price when there is a discount)
+  regularPrice?: number; // the price before the discount, shown crossed out ("" / missing = no discount)
+  purchasePrice?: number; // what the shop paid - admin only, never on the website
   unit?: string; // what the price is for, e.g. "pcs", "bottle", "pack"; missing on older saved products
   inStock?: boolean; // missing (older saved products) means in stock
   updatedAt?: number; // ms timestamp of the last edit; missing on older saved products
@@ -150,6 +184,13 @@ export interface Product {
   description?: string;
   category?: string;
   subcategory?: string; // within the category, e.g. Filter › Filter media
+  subsubcategory?: string; // within the subcategory
+  brand?: string;
+  sku?: string;
+  specification?: string; // HTML, like the description
+  stock?: number; // quantity in stock (missing = not counted)
+  weight?: number; // kg, for the delivery charge
+  warranty?: string; // "" / missing = no warranty, otherwise the seller's warranty, e.g. "6 months"
   onSite?: boolean; // missing means shown on the website
   featured?: boolean; // shown on the store's home page
 }
@@ -170,7 +211,9 @@ export interface Employee {
   phone: string;
   role: string; // e.g. Packing, Delivery, Sales
   joined: string; // yyyy-mm-dd, "" = not set
-  salary: number; // monthly, BDT
+  salary?: number; // monthly, BDT - no longer asked for; kept on older saved records
+  head?: boolean; // team head: gets a photo on their ID card and verification page (attendants don't)
+  photo?: string; // team head's photo (/api/img/<id>, or a data URL when there is no database)
   notes: string;
   active?: boolean; // missing means still working here
   code: string; // random, unguessable: the address of their public verification page (what their QR code opens)

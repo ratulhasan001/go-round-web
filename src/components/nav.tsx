@@ -26,7 +26,7 @@ export const SECTIONS: Section[] = [
   { key: "letterhead", href: "/letterhead", label: "Letterhead", short: "Letter", blurb: "Letters on the Go Round letterhead - or a blank one", icon: ScrollText },
   { key: "products", href: "/products", label: "Products", short: "Products", blurb: "Price list and stock status", icon: Package },
   { key: "customers", href: "/customers", label: "Customers", short: "Customers", blurb: "Contacts, spending and dues", icon: Users },
-  { key: "employees", href: "/employees", label: "Employees", short: "Staff", blurb: "Staff records, salaries and verification QR codes", icon: IdCard },
+  { key: "employees", href: "/employees", label: "Employees", short: "Staff", blurb: "Staff records, ID cards and verification QR codes", icon: IdCard },
   { key: "coupons", href: "/coupons", label: "Coupons", short: "Coupons", blurb: "Coupon codes, validity and usage", icon: TicketPercent },
   { key: "website", href: "/website", label: "Website", short: "Website", blurb: "Your online store: payments, delivery, pages", icon: Globe },
   { key: "settings", href: "/settings", label: "Settings", short: "Settings", blurb: "Shop details, charges and backups", icon: Settings },

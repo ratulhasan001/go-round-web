@@ -22,7 +22,7 @@ export default async function FaqPage() {
                 {f.q}
                 <Plus className="size-5 shrink-0 text-sea-teal transition-transform duration-300 group-open:rotate-45" />
               </summary>
-              <p className="whitespace-pre-line pb-5 pr-8 text-[15px] leading-relaxed text-sea-body">{f.a}</p>
+              <Answer text={f.a} />
             </details>
           </Reveal>
         ))}
@@ -34,6 +34,40 @@ export default async function FaqPage() {
           <WhatsAppIcon className="size-5 text-wa" /> Ask on WhatsApp
         </a>
       </Reveal>
+    </div>
+  );
+}
+
+/**
+ * An answer, with its own little headings: "[ STEADFAST INSIDE DHAKA ]", a line in capitals ("DELIVERY RATES") or a
+ * question on its own line ("How can I pay?") is set in bold, and "Express delivery: 110 BDT" lines get a bold label.
+ */
+function Answer({ text }: { text: string }) {
+  const blocks = text.split(/\n\s*\n/);
+  return (
+    <div className="grid gap-3 pb-5 pr-2 text-[15px] leading-relaxed text-sea-body sm:pr-8">
+      {blocks.map((block, i) => (
+        <p key={i}>
+          {block.split("\n").map((line, j) => {
+            const t = line.trim();
+            const heading = /^\[.*\]/.test(t) || (/^[A-Z0-9 &]{6,}$/.test(t) && /[A-Z]/.test(t)) || (/\?$/.test(t) && t.length < 60);
+            const m = !heading && /^([^:]{3,40}):\s(.+)$/.exec(t);
+            return (
+              <span key={j} className="block">
+                {heading ? (
+                  <b className={/^\[/.test(t) ? "text-[13px] font-extrabold tracking-[0.06em] text-sea-teal" : "font-extrabold text-sea-ink"}>{t}</b>
+                ) : m ? (
+                  <>
+                    <b className="font-bold text-sea-ink">{m[1]}:</b> {m[2]}
+                  </>
+                ) : (
+                  t
+                )}
+              </span>
+            );
+          })}
+        </p>
+      ))}
     </div>
   );
 }

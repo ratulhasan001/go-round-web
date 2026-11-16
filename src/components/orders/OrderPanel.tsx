@@ -338,8 +338,14 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
           </div>
           <div className="flex justify-between">
             <dt className="text-muted">Delivery · {o.zone}</dt>
-            <dd className="font-amount">{o.delivery ? tk(o.delivery) : "Free"}</dd>
+            <dd className="font-amount">{o.deliveryQuote ? "By location - tell the customer" : o.delivery ? tk(o.delivery) : "Free"}</dd>
           </div>
+          {!!o.weight && (
+            <div className="flex justify-between">
+              <dt className="text-muted">Parcel weight</dt>
+              <dd className="font-amount">{o.weight} kg</dd>
+            </div>
+          )}
           <div className="flex justify-between text-[16px]">
             <dt className="font-bold">Total</dt>
             <dd className="font-amount">{tk(o.total)}</dd>

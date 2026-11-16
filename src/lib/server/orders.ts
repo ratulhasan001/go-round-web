@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { clean, normPhone, phoneKey } from "@/lib/phone";
-import { cleanCode, deliveryFee, makeOrderCode, needsTrxAtCheckout, onSite, siteSettings, thumb } from "@/lib/site";
+import { cleanCode, deliveryFee, makeOrderCode, needsTrxAtCheckout, onSite, siteSettings, splitPoliceStation, thumb, withPoliceStation } from "@/lib/site";
 import { ORDER_PAY_METHODS, type Invoice, type Order, type OrderItem, type OrderPayMethod, type Product } from "@/lib/types";
 import { db } from "./db";
 import { loadShop } from "./catalog";
@@ -46,8 +46,14 @@ export class OrderError extends Error {
  * details they ordered with (when they ordered for their own number). A guest never changes an account.
  */
 export async function placeOrder(body: Record<string, unknown>, accountId: string | null): Promise<Order> {
-  const { name, phone, email, address, errors } = readContact(body);
-  if (address.length < 5) errors.address = "Please enter your full delivery address.";
+  const contact = readContact(body);
+  const { name, phone, email, errors } = contact;
+  // the police station is a must: typed on its own at checkout, kept at the end of the address
+  const ps = clean(body.ps).slice(0, 60) || splitPoliceStation(contact.address).ps;
+  const address = withPoliceStation(contact.address, ps);
+  if (splitPoliceStation(address).address.length < 5) errors.address = "Please enter your full delivery address.";
+  if (!ps) errors.ps = "Please enter your police station (thana).";
+  if (body.accept !== true) errors.accept = "Please accept the privacy policy, terms and conditions and return policy.";
   const { method, trxId, sender } = readPayment(body);
   if (!method) errors.method = "Please choose how you will pay.";
   const shop = await loadShop();
@@ -71,19 +77,27 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
   const byId = new Map(rows.map((r) => [r.data.id, r.data]));
   const items: OrderItem[] = [];
   const unavailable: string[] = [];
+  const short: string[] = []; // fewer in stock than ordered
   for (const [id, qty] of wanted) {
     const p = byId.get(id);
-    if (!p || !onSite(p) || p.inStock === false) {
+    if (!p || !onSite(p) || p.inStock === false || (typeof p.stock === "number" && p.stock <= 0)) {
       unavailable.push(id);
+      continue;
+    }
+    if (typeof p.stock === "number" && p.stock < qty) {
+      short.push(`${p.name.trim()} (only ${p.stock} left)`);
       continue;
     }
     items.push({ productId: id, name: p.name.trim(), unit: p.unit?.trim() || undefined, price: p.price, qty, image: p.images?.[0] ? thumb(p.images[0]) : undefined });
   }
+  if (short.length && !unavailable.length)
+    throw new OrderError(409, { error: "unavailable", ids: [], message: `We don't have that many of ${short.join(", ")}. We've lowered the quantity in your cart - please check it.` });
   if (unavailable.length)
     throw new OrderError(409, { error: "unavailable", ids: unavailable, message: "Some items in your cart are no longer available. We've removed them - please check your cart." });
 
   const subtotal = round2(items.reduce((s, i) => s + i.price * i.qty, 0));
-  const { zone, fee } = deliveryFee(settings, String(body.zone ?? ""), subtotal);
+  const weight = Math.round(items.reduce((s, i) => s + (Number(byId.get(i.productId)?.weight) || 0) * i.qty, 0) * 1000) / 1000;
+  const { zone, fee, quote } = deliveryFee(settings, String(body.zone ?? ""), subtotal, weight);
   const now = Date.now();
   const order: Order = {
     id: randomUUID(),
@@ -96,6 +110,8 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
     subtotal,
     delivery: fee,
     zone,
+    ...(weight > 0 ? { weight } : {}),
+    ...(quote ? { deliveryQuote: true } : {}),
     total: round2(subtotal + fee),
     payment: { method: method!, ...(trxId ? { trxId, submittedAt: now } : {}), ...(sender ? { sender } : {}) },
     ...(clean(body.note) ? { note: String(body.note).trim().slice(0, 500) } : {}),
@@ -111,6 +127,14 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
       if (!taken) order.code = code;
     }
     await tx`insert into gr_docs (kind, id, data) values ('order', ${order.id}, ${tx.json(order as never)})`;
+    // counted stock goes down by what was ordered (and the product sells out at 0)
+    for (const it of items) {
+      const p = byId.get(it.productId)!;
+      if (typeof p.stock !== "number") continue;
+      const stock = Math.max(0, p.stock - it.qty);
+      const next: Product = { ...p, stock, ...(stock === 0 ? { inStock: false } : {}), updatedAt: Date.now() };
+      await tx`update gr_docs set data = ${tx.json(next as never)}, updated_at = now() where kind = 'product' and id = ${p.id}`;
+    }
     await upsertCustomer(tx, { name, phone, address, email });
     if (accountId) await syncAccount(tx, { name, phone, address, email }, accountId);
   });

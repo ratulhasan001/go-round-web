@@ -10,6 +10,7 @@ export interface CartLine {
   unit: string;
   image?: string;
   qty: number;
+  weight?: number; // kg per item, for the delivery charge
 }
 
 interface Ctx {
@@ -73,8 +74,9 @@ export function StoreProvider({ shop, online, host, children }: { shop: PublicSh
   const add = useCallback((p: PublicProduct, qty = 1) => {
     setLines((ls) => {
       const hit = ls.find((l) => l.id === p.id);
-      if (hit) return ls.map((l) => (l.id === p.id ? { ...l, qty: Math.min(99, l.qty + qty) } : l));
-      return [...ls, { id: p.id, name: p.name, price: p.price, unit: p.unit, image: p.images[0], qty: Math.min(99, qty) }];
+      const max = p.stock ?? 99;
+      if (hit) return ls.map((l) => (l.id === p.id ? { ...l, qty: Math.min(99, max, l.qty + qty) } : l));
+      return [...ls, { id: p.id, name: p.name, price: p.price, unit: p.unit, image: p.images[0], weight: p.weight, qty: Math.min(99, max, qty) }];
     });
     setAdded({ name: p.name, at: Date.now() });
   }, []);
@@ -89,7 +91,7 @@ export function StoreProvider({ shop, online, host, children }: { shop: PublicSh
           gone.push(l.id);
           return [];
         }
-        return [{ ...l, name: p.name, price: p.price, unit: p.unit, image: p.images[0] }];
+        return [{ ...l, name: p.name, price: p.price, unit: p.unit, image: p.images[0], weight: p.weight, qty: Math.min(l.qty, p.stock ?? 99) }];
       }),
     );
     return gone;

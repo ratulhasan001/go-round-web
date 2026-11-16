@@ -8,6 +8,7 @@ export interface StaffCheck {
   role: string;
   joined: string;
   active: boolean;
+  photo: string; // team heads only ("" = none)
 }
 
 /** The staff member with this verification code, or null (also when there is no database). */
@@ -19,7 +20,7 @@ export async function findStaff(code: string): Promise<StaffCheck | null> {
     const [row] = await db()<{ data: Employee }[]>`select data from gr_docs where kind = 'employee' and data->>'code' = ${code}`;
     if (!row || !row.data.name.trim()) return null;
     const e = row.data;
-    return { name: e.name.trim(), role: e.role.trim(), joined: e.joined, active: e.active !== false };
+    return { name: e.name.trim(), role: e.role.trim(), joined: e.joined, active: e.active !== false, photo: (e.head && e.photo) || "" };
   } catch (err) {
     console.error("staff verification failed", err);
     return null;

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCheck, Hourglass, Link2Off, Loader2, Lock, MapPin, MessageCircle, Timer, User } from "lucide-react";
 import { WAVE_BACK, WAVE_FRONT } from "@/lib/theme";
 import { cx } from "./ui";
-import { AquariumTank } from "./aquarium/AquariumTank";
+import { PlantedTank } from "./PlantedTank";
 
 type View = "active" | "used" | "expired" | "missing" | "done";
 type Fields = { name: string; phone: string; address: string };
@@ -266,14 +266,14 @@ export function CustomerFormView({
         )}
       </section>
 
-      {/* the shop's aquarium, in guest mode: fish, games and events only - none of the shop's data. It stays through
-          the thank-you screen; once the page is closed the link is used up, so it can't be opened again. */}
+      {/* the shop's planted tank, to look at while filling in the form. It stays through the thank-you screen; once the
+          page is closed the link is used up, so it can't be opened again. */}
       {withTank && (
         <div className="animate-home-in min-w-0 lg:order-1" style={{ animationDelay: "240ms" }}>
           <p className="mb-4 text-center text-[13px] font-semibold text-mint/85">
-            {view === "done" ? "🐠 Your fish just joined our tank - say hello!" : `🐠 Explore ${shop.name}'s aquarium while you're here`}
+            {view === "done" ? `🌿 Thank you${(savedName || form.name).trim() ? `, ${(savedName || form.name).trim().split(/\s+/)[0]}` : ""} - enjoy the view!` : "🌿 Witness the Underwater World Through Us"}
           </p>
-          <AquariumTank guest dark guestFish={view === "done" ? savedName || form.name : null} />
+          <PlantedTank dark />
         </div>
       )}
       </div>

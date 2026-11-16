@@ -5,6 +5,7 @@ import type { Invoice, Shop } from "@/lib/types";
 import { amountInWords, bdt, computeTotals, courierName, filledItems, fmtDate, lineAmount, money, rewardNote } from "@/lib/calc";
 import { STATUS_LABEL, T, initials } from "@/lib/theme";
 import { AQ } from "@/lib/aquascape";
+import { supportEmail } from "@/lib/letter";
 import { FishBand, GrassBand } from "./AquascapeArt";
 import { SIGNATORY, drawSeal, drawSignature, sealFor } from "@/lib/seal";
 import { WATERMARK_OPACITY, makeWatermark } from "@/lib/watermark";
@@ -76,7 +77,7 @@ export default function ReceiptPreview({ inv, shop }: { inv: Invoice; shop: Shop
   const items = filledItems(inv);
   const payments = inv.payments.filter((p) => p.amount);
   const st = T.status[t.status];
-  const contact = [shop.address, [shop.phone, shop.email].filter(Boolean).join("  ·  "), shop.website].filter(Boolean);
+  const contact = [shop.address, [shop.phone, `Support: ${supportEmail(shop)}`].filter(Boolean).join("  ·  "), shop.website].filter(Boolean);
 
   return (
     <div ref={wrap} className="w-full min-w-0 overflow-hidden" style={{ height: pageH * scale }}>

@@ -4,9 +4,11 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { loadCatalog } from "@/lib/server/catalog";
 import { storeLinks } from "@/lib/server/links";
-import { plainText } from "@/lib/site";
+import { avgRating, plainText } from "@/lib/site";
 import { ProductCard } from "@/components/store/ProductCard";
 import { ProductDetail } from "@/components/store/ProductDetail";
+import { ProductReviews } from "@/components/store/Reviews";
+import { loadReviews } from "@/lib/server/reviews";
 import { Reveal } from "@/components/store/Reveal";
 
 async function find(id: string) {
@@ -27,7 +29,7 @@ export async function generateMetadata({ params }: PageProps<"/store/products/[i
 export default async function ProductPage({ params }: PageProps<"/store/products/[id]">) {
   const { product, products } = await find((await params).id);
   if (!product) notFound();
-  const L = await storeLinks();
+  const [L, reviews] = await Promise.all([storeLinks(), loadReviews(product.id)]);
   const related = products
     .filter((p) => p.id !== product.id && p.inStock)
     .sort((a, b) => Number(b.category === product.category) - Number(a.category === product.category))
@@ -38,7 +40,8 @@ export default async function ProductPage({ params }: PageProps<"/store/products
       <Link href={L.store("/products")} className="mb-6 inline-flex items-center gap-1 text-[13.5px] font-bold text-sea-muted hover:text-sea-ink">
         <ChevronLeft className="size-4" /> Back to shop
       </Link>
-      <ProductDetail p={product} />
+      <ProductDetail p={product} rating={{ avg: avgRating(reviews), count: reviews.length }} />
+      <ProductReviews productId={product.id} initial={reviews} />
       {related.length > 0 && (
         <section className="mt-24">
           <Reveal>

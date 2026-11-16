@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ImageOff, Package } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { uid } from "@/lib/calc";
 import type { Product } from "@/lib/types";
 import { ListEditor } from "@/components/ListEditor";
 import { cx } from "@/components/ui";
-import { ProductDetailsButton } from "@/components/ProductDetailsDialog";
+import { ProductDetailsButton, ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import { thumb } from "@/lib/site";
 
 const inStock = (p: Product) => p.inStock !== false;
@@ -26,17 +26,20 @@ export default function ProductsPage() {
     return m;
   }, [invoices]);
   const units = (p: Product) => sold.get(p.name.trim().toLowerCase()) ?? 0;
+  const [formFor, setFormFor] = useState<string | null>(null); // a new product opens straight in the full form
 
   return (
+    <>
     <ListEditor<Product>
       section="products"
       title="Products"
-      subtitle="Your price list - used on receipts and on your website. Tap the photo button to add photos, a description and a category."
+      subtitle="Your price list - used on receipts and on your website. Tap the photo button for the full product form: photos, description, specification, brand, category, prices, stock and weight."
       icon={<Package className="size-5" />}
       noun="Product"
       rows={products}
       onChange={setProducts}
       blank={() => ({ id: uid(), name: "", price: 0, inStock: true, updatedAt: Date.now() })}
+      onAdd={(p) => setFormFor(p.id)}
       touch={(p) => ({ ...p, updatedAt: Date.now() })}
       sorts={[
         { label: "Recently updated", compare: (a, b) => updated(b) - updated(a) },
@@ -55,6 +58,8 @@ export default function ProductsPage() {
         { label: "On website", test: (p) => p.onSite !== false },
         { label: "Hidden from website", test: (p) => p.onSite === false },
         { label: "No photo", test: (p) => !p.images?.length },
+        { label: "On discount", test: (p) => (p.regularPrice ?? 0) > p.price },
+        { label: "No brand", test: (p) => !p.brand?.trim() },
       ]}
       rowActions={(p) => <ProductDetailsButton product={p} />}
       lead={(p) => (
@@ -84,5 +89,7 @@ export default function ProductsPage() {
         { key: "price", label: "Unit price (BDT)", type: "number", placeholder: "0.00", width: "160px", align: "right" },
       ]}
     />
+    {formFor && <ProductDetailsDialog productId={formFor} onClose={() => setFormFor(null)} />}
+    </>
   );
 }

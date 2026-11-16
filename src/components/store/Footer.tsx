@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Clock, Mail, MapPin, Phone } from "lucide-react";
+import { POLICIES } from "@/lib/policies";
 import { prettyPhone, waLink, type Links, type PublicShop } from "@/lib/site";
 import { Grass } from "./Art";
 import { FacebookIcon, WhatsAppIcon } from "./Icons";
@@ -73,6 +74,11 @@ export function Footer({ shop, links }: { shop: PublicShop; links: Links }) {
                 <MapPin className="mt-0.5 size-[18px] shrink-0" /> {shop.site.address}
               </li>
             )}
+            {shop.site.openingHours.trim() && (
+              <li className="flex items-start gap-2.5">
+                <Clock className="mt-0.5 size-[18px] shrink-0" /> Opening hours: {shop.site.openingHours}
+              </li>
+            )}
           </ul>
           <p className="mt-5 text-[12.5px] text-sea-muted">We accept bKash and bank transfer.</p>
         </div>
@@ -81,6 +87,14 @@ export function Footer({ shop, links }: { shop: PublicShop; links: Links }) {
         {/* a backing so the line stays readable over the grass */}
         <span className="inline-block rounded-full bg-sea-paper/90 px-3 py-1">
           © {new Date().getFullYear()} {shop.name} · <Link href={links.store("/faq")} className="underline-offset-2 hover:text-sea-ink hover:underline">Help</Link>
+          {POLICIES.map((p) => (
+            <span key={p.slug}>
+              {" · "}
+              <Link href={links.store(`/${p.slug}`)} className="underline-offset-2 hover:text-sea-ink hover:underline">
+                {p.short}
+              </Link>
+            </span>
+          ))}
         </span>
       </p>
     </footer>

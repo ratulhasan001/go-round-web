@@ -289,7 +289,7 @@ export function OrderCard({
             </div>
             <div className="flex justify-between">
               <dt>Delivery · {order.zone}</dt>
-              <dd className="font-bold tabular-nums">{order.delivery ? tk(order.delivery) : "Free"}</dd>
+              <dd className="font-bold tabular-nums">{order.deliveryQuote ? "By location - we'll message you" : order.delivery ? tk(order.delivery) : "Free"}</dd>
             </div>
             <div className="mt-1 flex justify-between text-[17px]">
               <dt className="font-extrabold">Total</dt>

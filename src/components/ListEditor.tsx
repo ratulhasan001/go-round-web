@@ -65,6 +65,7 @@ export function ListEditor<T extends { id: string }>({
   sorts,
   touch,
   actions,
+  onAdd,
   rowActions,
   tableFrom = "md",
   section,
@@ -87,6 +88,8 @@ export function ListEditor<T extends { id: string }>({
   touch?: (row: T) => T;
   /** Extra buttons shown next to "Add", e.g. Import. */
   actions?: React.ReactNode;
+  /** Called with a newly added row (e.g. to open a full form for it). */
+  onAdd?: (row: T) => void;
   /** Extra buttons shown in each row before Edit, e.g. Share. */
   rowActions?: (row: T) => React.ReactNode;
   /** When rows switch from cards to a table; use "2xl" for lists with many columns. */
@@ -196,7 +199,8 @@ export function ListEditor<T extends { id: string }>({
     setEditing((e) => [...e, row.id]);
     clearTimeout(freshTimer.current);
     freshTimer.current = setTimeout(() => setFresh(null), 1400);
-    setTimeout(() => document.getElementById(`row-${row.id}`)?.querySelector("input")?.focus(), 30);
+    if (onAdd) onAdd(row);
+    else setTimeout(() => document.getElementById(`row-${row.id}`)?.querySelector("input")?.focus(), 30);
   };
 
   const startEdit = (id: string) => {

@@ -24,6 +24,7 @@ export async function GET() {
       letters: pick("letter"),
       orders: pick("order"),
       employees: pick("employee"),
+      reviews: pick("review"),
     });
   } catch (e) {
     console.error("GET /api/data failed", e);

@@ -23,6 +23,8 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
   const [q, setQ] = useState(params.get("q") ?? "");
   const category = params.get("category") ?? "";
   const subcategory = params.get("sub") ?? "";
+  const subsub = params.get("type") ?? "";
+  const brand = params.get("brand") ?? "";
   const sort = params.get("sort") ?? "new";
   const [inStockOnly, setInStockOnly] = useState(false);
 
@@ -39,6 +41,19 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [products, category]);
 
+  // one level further down, e.g. Filter › Filter media › Ceramic rings
+  const subsubs = useMemo(() => {
+    const m = new Map<string, number>();
+    if (subcategory) for (const p of products) if (p.subsubcategory && same(p.category, category) && same(p.subcategory, subcategory)) m.set(p.subsubcategory, (m.get(p.subsubcategory) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [products, category, subcategory]);
+
+  const brands = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of products) if (p.brand) m.set(p.brand, (m.get(p.brand) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [products]);
+
   const setParams = (patch: Record<string, string>) => {
     const next = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(patch)) {
@@ -49,7 +64,7 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
   };
   const setParam = (k: string, v: string) => setParams({ [k]: v });
   // a new category starts with all of its subcategories
-  const pickCategory = (c: string) => setParams({ category: c, sub: "" });
+  const pickCategory = (c: string) => setParams({ category: c, sub: "", type: "" });
 
   const shown = useMemo(() => {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -57,8 +72,10 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
       (p) =>
         (!category || same(p.category, category)) &&
         (!subcategory || same(p.subcategory, subcategory)) &&
+        (!subsub || same(p.subsubcategory, subsub)) &&
+        (!brand || same(p.brand, brand)) &&
         (!inStockOnly || p.inStock) &&
-        words.every((w) => `${p.name} ${p.category} ${p.subcategory} ${plainText(p.description)}`.toLowerCase().includes(w)),
+        words.every((w) => `${p.name} ${p.brand} ${p.sku} ${p.category} ${p.subcategory} ${p.subsubcategory} ${plainText(p.description)}`.toLowerCase().includes(w)),
     );
     const byName = (a: PublicProduct, b: PublicProduct) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
     if (sort === "low") list.sort((a, b) => a.price - b.price || byName(a, b));
@@ -66,7 +83,7 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
     else if (sort === "az") list.sort(byName);
     // sold-out items go last, whatever the order
     return list.sort((a, b) => Number(b.inStock) - Number(a.inStock));
-  }, [products, q, category, subcategory, sort, inStockOnly]);
+  }, [products, q, category, subcategory, subsub, brand, sort, inStockOnly]);
 
   const subChip = (on: boolean) =>
     cx("h-9 shrink-0 rounded-full px-3.5 text-[13px] font-bold transition", on ? "bg-sea-teal text-white" : "bg-sea-teal-soft text-sea-teal hover:bg-sea-teal/15");
@@ -94,6 +111,21 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
             )}
           </div>
           <div className="flex items-center gap-2 md:ml-auto">
+            {brands.length > 0 && (
+              <select
+                value={brands.find(([b]) => same(b, brand))?.[0] ?? ""}
+                onChange={(e) => setParam("brand", e.target.value)}
+                aria-label="Brand"
+                className="h-11 min-w-0 flex-1 rounded-full border border-sea-line bg-white px-4 text-[13.5px] font-bold text-sea-body outline-none focus:border-sea-teal md:w-40 md:flex-none"
+              >
+                <option value="">All brands</option>
+                {brands.map(([b, n]) => (
+                  <option key={b} value={b}>
+                    {b} ({n})
+                  </option>
+                ))}
+              </select>
+            )}
             <label className="flex h-11 cursor-pointer items-center gap-2 rounded-full border border-sea-line bg-white px-4 text-[13.5px] font-bold text-sea-body">
               <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="size-4 accent-sea-ink" />
               In stock
@@ -129,11 +161,26 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
             <span className="shrink-0 pl-1 text-[13px] font-extrabold text-sea-muted" aria-hidden>
               ›
             </span>
-            <button className={subChip(!subcategory)} onClick={() => setParam("sub", "")}>
+            <button className={subChip(!subcategory)} onClick={() => setParams({ sub: "", type: "" })}>
               All {category}
             </button>
             {subcategories.map(([c, n]) => (
-              <button key={c} className={subChip(same(subcategory, c))} onClick={() => setParam("sub", c)} aria-pressed={same(subcategory, c)}>
+              <button key={c} className={subChip(same(subcategory, c))} onClick={() => setParams({ sub: c, type: "" })} aria-pressed={same(subcategory, c)}>
+                {c} <span className="opacity-60">{n}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {subsubs.length > 0 && (
+          <div className="-mx-4 mt-2 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:-mx-6 sm:px-6 [&::-webkit-scrollbar]:hidden" aria-label={`${subcategory} types`}>
+            <span className="shrink-0 pl-5 text-[13px] font-extrabold text-sea-muted" aria-hidden>
+              ››
+            </span>
+            <button className={subChip(!subsub)} onClick={() => setParam("type", "")}>
+              All {subcategory}
+            </button>
+            {subsubs.map(([c, n]) => (
+              <button key={c} className={subChip(same(subsub, c))} onClick={() => setParam("type", c)} aria-pressed={same(subsub, c)}>
                 {c} <span className="opacity-60">{n}</span>
               </button>
             ))}
@@ -145,6 +192,8 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
         {shown.length} product{shown.length === 1 ? "" : "s"}
         {category && ` in ${category}`}
         {subcategory && ` › ${subcategory}`}
+        {subsub && ` › ${subsub}`}
+        {brand && ` · ${brand}`}
       </p>
 
       {shown.length ? (
@@ -158,12 +207,12 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
           <SearchX className="size-9 text-sea-muted" />
           <p className="mt-4 font-serif text-[24px]">Nothing found</p>
           <p className="mt-1 text-[14px] text-sea-muted">{products.length ? "Try another word or category." : "Products will appear here soon."}</p>
-          {(q || category || inStockOnly) && (
+          {(q || category || brand || inStockOnly) && (
             <button
               onClick={() => {
                 setQ("");
                 setInStockOnly(false);
-                pickCategory("");
+                setParams({ category: "", sub: "", type: "", brand: "" });
               }}
               className="mt-5 text-[14px] font-bold text-sea-teal underline-offset-4 hover:underline"
             >

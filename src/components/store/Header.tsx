@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, ShoppingBag, UserRound, X } from "lucide-react";
+import { Menu, Megaphone, ShoppingBag, Store, UserRound, X } from "lucide-react";
 import { waLink } from "@/lib/site";
 import { useShop } from "./StoreContext";
 import { FacebookIcon, WhatsAppIcon } from "./Icons";
@@ -34,9 +34,7 @@ export function Header() {
 
   return (
     <>
-      {shop.site.announcement.trim() && (
-        <div className="bg-sea-ink px-4 py-2 text-center text-[12.5px] font-semibold text-sea-cream">{shop.site.announcement}</div>
-      )}
+      <NewsTicker text={shop.site.announcement} />
       <header className={`sticky top-0 z-40 border-b transition-[background-color,border-color,box-shadow] duration-300 ${scrolled ? "border-sea-line bg-sea-cream/90 shadow-[0_6px_24px_-18px_rgba(17,58,45,0.5)] backdrop-blur-md" : "border-transparent bg-sea-cream"}`}>
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:h-[72px] sm:px-6">
           <Link href={links.store()} className="flex min-w-0 items-center gap-2.5" aria-label={`${shop.name} home`}>
@@ -62,6 +60,12 @@ export function Header() {
           </nav>
 
           <div className="ml-auto flex items-center gap-1 lg:ml-0">
+            <Link
+              href={links.store("/products")}
+              className="mr-1 inline-flex h-10 items-center gap-1.5 rounded-full bg-sea-ink px-4 text-[14px] font-extrabold text-white shadow-[0_8px_20px_-10px_rgba(17,58,45,0.7)] transition hover:bg-sea-teal active:scale-95"
+            >
+              <Store className="size-[17px]" /> Shop
+            </Link>
             <Link href={links.store("/account")} className="grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70" aria-label="My account">
               <UserRound className="size-[21px]" />
             </Link>
@@ -120,5 +124,37 @@ export function Header() {
         </div>
       )}
     </>
+  );
+}
+
+/** The shop's notice: important updates scrolling along the top of every page, one headline per line. */
+function NewsTicker({ text }: { text: string }) {
+  const items = text
+    .split(/\n+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  if (!items.length) return null;
+  const line = (hidden?: boolean) => (
+    <span className="flex shrink-0 items-center" aria-hidden={hidden || undefined}>
+      {items.map((t, i) => (
+        <span key={i} className="flex items-center whitespace-nowrap px-6">
+          <span className="mr-6 size-1.5 rounded-full bg-sea-sprout" />
+          {t}
+        </span>
+      ))}
+    </span>
+  );
+  return (
+    <div className="flex items-stretch bg-sea-ink text-[13px] font-semibold text-sea-cream" role="region" aria-label="News">
+      <span className="relative z-10 flex shrink-0 items-center gap-1.5 bg-sea-teal px-3 py-2 text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-white">
+        <Megaphone className="size-3.5" /> News
+      </span>
+      <div className="sea-ticker relative flex min-w-0 flex-1 overflow-hidden py-2 [mask-image:linear-gradient(90deg,transparent,#000_24px,#000_calc(100%-24px),transparent)]">
+        <div className="sea-ticker-track flex w-max" style={{ "--ticker": `${Math.max(18, items.join(" ").length * 0.28)}s` } as React.CSSProperties}>
+          {line()}
+          {line(true)}
+        </div>
+      </div>
+    </div>
   );
 }

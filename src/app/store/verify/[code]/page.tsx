@@ -31,7 +31,15 @@ export default async function VerifyStaffPage({ params }: PageProps<"/store/veri
       <div className={`relative overflow-hidden rounded-[32px] bg-sea-paper p-7 pb-28 text-center shadow-[0_30px_60px_-34px_rgba(17,58,45,0.55)] ring-2 ${tone.ring}`}>
         <Grass blades={50} seed={13} height={120} className="pointer-events-none absolute inset-x-0 bottom-0 h-24 w-full" />
         <p className="store-eyebrow">{shop.name} · Staff verification</p>
-        <div className={`mx-auto mt-6 grid size-20 place-items-center rounded-full ${tone.badge} sea-sheet-in`}>{tone.icon}</div>
+        {staff?.photo ? (
+          <div className="relative mx-auto mt-6 size-28 sea-sheet-in">
+            {/* eslint-disable-next-line @next/next/no-img-element -- the team head's uploaded photo */}
+            <img src={staff.photo} alt={staff.name} className={`size-full rounded-full object-cover ring-4 ${tone.ring}`} />
+            <span className={`absolute -bottom-1 -right-1 grid size-10 place-items-center rounded-full ring-4 ring-sea-paper ${tone.badge} [&_svg]:size-6`}>{tone.icon}</span>
+          </div>
+        ) : (
+          <div className={`mx-auto mt-6 grid size-20 place-items-center rounded-full ${tone.badge} sea-sheet-in`}>{tone.icon}</div>
+        )}
         <p className={`mx-auto mt-4 inline-block rounded-full px-4 py-1.5 text-[13px] font-extrabold uppercase tracking-[0.14em] ${tone.badge}`}>{tone.label}</p>
 
         {staff ? (

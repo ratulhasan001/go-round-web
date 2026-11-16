@@ -15,11 +15,16 @@ export function ProductCard({ p }: { p: PublicProduct }) {
         <div className="size-full transition-transform duration-700 ease-out group-hover:scale-[1.04]">
           <ProductImage src={p.images[0]} name={p.name} />
         </div>
+        {p.inStock && p.regularPrice > 0 && (
+          <span className="absolute left-3 top-3 rounded-full bg-sea-teal px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white">
+            {Math.round((1 - p.price / p.regularPrice) * 100)}% off
+          </span>
+        )}
         {!p.inStock && <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider text-sea-muted">Sold out</span>}
       </Link>
       <div className="mt-3 flex items-start gap-2 px-0.5">
         <div className="min-w-0 flex-1">
-          {p.category && <p className="truncate text-[11px] font-extrabold uppercase tracking-[0.16em] text-sea-leaf">{p.subcategory || p.category}</p>}
+          {(p.brand || p.category) && <p className="truncate text-[11px] font-extrabold uppercase tracking-[0.16em] text-sea-leaf">{p.brand || p.subsubcategory || p.subcategory || p.category}</p>}
           <h3 className="mt-0.5 line-clamp-2 text-[15px] font-bold leading-snug">
             <Link href={href} className="after:absolute after:inset-0 after:content-['']">
               {p.name}
@@ -28,6 +33,7 @@ export function ProductCard({ p }: { p: PublicProduct }) {
           <p className="mt-1 text-[15px] font-extrabold tabular-nums">
             {tk(p.price)}
             {p.unit && <span className="text-[12.5px] font-semibold text-sea-muted"> / {p.unit}</span>}
+            {p.regularPrice > 0 && <s className="ml-1.5 text-[12.5px] font-semibold text-sea-muted">{tk(p.regularPrice)}</s>}
           </p>
         </div>
         <button

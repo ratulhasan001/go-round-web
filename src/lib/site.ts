@@ -1,5 +1,5 @@
 // Shared by the customer website, its API routes and the admin panel. Nothing here touches the browser or the server.
-import type { Order, OrderStatus, Product, Shop, SiteSettings } from "./types";
+import { DELIVERY_AREAS, type DeliveryArea, type DeliveryZone, type Faq, type Order, type OrderStatus, type Product, type Shop, type SiteSettings } from "./types";
 
 // ---------- where everything lives ----------
 //
@@ -94,19 +94,106 @@ We started Go Round because we love planted tanks and wanted hobbyists here to g
 
 Every order is packed by hand and checked before it leaves us. If you are not sure what your tank needs, message us on WhatsApp and we will help you choose.`;
 
-export const DEFAULT_FAQ = [
+export const DELIVERY_TIMELINES = `DELIVERY TIMELINES
+Logistics partners: Pathao & Steadfast Courier
+
+[ STEADFAST INSIDE DHAKA ]
+Express delivery: within 8 hours after dispatch
+Standard delivery: within 48 hours after dispatch
+
+[ STEADFAST OUTSIDE DHAKA ]
+Standard delivery: within 72 hours after dispatch
+
+[ PATHAO INSIDE DHAKA ]
+Instant delivery: arrives in about 1 hour
+Express delivery: within 4 to 8 hours after dispatch (on request)
+Standard delivery: within 48 hours after dispatch
+
+[ PATHAO OUTSIDE DHAKA ]
+Standard delivery: within 72 hours after dispatch
+
+Important note: hub delivery is available only with Steadfast Courier. Delivery times may occasionally vary due to severe weather, courier delays or national emergencies. We appreciate your patience and understanding!`;
+
+export const DELIVERY_RATES = `DELIVERY RATES
+
+[ STEADFAST INSIDE DHAKA ]
+Express delivery: 110 BDT
+Standard delivery: 75 BDT
+
+[ STEADFAST OUTSIDE DHAKA ]
+Standard delivery: 135 BDT
+
+[ PATHAO INSIDE DHAKA ] (requires 100% product prepayment)
+Instant delivery: depending on location
+Express delivery: depending on location
+Standard delivery: 100 BDT
+
+[ PATHAO OUTSIDE DHAKA ]
+Standard delivery: 135 BDT
+
+Important notes:
+Steadfast hub delivery: 60 BDT (inside Dhaka) & 120 BDT (outside Dhaka)
+Steadfast items over 1 kg: +25 BDT per extra kg (inside & outside Dhaka)
+Pathao items over 1 kg: +20 BDT per extra kg (inside Dhaka) & +40 BDT per extra kg (outside Dhaka)`;
+
+const PAY_A = "We accept bKash and bank transfer. At checkout, send the total and type in the transaction ID. We check every payment by hand and approve your order as soon as it reaches us.";
+const RECEIPT_A = "Once we approve your payment, open Order status and type the mobile number you ordered with (or go to My account). Tap Download receipt to save it as a PDF.";
+const PAY_Q = "How can I pay & how do I get my receipt?";
+const SHIP_Q = "When will my order be shipped & how much is delivery?";
+const SHIP_A = `${DELIVERY_TIMELINES}\n\n${DELIVERY_RATES}`;
+
+export const DEFAULT_FAQ: Faq[] = [
   { q: "How do I place an order?", a: "Add products to your cart, go to checkout and fill in your name, phone number and address. You can order as a guest or with an account." },
-  { q: "How can I pay?", a: "We accept bKash and bank transfer. At checkout, send the total and type in the transaction ID. We check every payment by hand and approve your order as soon as it reaches us." },
-  { q: "How do I get my receipt?", a: "Once we approve your payment, open Order status and type the mobile number you ordered with (or go to My account). Tap Download receipt to save it as a PDF." },
-  { q: "When will my order be shipped?", a: "We ship within 1 to 2 working days after approving the payment. You can follow every step on the Order status page - just type your mobile number." },
-  { q: "How much is delivery?", a: "The delivery charge is shown at checkout before you place your order." },
+  { q: PAY_Q, a: `How can I pay?\n${PAY_A}\n\nHow do I get my receipt?\n${RECEIPT_A}` },
+  { q: SHIP_Q, a: SHIP_A },
   { q: "Do I need an account?", a: "No. You can check out as a guest. An account just keeps your details and order history in one place." },
   { q: "Can I ask before buying?", a: "Of course. Message us on WhatsApp and we will reply as soon as we can." },
 ];
 
 /** The website settings with defaults filled in from the shop profile. */
 export const DEFAULT_ADDRESS = "Dhaka/Khulna, Bangladesh";
-export const DEFAULT_DELIVERY_NOTE = "Nationwide delivery through Steadfast (Regular, Same day) & Pathao (Instant, Express, Same day)";
+export const DEFAULT_DELIVERY_NOTE = "Nationwide delivery through Steadfast (Express, Standard, Hub) & Pathao (Instant, Express, Standard)";
+const OLD_DELIVERY_NOTE = "Nationwide delivery through Steadfast (Regular, Same day) & Pathao (Instant, Express, Same day)";
+export const DEFAULT_HOURS = "24/7";
+export const FEATURE_CATEGORY_IDEAS = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions", "Filtration", "Filter", "Accessories"];
+export const DEFAULT_FEATURED = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions"];
+
+const z = (id: string, area: DeliveryArea, courier: string, name: string, fee: number, perKg: number, eta: string, extra: Partial<DeliveryZone> = {}): DeliveryZone => ({ id, area, courier, name, fee, perKg, eta, ...extra });
+/** The couriers and rates the shop uses (from the delivery rate sheet). */
+export const DEFAULT_ZONES: DeliveryZone[] = [
+  z("sf-in-express", "inside", "Steadfast", "Express delivery", 110, 25, "Within 8 hours after dispatch"),
+  z("sf-in-standard", "inside", "Steadfast", "Standard delivery", 75, 25, "Within 48 hours after dispatch"),
+  z("sf-in-hub", "inside", "Steadfast", "Hub delivery", 60, 25, "Collect from the Steadfast hub"),
+  z("pa-in-instant", "inside", "Pathao", "Instant delivery", 0, 20, "Arrives in about 1 hour", { quote: true, note: "Requires 100% product prepayment" }),
+  z("pa-in-express", "inside", "Pathao", "Express delivery", 0, 20, "Within 4 to 8 hours after dispatch (on request)", { quote: true, note: "Requires 100% product prepayment" }),
+  z("pa-in-standard", "inside", "Pathao", "Standard delivery", 100, 20, "Within 48 hours after dispatch", { note: "Requires 100% product prepayment" }),
+  z("sf-out-standard", "outside", "Steadfast", "Standard delivery", 135, 25, "Within 72 hours after dispatch"),
+  z("sf-out-hub", "outside", "Steadfast", "Hub delivery", 120, 25, "Collect from the Steadfast hub"),
+  z("pa-out-standard", "outside", "Pathao", "Standard delivery", 135, 40, "Within 72 hours after dispatch"),
+];
+
+/** FAQs saved before the delivery rate sheet: the pay & receipt questions share one box, and so do shipping & delivery. */
+function migrateFaq(faq: Faq[]): Faq[] {
+  const is = (f: Faq, q: string) => f.q.trim().toLowerCase() === q.toLowerCase();
+  const pay = faq.find((f) => is(f, "How can I pay?"));
+  const receipt = faq.find((f) => is(f, "How do I get my receipt?"));
+  const ship = faq.find((f) => is(f, "When will my order be shipped?"));
+  const cost = faq.find((f) => is(f, "How much is delivery?"));
+  if (!pay && !receipt && !ship && !cost) return faq;
+  const out: Faq[] = [];
+  for (const f of faq) {
+    if (f === pay || (f === receipt && !pay)) {
+      const a = (x?: Faq) => (x ? RENAMED_ANSWERS[x.a] ?? x.a : "");
+      out.push({ q: PAY_Q, a: [pay && `How can I pay?\n${a(pay)}`, receipt && `How do I get my receipt?\n${a(receipt)}`].filter(Boolean).join("\n\n") });
+    } else if (f === ship || (f === cost && !ship)) out.push({ q: SHIP_Q, a: SHIP_A });
+    else if (f !== receipt && f !== cost) out.push(f);
+  }
+  return out;
+}
+
+const areaLabel = (a?: DeliveryArea) => DELIVERY_AREAS.find((x) => x.id === a)?.label ?? "";
+/** "Inside Dhaka · Steadfast Express delivery" */
+export const zoneLabel = (zone: DeliveryZone) => [areaLabel(zone.area), [zone.courier, zone.name].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
 
 // FAQ answers from earlier defaults that still say "transaction ID" (order status now goes by mobile number)
 const RENAMED_ANSWERS: Record<string, string> = {
@@ -119,16 +206,20 @@ export function siteSettings(shop: Shop): SiteSettings {
   return {
     open: s?.open ?? true,
     announcement: s?.announcement ?? "",
+    openingHours: s?.openingHours ?? DEFAULT_HOURS,
     whatsapp: s?.whatsapp ?? shop.phone,
     facebook: s?.facebook ?? FACEBOOK_URL,
     bkash: { number: shop.phone, type: "Personal", ...s?.bkash },
     bank: { bank: "", accountName: "", accountNumber: "", branch: "", routing: "", ...s?.bank },
-    zones: s?.zones?.length ? s.zones : [{ id: "standard", name: "Home delivery", fee: shop.defaultDelivery }],
+    // zones saved before couriers were listed give way to the courier rate sheet
+    zones: s?.zones?.some((x) => x.area) ? s.zones : DEFAULT_ZONES,
     freeDeliveryOver: s?.freeDeliveryOver ?? 0,
     address: s?.address ?? DEFAULT_ADDRESS,
-    deliveryNote: s?.deliveryNote ?? DEFAULT_DELIVERY_NOTE,
+    deliveryNote: !s?.deliveryNote || s.deliveryNote === OLD_DELIVERY_NOTE ? DEFAULT_DELIVERY_NOTE : s.deliveryNote,
     about: s?.about ?? DEFAULT_ABOUT,
-    faq: (s?.faq ?? DEFAULT_FAQ).map((f) => ({ ...f, a: RENAMED_ANSWERS[f.a] ?? f.a })),
+    faq: migrateFaq(s?.faq ?? DEFAULT_FAQ).map((f) => ({ ...f, a: RENAMED_ANSWERS[f.a] ?? f.a })),
+    featuredCategories: s?.featuredCategories ?? DEFAULT_FEATURED,
+    autoApproveReviews: s?.autoApproveReviews ?? true,
   };
 }
 
@@ -153,6 +244,14 @@ export interface PublicProduct {
   description: string;
   category: string;
   subcategory: string; // "" = none
+  subsubcategory: string; // "" = none
+  brand: string;
+  sku: string;
+  specification: string;
+  regularPrice: number; // 0 = no discount
+  stock: number | null; // null = not counted
+  weight: number; // kg, 0 = not set
+  warranty: string; // "" = no warranty
   featured: boolean;
 }
 
@@ -163,14 +262,29 @@ export const publicProduct = (p: Product): PublicProduct => ({
   name: p.name.trim(),
   price: p.price,
   unit: p.unit?.trim() ?? "",
-  inStock: p.inStock !== false,
+  // counted stock at 0 sells the product out too
+  inStock: p.inStock !== false && !(typeof p.stock === "number" && p.stock <= 0),
   images: p.images ?? [],
   description: p.description ?? "",
   category: p.category?.trim() ?? "",
   // a subcategory only means something inside a category
   subcategory: p.category?.trim() ? (p.subcategory?.trim() ?? "") : "",
+  subsubcategory: p.category?.trim() && p.subcategory?.trim() ? (p.subsubcategory?.trim() ?? "") : "",
+  brand: p.brand?.trim() ?? "",
+  sku: p.sku?.trim() ?? "",
+  specification: p.specification ?? "",
+  regularPrice: (p.regularPrice ?? 0) > p.price ? p.regularPrice! : 0,
+  stock: typeof p.stock === "number" ? Math.max(0, Math.floor(p.stock)) : null,
+  weight: Math.max(0, Number(p.weight) || 0),
+  warranty: p.warranty?.trim() ?? "",
   featured: !!p.featured,
 });
+
+/** Average star rating (0 when there are no reviews). */
+export const avgRating = (list: { rating: number }[]) => (list.length ? list.reduce((s, r) => s + r.rating, 0) / list.length : 0);
+
+/** Same words, any case / spacing: "CO2 solutions" matches "Co2 Solutions". */
+export const sameName = (a: string, b: string) => a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
 
 // ---------- product descriptions ----------
 // The admin writes descriptions in a small formatting editor (bold, lists, headings, emoji), so they are HTML;
@@ -220,12 +334,33 @@ export function plainText(desc: string): string {
 /** Smaller copy of an uploaded photo for grids and thumbnails (data URLs have only one size). */
 export const thumb = (src: string) => (src.startsWith("/api/img/") && !src.endsWith("-t") ? `${src}-t` : src);
 
-export function deliveryFee(settings: SiteSettings, zoneId: string, subtotal: number) {
+/** Extra kilograms charged for: every started kg over the first one. */
+export const extraKg = (weight: number) => Math.max(0, Math.ceil(Math.round(weight * 1000) / 1000 - 1));
+
+/**
+ * The delivery charge for an order: the service's fee plus its charge per extra kg. Services whose charge depends on
+ * the location ("quote") cost nothing up front - the shop tells the customer the charge after the order.
+ */
+export function deliveryFee(settings: SiteSettings, zoneId: string, subtotal: number, weight = 0) {
   const zone = settings.zones.find((z) => z.id === zoneId) ?? settings.zones[0];
-  if (!zone) return { zone: "Delivery", fee: 0 };
+  if (!zone) return { zone: "Delivery", fee: 0, quote: false, extra: 0, zoneId: "" };
   const free = settings.freeDeliveryOver > 0 && subtotal >= settings.freeDeliveryOver;
-  return { zone: zone.name, fee: free ? 0 : Math.max(0, zone.fee) };
+  const extra = extraKg(weight) * Math.max(0, zone.perKg ?? 0);
+  const fee = free || zone.quote ? 0 : Math.max(0, zone.fee) + extra;
+  return { zone: zoneLabel(zone), fee, quote: !free && !!zone.quote, extra: free || zone.quote ? 0 : extra, zoneId: zone.id };
 }
+
+// ---------- police station ----------
+// Checkout asks for the police station on its own; orders and the customer list keep it at the end of the address.
+const PS_RE = /,?\s*P\.?\s*S\.?\s*:\s*([^,\n]+)\s*$/i;
+export const withPoliceStation = (address: string, ps: string) => {
+  const a = address.trim().replace(PS_RE, "");
+  return ps.trim() ? `${a}, P.S.: ${ps.trim()}` : a;
+};
+export const splitPoliceStation = (address: string) => {
+  const m = PS_RE.exec(address.trim());
+  return m ? { address: address.trim().slice(0, m.index).trim(), ps: m[1]!.trim() } : { address: address.trim(), ps: "" };
+};
 
 // ---------- orders ----------
 

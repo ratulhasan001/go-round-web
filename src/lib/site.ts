@@ -166,7 +166,8 @@ export const DEFAULT_HOURS = "7:00 AM to 7:00 PM Daily\nClosed on government hol
 const OLD_HOURS = ["24/7"];
 export const FEATURE_CATEGORY_IDEAS = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions", "Filtration & Filter", "Accessories", "Filtration", "Filter", "Plants"];
 export const DEFAULT_FEATURED = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions", "Filtration & Filter", "Accessories"];
-const OLD_FEATURED = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions"];
+/** Lists saved before this version are replaced once by DEFAULT_FEATURED (the six categories the shop asked for). */
+const FEATURED_VERSION = 2;
 
 export const HOME_SECTIONS: { id: HomeSectionId; label: string; hint: string }[] = [
   { id: "steps", label: "How it works", hint: "Pick, pay, we deliver - the three steps under the big title" },
@@ -199,8 +200,6 @@ function homeSettings(h?: Partial<HomeSettings>): HomeSettings {
   return { ...DEFAULT_HOME, ...h, sections: [...saved, ...missing] };
 }
 
-/** Same names as a list, in any order and case. */
-const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.some((y) => sameName(x, y)));
 
 const z = (id: string, area: DeliveryArea, courier: string, name: string, fee: number, perKg: number, eta: string, extra: Partial<DeliveryZone> = {}): DeliveryZone => ({ id, area, courier, name, fee, perKg, eta, ...extra });
 /** The couriers and rates the shop uses (from the delivery rate sheet). */
@@ -262,8 +261,9 @@ export function siteSettings(shop: Shop): SiteSettings {
     deliveryNote: !s?.deliveryNote || s.deliveryNote === OLD_DELIVERY_NOTE ? DEFAULT_DELIVERY_NOTE : s.deliveryNote,
     about: s?.about ?? DEFAULT_ABOUT,
     faq: migrateFaq(s?.faq ?? DEFAULT_FAQ).map((f) => ({ ...f, a: RENAMED_ANSWERS[f.a] ?? f.a })),
-    // the first four defaults give way to the six categories the shop asked for
-    featuredCategories: !s?.featuredCategories || sameList(s.featuredCategories, OLD_FEATURED) ? DEFAULT_FEATURED : s.featuredCategories,
+    // older lists give way once to the six categories the shop asked for; after that the shop's own picks stay
+    featuredCategories: s?.featuredCategories && (s.featuredVersion ?? 0) >= FEATURED_VERSION ? s.featuredCategories : DEFAULT_FEATURED,
+    featuredVersion: FEATURED_VERSION,
     categoryIcons: s?.categoryIcons ?? {},
     home: homeSettings(s?.home),
     autoApproveReviews: s?.autoApproveReviews ?? true,
@@ -333,6 +333,18 @@ export const avgRating = (list: { rating: number }[]) => (list.length ? list.red
 /** Same words, any case / spacing: "CO2 solutions" matches "Co2 Solutions". */
 export const sameName = (a: string, b: string) => a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
 
+/** At most one letter added, dropped or changed: "Addatives" is close to "Additives". */
+function nearlySame(a: string, b: string) {
+  const x = a.trim().toLowerCase().replace(/\s+/g, " ");
+  const y = b.trim().toLowerCase().replace(/\s+/g, " ");
+  if (x === y) return true;
+  if (Math.min(x.length, y.length) < 6 || Math.abs(x.length - y.length) > 1) return false;
+  let i = 0;
+  while (i < x.length && x[i] === y[i]) i++;
+  const tail = (m: number, n: number) => x.slice(i + m) === y.slice(i + n);
+  return tail(1, 1) || tail(1, 0) || tail(0, 1);
+}
+
 /** The names a combined category stands for: "Filtration & Filter" -> Filtration, Filter. */
 const categoryParts = (name: string) => name.split(/\s*(?:&|,|\/|\+|\band\b)\s*/i).map((x) => x.trim()).filter(Boolean);
 
@@ -344,7 +356,8 @@ export const inCategory = (category: string, wanted: string) => {
   if (!category.trim()) return false;
   if (sameName(category, wanted)) return true;
   const parts = categoryParts(wanted);
-  return parts.length > 1 && parts.some((w) => sameName(w, category));
+  // parts forgive a one-letter typo in the product's category ("Soil & Additives" also finds "Addatives")
+  return parts.length > 1 && parts.some((w) => nearlySame(w, category));
 };
 
 // ---------- product descriptions ----------

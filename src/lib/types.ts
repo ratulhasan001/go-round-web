@@ -120,6 +120,7 @@ export interface SiteSettings {
   about: string; // About us page text (blank lines start a new paragraph)
   faq: Faq[];
   featuredCategories: string[]; // shown as medium tiles on the store's home page (any number)
+  featuredVersion?: number; // bumped when the shop's category list is replaced once (see siteSettings)
   categoryIcons: Record<string, string>; // icon per featured category: lower-case name -> CATEGORY_ICONS key
   home: HomeSettings;
   autoApproveReviews: boolean; // customer reviews go live straight away (off = the shop approves each one)

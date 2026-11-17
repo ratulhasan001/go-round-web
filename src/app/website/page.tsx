@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Check, Clock, Copy, ExternalLink, HelpCircle, ImagePlus, Landmark, LayoutGrid, LayoutTemplate, Loader2, Megaphone, MessageCircle, Plus, QrCode, Star, Store, Trash2, Truck, BookOpen } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Clock, Copy, ExternalLink, HelpCircle, ImagePlus, Landmark, LayoutGrid, LayoutTemplate, Loader2, Megaphone, MessageCircle, Pencil, Plus, QrCode, Star, Store, Trash2, Truck, BookOpen, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { DEFAULT_ABOUT, DEFAULT_FAQ, DEFAULT_HOME, DEFAULT_HOURS, DEFAULT_ZONES, FEATURE_CATEGORY_IDEAS, HOME_SECTIONS, sameName, siteSettings, absolute, publicLinks } from "@/lib/site";
 import { CATEGORY_ICONS, categoryIconId, iconKey } from "@/lib/categoryIcons";
@@ -233,7 +233,7 @@ export default function WebsitePage() {
               value={s.featuredCategories}
               icons={s.categoryIcons}
               categories={[...new Set(products.map((p) => p.category?.trim()).filter(Boolean) as string[])]}
-              onChange={(featuredCategories) => set({ featuredCategories })}
+              onChange={(featuredCategories, categoryIcons) => set(categoryIcons ? { featuredCategories, categoryIcons } : { featuredCategories })}
               onIcons={(categoryIcons) => set({ categoryIcons })}
             />
           </Card>
@@ -530,7 +530,7 @@ function FeaturedEditor({
   value: string[];
   icons: Record<string, string>;
   categories: string[];
-  onChange: (v: string[]) => void;
+  onChange: (v: string[], icons?: Record<string, string>) => void; // both in one save, so neither overwrites the other
   onIcons: (v: Record<string, string>) => void;
 }) {
   const [custom, setCustom] = useState("");
@@ -543,6 +543,25 @@ function FeaturedEditor({
     onChange(next);
   };
   const iconBtn = "grid size-8 place-items-center rounded-lg text-faint transition hover:bg-canvas hover:text-ink disabled:pointer-events-none disabled:opacity-30";
+  const toast = useToast();
+  const [edit, setEdit] = useState<{ i: number; draft: string } | null>(null);
+  /** Renames a tile; its icon pick moves with it. */
+  const rename = (i: number, draft: string) => {
+    const name = draft.trim().replace(/\s+/g, " ");
+    const old = value[i]!;
+    if (!name) return toast("Type a name for the category", "err");
+    if (value.some((v, j) => j !== i && sameName(v, name))) return toast(`"${name}" is already on the list`, "err");
+    setEdit(null);
+    if (name === old) return;
+    const pick = icons[iconKey(old)];
+    const next = { ...icons };
+    delete next[iconKey(old)];
+    onChange(value.map((v, j) => (j === i ? name : v)), pick ? { ...next, [iconKey(name)]: pick } : next);
+  };
+  const remove = (i: number) => {
+    setEdit(null);
+    onChange(value.filter((_, j) => j !== i));
+  };
   return (
     <div>
       <div className="flex flex-wrap gap-2">
@@ -579,34 +598,65 @@ function FeaturedEditor({
           {value.map((c, i) => {
             const id = categoryIconId(c, icons);
             const Icon = CATEGORY_ICONS[id]!.icon;
+            const editing = edit?.i === i;
             return (
-              <li key={c} className="flex items-center gap-2 rounded-xl border border-line px-2.5 py-2">
+              <li key={`${i}-${c}`} className={cx("flex flex-wrap items-center gap-2 rounded-xl border px-2.5 py-2", editing ? "border-aqua-deep/50 ring-2 ring-aqua-deep/15" : "border-line")}>
                 <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-deep text-lime">
                   <Icon className="size-[18px]" />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{c}</span>
-                <div className="w-36 shrink-0 sm:w-44">
-                  <Select className="!h-9 text-[13px]" value={id} aria-label={`Icon for ${c}`} onChange={(e) => onIcons({ ...icons, [iconKey(c)]: e.target.value })}>
-                    {Object.entries(CATEGORY_ICONS).map(([k, x]) => (
-                      <option key={k} value={k}>
-                        {x.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <button type="button" className={iconBtn} disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${c} up`}>
-                  <ArrowUp className="size-4" />
-                </button>
-                <button type="button" className={iconBtn} disabled={i === value.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${c} down`}>
-                  <ArrowDown className="size-4" />
-                </button>
+                {editing ? (
+                  <form
+                    className="flex min-w-0 flex-1 items-center gap-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      rename(i, edit.draft);
+                    }}
+                  >
+                    <Input autoFocus className="!h-9" value={edit.draft} aria-label={`New name for ${c}`} onChange={(e) => setEdit({ i, draft: e.target.value })} onKeyDown={(e) => e.key === "Escape" && setEdit(null)} />
+                    <button type="submit" className={cx(iconBtn, "text-brand")} aria-label="Save name" title="Save">
+                      <Check className="size-4" />
+                    </button>
+                    <button type="button" className={iconBtn} onClick={() => setEdit(null)} aria-label="Cancel" title="Cancel">
+                      <X className="size-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{c}</span>
+                )}
+                {!editing && (
+                  <>
+                    <div className="order-last w-full sm:order-none sm:w-44 sm:shrink-0">
+                      <Select className="!h-9 text-[13px]" value={id} aria-label={`Icon for ${c}`} onChange={(e) => onIcons({ ...icons, [iconKey(c)]: e.target.value })}>
+                        {Object.entries(CATEGORY_ICONS).map(([k, x]) => (
+                          <option key={k} value={k}>
+                            {x.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <span className="flex shrink-0 items-center">
+                      <button type="button" className={iconBtn} disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${c} up`} title="Move up">
+                        <ArrowUp className="size-4" />
+                      </button>
+                      <button type="button" className={iconBtn} disabled={i === value.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${c} down`} title="Move down">
+                        <ArrowDown className="size-4" />
+                      </button>
+                      <button type="button" className={iconBtn} onClick={() => setEdit({ i, draft: c })} aria-label={`Rename ${c}`} title="Edit name">
+                        <Pencil className="size-4" />
+                      </button>
+                      <button type="button" className={cx(iconBtn, "hover:bg-red-50 hover:text-red-600")} onClick={() => remove(i)} aria-label={`Remove ${c}`} title="Remove from the home page">
+                        <Trash2 className="size-4" />
+                      </button>
+                    </span>
+                  </>
+                )}
               </li>
             );
           })}
         </ul>
       )}
       <p className="mt-2 text-[12px] text-muted">
-        {value.length} chosen. Each tile shows its icon and links to the shop filtered to that category - so name your products&apos; categories the same way. A combined
+        {value.length} chosen. Tap a name above to add or remove it, or use the pencil to rename and the bin to remove. Each tile shows its icon and links to the shop filtered to that category - so name your products&apos; categories the same way. A combined
         name such as &ldquo;Filtration &amp; Filter&rdquo; shows products from both categories.
       </p>
     </div>

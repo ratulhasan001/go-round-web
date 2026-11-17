@@ -16,11 +16,6 @@ const CREAM = /#F3EFE6/gi; // the design's paper colour - the shop asked for whi
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
 
-// ---------- staff ID numbers: GR-0001, GR-0002… ----------
-const ID_RE = /^GR-(\d+)$/i;
-/** One past the highest ID number in use. */
-export const nextIdNo = (staff: Employee[]) => `GR-${String(Math.max(0, ...staff.map((e) => Number(ID_RE.exec(e.idNo?.trim() ?? "")?.[1] ?? 0))) + 1).padStart(4, "0")}`;
-
 // ---------- fonts: embedded in the SVG so the drawing uses Fraunces and Manrope, as in the design ----------
 const FONTS = [
   { family: "Fraunces 144pt", weight: 600, style: "normal", file: "/fonts/Fraunces-600.woff2", type: "woff2" },
@@ -110,13 +105,12 @@ function drawQr(doc: Document, group: Element, text: string, x: number, y: numbe
 
 export interface CardInput {
   employee: Employee;
-  idNo: string;
   verifyUrl: string; // what the front QR opens
   facebook: string; // what the back QR opens ("" = keep the design's code)
-  shopPhone: string;
+  supportEmail: string; // printed on the back
 }
 
-async function frontSvg(template: string, css: string, { employee: e, idNo, verifyUrl, shopPhone }: CardInput) {
+async function frontSvg(template: string, css: string, { employee: e, verifyUrl }: CardInput) {
   const doc = parse(template.replace(CREAM, WHITE));
   const photoGroup = doc.getElementById("Photo")!;
   // the grey placeholder person and the word PHOTO make way for the photo, or the person's initials
@@ -138,17 +132,65 @@ async function frontSvg(template: string, css: string, { employee: e, idNo, veri
 
   setText(textNode(doc, "MD Fahim Ahmed"), e.name.trim() || "Staff member");
   setText(textNode(doc, "Chief Executive Officer"), e.role.trim());
-  setText(textNode(doc, "GR-0001"), idNo, 260);
-  setText(textNode(doc, "+880 1309-372143"), prettyPhone(e.phone.trim() || shopPhone), 280);
-  drawQr(doc, doc.getElementById("Verification_QR")!, verifyUrl, 354.25, 610.25, 143.5);
+  // no ID number or phone on the front (shop's request) - the verify tile moves to the centre in their place
+  for (const t of ["ID NO.", "GR-0001", "PHONE", "+880 1309-372143"]) textNode(doc, t)?.remove();
+  const qrGroup = doc.getElementById("Verification_QR")!;
+  drawQr(doc, qrGroup, verifyUrl, 354.25, 610.25, 143.5);
+  // centred under the name, a little smaller and raised so it sits clear of the grass
+  // (the tile's centre is 426, 698 in the design; it is 171 x 203)
+  const k = 0.86;
+  const top = 594;
+  const centre = el(doc, "g", { transform: `translate(270,${top + (203 * k) / 2}) scale(${k}) translate(-426,-698)` });
+  doc.querySelector('#Divider line[y1="584"]')?.setAttribute("y1", "580");
+  doc.querySelector('#Divider line[y2="584"]')?.setAttribute("y2", "580");
+  qrGroup.parentNode!.insertBefore(centre, qrGroup);
+  for (const n of [doc.getElementById("Verify_Tile"), qrGroup, doc.getElementById("Verified_Badge"), textNode(doc, "SCAN TO VERIFY")]) if (n) centre.appendChild(n);
   return finish(doc, css);
 }
 
-function backSvg(template: string, css: string, { facebook }: CardInput) {
+function backSvg(template: string, css: string, { employee: e, facebook, supportEmail }: CardInput) {
   const doc = parse(template.replace(CREAM, WHITE));
+  // under the name, the same line as the website: "Importer & supplier of aquarium plants & accessories"
+  // on two lines, so it stays the design's size
+  const sub = textNode(doc, "AQUARIUM PLANTS & ACCESSORIES");
+  if (sub) {
+    sub.setAttribute("y", "99");
+    setText(sub, "IMPORTER & SUPPLIER OF", 376);
+    const second = sub.cloneNode() as Element;
+    second.setAttribute("y", "112");
+    sub.parentNode!.insertBefore(second, sub.nextSibling);
+    setText(second, "AQUARIUM PLANTS & ACCESSORIES", 376);
+  }
   setText(textNode(doc, "+880 1309-372143"), prettyPhone(LETTERHEAD_PHONE), 400);
-  setText(textNode(doc, "NOV 2026"), new Date().toLocaleDateString("en-GB", { month: "short", year: "numeric" }).toUpperCase(), 200);
   if (facebook.trim()) drawQr(doc, doc.getElementById("QR_Code")!, facebook.trim(), 52, 500, 196);
+
+  // no signature: its line and label go
+  textNode(doc, "AUTHORISED SIGNATURE")?.remove();
+  doc.querySelector('#Divider line[y1="734"]')?.remove();
+
+  // issue date on attendants' cards only; the support email sits beside it (or in its place on a team head's card)
+  const issuedLabel = textNode(doc, "ISSUED")!;
+  const issued = textNode(doc, "NOV 2026")!;
+  const attendant = !e.head;
+  if (attendant) setText(issued, new Date().toLocaleDateString("en-GB", { month: "short", year: "numeric" }).toUpperCase(), 200);
+  else {
+    issuedLabel.remove();
+    issued.remove();
+  }
+  const x = attendant ? 496 : 44;
+  const anchor = attendant ? "end" : "start";
+  const label = issuedLabel.cloneNode() as Element;
+  label.setAttribute("x", String(x));
+  label.setAttribute("text-anchor", anchor);
+  label.textContent = "SUPPORT";
+  const mail = issued.cloneNode() as Element;
+  mail.setAttribute("x", String(x));
+  mail.setAttribute("text-anchor", anchor);
+  mail.setAttribute("letter-spacing", "0.2");
+  const text = doc.getElementById("Text")!;
+  text.appendChild(label);
+  text.appendChild(mail);
+  setText(mail, supportEmail, attendant ? 260 : 452);
   return finish(doc, css);
 }
 

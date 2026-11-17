@@ -5,7 +5,8 @@ import QRCode from "qrcode";
 import { Copy, Download, ExternalLink, IdCard, Loader2, QrCode } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { absolute, publicLinks, siteSettings } from "@/lib/site";
-import { nextIdNo, renderCardPdf, renderCardSides, type CardInput } from "@/lib/idCard";
+import { renderCardPdf, renderCardSides, type CardInput } from "@/lib/idCard";
+import { supportEmail } from "@/lib/letter";
 import type { Employee } from "@/lib/types";
 import { saveBlob } from "@/lib/download";
 import { Modal } from "./Modal";
@@ -18,7 +19,7 @@ const fileName = (e: Employee, what: string, ext = "png") => `${(e.name.trim() |
 
 /** The staff member's ID card (front and back, from the shop's card design) and verification QR: preview and downloads. */
 export function StaffQrDialog({ employee, onClose }: { employee: Employee | null; onClose: () => void }) {
-  const { shop, mode, employees } = useStore();
+  const { shop, mode } = useStore();
   const toast = useToast();
   const [sides, setSides] = useState<{ key: string; front: string; back: string } | null>(null);
   const [failed, setFailed] = useState("");
@@ -28,14 +29,13 @@ export function StaffQrDialog({ employee, onClose }: { employee: Employee | null
   const input: CardInput | null = employee
     ? {
         employee,
-        idNo: employee.idNo?.trim() || nextIdNo(employees),
         verifyUrl: url,
         facebook: siteSettings(shop).facebook,
-        shopPhone: shop.phone,
+        supportEmail: supportEmail(shop),
       }
     : null;
   // redraw the preview whenever something printed on the card changes
-  const key = input ? JSON.stringify([input.employee.name, input.employee.role, input.employee.phone, input.employee.head, input.employee.photo, input.idNo, url, input.facebook]) : "";
+  const key = input ? JSON.stringify([input.employee.name, input.employee.role, input.employee.head, input.employee.photo, url, input.facebook, input.supportEmail]) : "";
 
   useEffect(() => {
     if (!input || sides?.key === key) return;
@@ -111,9 +111,9 @@ export function StaffQrDialog({ employee, onClose }: { employee: Employee | null
           ))}
         </div>
         <p className="text-center text-[13px] text-muted">
-          {input.idNo} · {e.role.trim() ? `${e.role.trim()} · ` : ""}
+          {e.role.trim() ? `${e.role.trim()} · ` : ""}
           {e.active === false ? <b className="text-red-600">Marked as former - the page says they no longer work here</b> : "Active - scanning shows them as verified"}
-          {!e.head && <span className="block text-[12px]">Attendant cards show initials; switch on Team head and add a photo to put a photo in the arch.</span>}
+          <span className="block text-[12px]">{e.head ? "Team head card: photo in the arch, no issue date." : "Attendant card: initials in the arch and the issue date on the back. Switch on Team head and add a photo for a photo card."}</span>
         </p>
         <div className="flex w-full items-center gap-2 rounded-xl bg-canvas p-1.5 pl-3">
           <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-body">{url}</span>

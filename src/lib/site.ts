@@ -1,5 +1,5 @@
 // Shared by the customer website, its API routes and the admin panel. Nothing here touches the browser or the server.
-import { DELIVERY_AREAS, type DeliveryArea, type DeliveryZone, type Faq, type Order, type OrderStatus, type Product, type Shop, type SiteSettings } from "./types";
+import { DELIVERY_AREAS, type DeliveryArea, type DeliveryZone, type Faq, type HomeSectionId, type HomeSettings, type Order, type OrderStatus, type Product, type Shop, type SiteSettings } from "./types";
 
 // ---------- where everything lives ----------
 //
@@ -72,6 +72,14 @@ export function linksFor(host: string | null | undefined): Links {
     ],
   };
 }
+
+/** Extra pages listed under "Explore" (footer and the phone menu): reviews and the shop's policies. */
+export const exploreLinks = (links: Links) => [
+  { href: links.store("/reviews"), label: "Customer reviews" },
+  { href: links.store("/privacy-policy"), label: "Privacy policy" },
+  { href: links.store("/terms-and-conditions"), label: "Terms and conditions" },
+  { href: links.store("/return-policy"), label: "Return policy" },
+];
 
 const STAFF_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
 /** A fresh staff verification code (12 characters, about 59 bits - not something anyone can guess). */
@@ -154,9 +162,45 @@ export const DEFAULT_FAQ: Faq[] = [
 export const DEFAULT_ADDRESS = "Dhaka/Khulna, Bangladesh";
 export const DEFAULT_DELIVERY_NOTE = "Nationwide delivery through Steadfast (Express, Standard, Hub) & Pathao (Instant, Express, Standard)";
 const OLD_DELIVERY_NOTE = "Nationwide delivery through Steadfast (Regular, Same day) & Pathao (Instant, Express, Same day)";
-export const DEFAULT_HOURS = "24/7";
-export const FEATURE_CATEGORY_IDEAS = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions", "Filtration", "Filter", "Accessories"];
-export const DEFAULT_FEATURED = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions"];
+export const DEFAULT_HOURS = "7:00 AM to 7:00 PM Daily\nClosed on government holidays";
+const OLD_HOURS = ["24/7"];
+export const FEATURE_CATEGORY_IDEAS = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions", "Filtration & Filter", "Accessories", "Filtration", "Filter", "Plants"];
+export const DEFAULT_FEATURED = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions", "Filtration & Filter", "Accessories"];
+const OLD_FEATURED = ["Soil & Additives", "Fertilizer", "Light", "CO2 Solutions"];
+
+export const HOME_SECTIONS: { id: HomeSectionId; label: string; hint: string }[] = [
+  { id: "steps", label: "How it works", hint: "Pick, pay, we deliver - the three steps under the big title" },
+  { id: "shop", label: "Shop button", hint: "A noticeable button into the shop" },
+  { id: "categories", label: "Featured categories", hint: "Category tiles with their icons" },
+  { id: "products", label: "Hand-picked products", hint: "Featured and newest products" },
+  { id: "brands", label: "Brands", hint: "The brands of your products" },
+  { id: "reviews", label: "Customer reviews", hint: "The newest approved reviews" },
+  { id: "aquarium", label: "Our little aquarium", hint: "The illustrated planted tank" },
+  { id: "about", label: "About us teaser", hint: "Dark box linking to About us" },
+];
+
+export const DEFAULT_HOME: HomeSettings = {
+  eyebrow: "Aquarium plants & accessories · Bangladesh",
+  title1: "Witness the",
+  titleHighlight: "Underwater World",
+  title2: "Through Us",
+  intro: "Plants, fertilisers and equipment for planted tanks - picked by hobbyists, packed by hand and delivered to your door.",
+  search: true,
+  shopTitle: "Everything for your planted tank",
+  shopText: "Plants, soil, fertilizer, lights, CO2 and filtration - all in one shop.",
+  sections: HOME_SECTIONS.map((x) => ({ id: x.id, on: true })),
+};
+
+/** Saved home settings with anything missing filled in; sections added later join the end of the list. */
+function homeSettings(h?: Partial<HomeSettings>): HomeSettings {
+  const known = new Set(HOME_SECTIONS.map((x) => x.id));
+  const saved = (h?.sections ?? []).filter((x, i, all) => known.has(x.id) && all.findIndex((y) => y.id === x.id) === i);
+  const missing = DEFAULT_HOME.sections.filter((x) => !saved.some((y) => y.id === x.id));
+  return { ...DEFAULT_HOME, ...h, sections: [...saved, ...missing] };
+}
+
+/** Same names as a list, in any order and case. */
+const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.some((y) => sameName(x, y)));
 
 const z = (id: string, area: DeliveryArea, courier: string, name: string, fee: number, perKg: number, eta: string, extra: Partial<DeliveryZone> = {}): DeliveryZone => ({ id, area, courier, name, fee, perKg, eta, ...extra });
 /** The couriers and rates the shop uses (from the delivery rate sheet). */
@@ -206,7 +250,7 @@ export function siteSettings(shop: Shop): SiteSettings {
   return {
     open: s?.open ?? true,
     announcement: s?.announcement ?? "",
-    openingHours: s?.openingHours ?? DEFAULT_HOURS,
+    openingHours: s?.openingHours === undefined || OLD_HOURS.includes(s.openingHours.trim()) ? DEFAULT_HOURS : s.openingHours,
     whatsapp: s?.whatsapp ?? shop.phone,
     facebook: s?.facebook ?? FACEBOOK_URL,
     bkash: { number: shop.phone, type: "Personal", ...s?.bkash },
@@ -218,7 +262,10 @@ export function siteSettings(shop: Shop): SiteSettings {
     deliveryNote: !s?.deliveryNote || s.deliveryNote === OLD_DELIVERY_NOTE ? DEFAULT_DELIVERY_NOTE : s.deliveryNote,
     about: s?.about ?? DEFAULT_ABOUT,
     faq: migrateFaq(s?.faq ?? DEFAULT_FAQ).map((f) => ({ ...f, a: RENAMED_ANSWERS[f.a] ?? f.a })),
-    featuredCategories: s?.featuredCategories ?? DEFAULT_FEATURED,
+    // the first four defaults give way to the six categories the shop asked for
+    featuredCategories: !s?.featuredCategories || sameList(s.featuredCategories, OLD_FEATURED) ? DEFAULT_FEATURED : s.featuredCategories,
+    categoryIcons: s?.categoryIcons ?? {},
+    home: homeSettings(s?.home),
     autoApproveReviews: s?.autoApproveReviews ?? true,
   };
 }
@@ -285,6 +332,20 @@ export const avgRating = (list: { rating: number }[]) => (list.length ? list.red
 
 /** Same words, any case / spacing: "CO2 solutions" matches "Co2 Solutions". */
 export const sameName = (a: string, b: string) => a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
+
+/** The names a combined category stands for: "Filtration & Filter" -> Filtration, Filter. */
+const categoryParts = (name: string) => name.split(/\s*(?:&|,|\/|\+|\band\b)\s*/i).map((x) => x.trim()).filter(Boolean);
+
+/**
+ * A product's category belongs to a wanted one: the same name, or - for a combined name such as "Filtration & Filter" -
+ * one of its parts. A product filed under the full combined name matches too.
+ */
+export const inCategory = (category: string, wanted: string) => {
+  if (!category.trim()) return false;
+  if (sameName(category, wanted)) return true;
+  const parts = categoryParts(wanted);
+  return parts.length > 1 && parts.some((w) => sameName(w, category));
+};
 
 // ---------- product descriptions ----------
 // The admin writes descriptions in a small formatting editor (bold, lists, headings, emoji), so they are HTML;

@@ -23,7 +23,7 @@ export default async function VerifyStaffPage({ params }: PageProps<"/store/veri
   const tone = !staff
     ? { ring: "ring-red-200", badge: "bg-red-100 text-red-700", icon: <ShieldX className="size-10" />, label: "Not verified" }
     : staff.active
-      ? { ring: "ring-sea-sprout/60", badge: "bg-sea-sprout/25 text-sea-moss", icon: <BadgeCheck className="size-10" />, label: "Verified staff" }
+      ? { ring: "ring-sea-sprout/60", badge: "bg-sea-sprout/25 text-sea-moss", icon: <BadgeCheck className="size-10" />, label: "Verified" }
       : { ring: "ring-amber-200", badge: "bg-amber-100 text-amber-800", icon: <ShieldAlert className="size-10" />, label: "No longer with us" };
 
   return (

@@ -7,7 +7,8 @@ import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 export const dynamic = "force-dynamic";
 
 const TYPES = ["image/webp", "image/jpeg", "image/png"];
-const MAX = 3 * 1024 * 1024;
+// the browser scales every photo down before upload (any original size is fine), so this only stops abuse
+const MAX = 8 * 1024 * 1024;
 
 /**
  * Admin: uploads one product photo in two sizes (the browser resizes it first), as form fields "full" and "thumb".
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
   const full = form?.get("full");
   const small = form?.get("thumb");
   if (!(full instanceof Blob) || !(small instanceof Blob)) return NextResponse.json({ error: "bad request" }, { status: 400 });
-  if (![full, small].every((b) => TYPES.includes(b.type) && b.size > 0 && b.size <= MAX)) return NextResponse.json({ error: "Use a JPG, PNG or WebP photo under 3 MB." }, { status: 415 });
+  if (![full, small].every((b) => TYPES.includes(b.type) && b.size > 0 && b.size <= MAX)) return NextResponse.json({ error: "Use a JPG, PNG or WebP photo." }, { status: 415 });
   try {
     await ensureSchema();
     const id = randomBytes(12).toString("base64url");

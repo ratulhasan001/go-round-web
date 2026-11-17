@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import { POLICIES } from "@/lib/policies";
-import { prettyPhone, waLink, type Links, type PublicShop } from "@/lib/site";
+import { exploreLinks, prettyPhone, waLink, type Links, type PublicShop } from "@/lib/site";
 import { Grass } from "./Art";
 import { FacebookIcon, WhatsAppIcon } from "./Icons";
 
@@ -26,7 +26,7 @@ export function Footer({ shop, links }: { shop: PublicShop; links: Links }) {
         <div>
           <h2 className="store-eyebrow">Explore</h2>
           <ul className="mt-4 grid gap-2.5 text-[14.5px] font-semibold text-sea-body">
-            {links.nav.map((l) => (
+            {[...links.nav, ...exploreLinks(links)].map((l) => (
               <li key={l.href}>
                 <Link href={l.href} className="transition hover:text-sea-teal">
                   {l.label}
@@ -76,7 +76,11 @@ export function Footer({ shop, links }: { shop: PublicShop; links: Links }) {
             )}
             {shop.site.openingHours.trim() && (
               <li className="flex items-start gap-2.5">
-                <Clock className="mt-0.5 size-[18px] shrink-0" /> Opening hours: {shop.site.openingHours}
+                <Clock className="mt-0.5 size-[18px] shrink-0" />
+                <span>
+                  <span className="block">Opening hours</span>
+                  <span className="block whitespace-pre-line font-medium">{shop.site.openingHours.trim()}</span>
+                </span>
               </li>
             )}
           </ul>

@@ -108,7 +108,7 @@ export interface Faq {
 export interface SiteSettings {
   open: boolean; // taking orders on the website
   announcement: string; // notice / news headlines scrolling above the store header, one per line ("" = none)
-  openingHours: string; // e.g. "24/7"
+  openingHours: string; // e.g. "7:00 AM to 7:00 PM Daily", one line per row
   whatsapp: string; // WhatsApp number customers message
   facebook: string; // Facebook page link
   bkash: { number: string; type: "Personal" | "Merchant" | "Agent"; qr?: string }; // qr: photo of the bKash QR code
@@ -119,8 +119,26 @@ export interface SiteSettings {
   deliveryNote: string; // how orders reach customers, shown on product pages and Contact us
   about: string; // About us page text (blank lines start a new paragraph)
   faq: Faq[];
-  featuredCategories: string[]; // shown as big tiles on the store's home page
+  featuredCategories: string[]; // shown as medium tiles on the store's home page (any number)
+  categoryIcons: Record<string, string>; // icon per featured category: lower-case name -> CATEGORY_ICONS key
+  home: HomeSettings;
   autoApproveReviews: boolean; // customer reviews go live straight away (off = the shop approves each one)
+}
+
+/** The parts of the store's home page, in the order the shop shows them. */
+export type HomeSectionId = "steps" | "shop" | "categories" | "products" | "brands" | "reviews" | "aquarium" | "about";
+
+/** The store home page, edited on the admin "Website" page. */
+export interface HomeSettings {
+  eyebrow: string; // small line above the big title
+  title1: string; // big title, first line
+  titleHighlight: string; // big title, teal italic line
+  title2: string; // big title, last line
+  intro: string; // paragraph under the title
+  search: boolean; // search box in the hero
+  shopTitle: string; // the Shop button block
+  shopText: string;
+  sections: { id: HomeSectionId; on: boolean }[];
 }
 
 export type OrderStatus = "placed" | "confirmed" | "shipped" | "delivered" | "cancelled";

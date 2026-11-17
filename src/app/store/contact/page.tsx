@@ -46,8 +46,8 @@ export default async function ContactPage() {
           </span>
           <span>
             <span className="store-eyebrow block">Opening hours</span>
-            <span className="mt-1 block text-[17px] font-extrabold">{s.openingHours}</span>
-            <span className="block text-[13px] text-sea-muted">Order online any time - we&apos;re always open</span>
+            <span className="mt-1 block whitespace-pre-line text-[17px] font-extrabold">{s.openingHours.trim()}</span>
+            <span className="mt-1 block text-[13px] text-sea-muted">You can still order online any time - we reply when we open.</span>
           </span>
         </Reveal>
       )}

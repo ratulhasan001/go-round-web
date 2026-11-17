@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Megaphone, ShoppingBag, Store, UserRound, X } from "lucide-react";
-import { waLink } from "@/lib/site";
+import { exploreLinks, waLink } from "@/lib/site";
 import { useShop } from "./StoreContext";
 import { FacebookIcon, WhatsAppIcon } from "./Icons";
 
@@ -87,7 +87,7 @@ export function Header() {
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
           <button className="absolute inset-0 bg-sea-ink/30 backdrop-blur-[2px]" aria-label="Close menu" onClick={() => setOpen(false)} />
-          <div className="sea-drawer-in absolute inset-y-0 right-0 flex w-[min(86vw,360px)] flex-col bg-sea-cream shadow-2xl">
+          <div className="sea-drawer-in absolute inset-y-0 right-0 flex w-[min(86vw,360px)] flex-col overflow-y-auto bg-sea-cream shadow-2xl">
             <div className="flex h-16 items-center justify-between px-5">
               <span className="store-eyebrow">Menu</span>
               <button onClick={() => setOpen(false)} className="grid size-11 place-items-center rounded-full hover:bg-sea-sand/70" aria-label="Close menu">
@@ -109,6 +109,14 @@ export function Header() {
               <Link href={links.store("/account")} className="sea-sheet-in mt-1 rounded-2xl px-3 py-3.5 text-[18px] font-bold text-sea-ink hover:bg-sea-sand/60" style={{ animationDelay: "290ms" }}>
                 My account
               </Link>
+            </nav>
+            <nav className="mt-3 flex flex-col border-t border-sea-line px-3 pt-3" aria-label="Explore">
+              <span className="store-eyebrow px-3 pb-1">Explore</span>
+              {exploreLinks(links).map((l) => (
+                <Link key={l.href} href={l.href} className="rounded-xl px-3 py-2.5 text-[15px] font-semibold text-sea-body hover:bg-sea-sand/60 hover:text-sea-ink">
+                  {l.label}
+                </Link>
+              ))}
             </nav>
             <div className="mt-auto flex gap-2 p-5">
               <a href={waLink(shop.site.whatsapp)} target="_blank" rel="noopener noreferrer" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-sea-ink text-[14px] font-bold text-white">
@@ -138,15 +146,15 @@ function NewsTicker({ text }: { text: string }) {
     <span className="flex shrink-0 items-center" aria-hidden={hidden || undefined}>
       {items.map((t, i) => (
         <span key={i} className="flex items-center whitespace-nowrap px-6">
-          <span className="mr-6 size-1.5 rounded-full bg-sea-sprout" />
+          <span className="mr-6 size-1.5 rounded-full bg-red-500" />
           {t}
         </span>
       ))}
     </span>
   );
   return (
-    <div className="flex items-stretch bg-sea-ink text-[13px] font-semibold text-sea-cream" role="region" aria-label="News">
-      <span className="relative z-10 flex shrink-0 items-center gap-1.5 bg-sea-teal px-3 py-2 text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-white">
+    <div className="flex items-stretch border-b border-red-100 bg-white text-[13px] font-bold text-red-600" role="region" aria-label="News">
+      <span className="relative z-10 flex shrink-0 items-center gap-1.5 bg-red-600 px-3 py-2 text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-white">
         <Megaphone className="size-3.5" /> News
       </span>
       <div className="sea-ticker relative flex min-w-0 flex-1 overflow-hidden py-2 [mask-image:linear-gradient(90deg,transparent,#000_24px,#000_calc(100%-24px),transparent)]">

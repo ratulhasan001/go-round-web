@@ -36,6 +36,7 @@ export interface Coupon {
   freeDelivery?: boolean;
   validTo?: string; // yyyy-mm-dd, from the coupon sheet; printed in the reward note
   gift?: boolean; // given for the customer's next visit: nothing comes off this receipt (missing = used on it)
+  invalid?: boolean; // the coupon sheet says it can't be used here (expired, used, someone else's): nothing comes off
 }
 
 export interface ChargeLine {
@@ -106,6 +107,7 @@ export interface Faq {
 
 /** Settings for the public store, edited on the admin "Website" page. */
 export interface SiteSettings {
+  settingsVersion?: number; // see siteSettings(): older saved settings get one-time fixes
   open: boolean; // taking orders on the website
   announcement: string; // notice / news headlines scrolling above the store header, one per line ("" = none)
   openingHours: string; // e.g. "7:00 AM to 7:00 PM Daily", one line per row
@@ -208,6 +210,7 @@ export interface Product {
   sku?: string;
   specification?: string; // HTML, like the description
   stock?: number; // quantity in stock (missing = not counted)
+  stockAt?: number; // when stock was last set (admin edit or a website order) - the newer count wins when copies meet
   weight?: number; // kg, for the delivery charge
   warranty?: string; // "" / missing = no warranty, otherwise the seller's warranty, e.g. "6 months"
   onSite?: boolean; // missing means shown on the website
@@ -271,6 +274,7 @@ export interface Payment {
   amount: number;
   note: string;
   advance?: boolean; // paid before delivery: the courier % is charged only on the product amount still to collect
+  fromOrder?: string; // id of the website order whose approved payment this is (taken off again if approval is undone)
 }
 
 export interface Invoice {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkPassword, currentAccount, endSession, hashPassword, newAccountId, startSession } from "@/lib/server/accounts";
+import { checkPassword, currentAccount, endSession, hashPassword, newAccountId, startSession, endOtherSessions } from "@/lib/server/accounts";
 import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 import { accountOrders, readContact } from "@/lib/server/orders";
 import { findCustomer, upsertCustomer } from "@/lib/server/customers";
@@ -91,6 +91,7 @@ export async function POST(req: Request) {
         if (!a || !(await checkPassword(password, a.pass_hash))) return bad({ password: "Your current password is wrong." });
         if (next.length < 6) return bad({ next: "Use at least 6 characters." });
         await db()`update gr_accounts set pass_hash = ${await hashPassword(next)} where id = ${me.id}`;
+        await endOtherSessions(me.id); // a new password signs out every other device
         return NextResponse.json({ ok: true });
       }
       default:

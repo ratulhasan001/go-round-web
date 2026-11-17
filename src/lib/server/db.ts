@@ -82,6 +82,14 @@ export function ensureSchema() {
           expires_at timestamptz not null
         )`,
     )
+    // wrong admin PINs, so guessing can be stopped (see /api/login)
+    .then(
+      () => db()`
+        create table if not exists gr_login_fails (
+          ip text not null,
+          at timestamptz not null default now()
+        )`,
+    )
     .catch((e) => {
       g.__grSchema = undefined; // retry on the next request
       throw e;

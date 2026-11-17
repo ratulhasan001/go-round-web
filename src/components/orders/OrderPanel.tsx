@@ -20,7 +20,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { invoiceFromOrder } from "@/lib/orderReceipt";
+import { invoiceFromOrder, isOrderPayment, orderPayment } from "@/lib/orderReceipt";
+import { computeTotals } from "@/lib/calc";
 import { ORDER_HINT, ORDER_LABEL, ORDER_STEPS, fmtWhen, payState, thumb, tk, waLink } from "@/lib/site";
 import type { Order, OrderStatus } from "@/lib/types";
 import { Modal } from "../Modal";
@@ -82,14 +83,19 @@ function Footer({ order }: { order: Order }) {
 
 function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => void; shopName: string }) {
   const toast = useToast();
-  const { saveInvoice, nextInvoiceNumber } = useStore();
+  const { saveInvoice, nextInvoiceNumber, invoices, orders } = useStore();
+  const linked = o.invoiceId ? invoices.find((i) => i.id === o.invoiceId) : undefined;
 
   /** The payment has reached us: approve it, move the order on, and make the receipt the customer downloads. */
   const approve = () => {
     let next: Order = { ...o, payment: { ...o.payment, verified: true, verifiedAt: Date.now(), rejectedAt: undefined } };
     if (next.status === "placed") next = withStatus(next, "confirmed");
     save(next);
-    if (o.invoiceId) return toast(`${o.code} approved · receipt ${o.invoiceNumber} is on their order page`);
+    if (linked) {
+      // a receipt made by hand before approving: record the payment on it (unless it already shows the order paid)
+      if (!linked.payments.some((p) => isOrderPayment(p, next)) && computeTotals(linked).due > 0) saveInvoice({ ...linked, payments: [...linked.payments, orderPayment(next)] }, { remember: false });
+      return toast(`${o.code} approved · receipt ${linked.number} is on their order page`);
+    }
     const inv = saveInvoice(invoiceFromOrder(next, nextInvoiceNumber()));
     toast(`${o.code} approved · receipt ${inv.number} is ready for the customer`);
   };
@@ -97,7 +103,27 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
     save({ ...o, payment: { ...o.payment, rejectedAt: Date.now() } });
     toast("Marked as not found - send the customer an update so they can resend it");
   };
-  const unapprove = () => save({ ...o, payment: { ...o.payment, verified: false, verifiedAt: undefined } });
+  /** Undo an approval: the order goes back to waiting, and the payment approving added to its receipt comes off. */
+  const unapprove = () => {
+    let next: Order = { ...o, payment: { ...o.payment, verified: false, verifiedAt: undefined } };
+    if (next.status === "confirmed") next = withStatus(next, "placed");
+    save(next);
+    if (linked && linked.payments.some((p) => isOrderPayment(p, o))) saveInvoice({ ...linked, payments: linked.payments.filter((p) => !isOrderPayment(p, o)) }, { remember: false });
+    toast(`${o.code}: approval undone`);
+  };
+  /** Sets the delivery charge on a "charge by location" order, and on its receipt. */
+  const [charge, setCharge] = useState("");
+  const setDelivery = () => {
+    const fee = Math.max(0, Math.round(Number(charge) * 100) / 100);
+    if (!charge.trim() || !Number.isFinite(fee)) return toast("Type the delivery charge", "err");
+    save({ ...o, delivery: fee, total: Math.round((o.subtotal + fee) * 100) / 100, deliveryQuote: false });
+    if (linked) saveInvoice({ ...linked, delivery: fee }, { remember: false });
+    setCharge("");
+    toast(`Delivery charge ${tk(fee)} added - send the customer an update`);
+  };
+  // the same transaction id on another live order: one payment can't pay for two orders
+  const trxKey = (t?: string) => (t ?? "").toUpperCase().replace(/[\s-]/g, "");
+  const sameTrx = o.payment.trxId ? orders.filter((x) => x.id !== o.id && x.status !== "cancelled" && trxKey(x.payment.trxId) === trxKey(o.payment.trxId)) : [];
   const [confirmCancel, setConfirmCancel] = useState(false);
   const cancelTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(cancelTimer.current), []);
@@ -242,6 +268,11 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
         ) : (
           <p className="text-[13px] text-muted">The customer hasn&apos;t sent payment details yet. They can add them from the Order status page, or you can ask on WhatsApp.</p>
         )}
+        {sameTrx.length > 0 && (
+          <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-[12.5px] font-semibold text-red-700">
+            This transaction ID is also on order{sameTrx.length > 1 ? "s" : ""} {sameTrx.map((x) => x.code).join(", ")}. One payment can&apos;t pay for two orders - check before approving.
+          </p>
+        )}
         {o.payment.verified ? (
           <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-lime/15 px-3 py-2.5">
             <span>
@@ -351,6 +382,23 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
             <dd className="font-amount">{tk(o.total)}</dd>
           </div>
         </dl>
+        {o.deliveryQuote && o.status !== "cancelled" && (
+          <form
+            className="mt-3 flex items-end gap-2 rounded-xl bg-amber-50 p-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setDelivery();
+            }}
+          >
+            <div className="min-w-0 flex-1">
+              <Label htmlFor="delivery-charge">Delivery charge for this location (৳)</Label>
+              <Input id="delivery-charge" type="number" inputMode="decimal" min={0} value={charge} placeholder="e.g. 150" onChange={(e) => setCharge(e.target.value)} />
+            </div>
+            <Button type="submit" variant="dark">
+              Set charge
+            </Button>
+          </form>
+        )}
       </section>
 
       {/* private note + history */}

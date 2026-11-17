@@ -16,6 +16,7 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try {
     body = await req.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("not an object");
   } catch {
     return NextResponse.json({ error: "bad request", message: "Please refresh the page and try again." }, { status: 400 });
   }

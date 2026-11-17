@@ -52,13 +52,15 @@ export function computeTotals(inv: Invoice): Totals {
   const dFix = Number(inv.discount) || 0;
   const delivery = Number(inv.delivery) || 0;
   const dFree = !!inv.discountFreeDelivery && delivery > 0;
-  const discountOnItems = round2((subtotal * dPct) / 100 + dFix);
+  // a discount can't take more than the items cost, and a coupon only works on what is left after it
+  const discountOnItems = round2(Math.min(subtotal, (subtotal * dPct) / 100 + dFix));
   const discountTotal = round2(discountOnItems + (dFree ? delivery : 0));
-  const c = inv.coupon?.gift ? undefined : inv.coupon; // a gift is for the next visit: nothing comes off now
+  const c = inv.coupon?.gift || inv.coupon?.invalid ? undefined : inv.coupon; // a gift is for the next visit, and an invalid coupon gives nothing
   const cPct = Number(c?.pct) || 0;
   const cFix = Number(c?.amount) || 0;
   const cFree = !!c?.freeDelivery && !dFree && delivery > 0; // delivery is only waived once
-  const couponTotal = round2((Math.max(0, subtotal - discountOnItems) * cPct) / 100 + cFix + (cFree ? delivery : 0));
+  const left = Math.max(0, subtotal - discountOnItems);
+  const couponTotal = round2(Math.min(left, (left * cPct) / 100 + cFix) + (cFree ? delivery : 0));
   const base = round2(subtotal + delivery - discountTotal - couponTotal);
   const charges = chargeLines(inv, subtotal);
   const chargesTotal = round2(charges.reduce((s, c) => s + c.amount, 0));

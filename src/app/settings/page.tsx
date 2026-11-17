@@ -140,7 +140,7 @@ export default function SettingsPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               {text("invoicePrefix", "Number prefix", "GR-")}
               <Field label="Next number">
-                <Input type="number" min={1} value={shop.nextNumber} onChange={(e) => set("nextNumber", Math.max(1, Number(e.target.value) || 1))} />
+                <NextNumberInput value={shop.nextNumber} onChange={(n) => set("nextNumber", n)} />
               </Field>
               <Field label="Delivery charge">
                 <Input type="number" min={0} value={shop.defaultDelivery || ""} placeholder="0" onChange={(e) => set("defaultDelivery", Number(e.target.value) || 0)} />
@@ -248,5 +248,23 @@ function RateInput({ label, value, onChange }: { label: string; value: number; o
         <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-muted">%</span>
       </div>
     </div>
+  );
+}
+
+/** The next receipt number: the box can be emptied while typing a new one (it isn't forced back to 1 mid-edit). */
+function NextNumberInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <Input
+      type="number"
+      min={1}
+      value={draft ?? value}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const n = Math.floor(Number(e.target.value));
+        if (n >= 1) onChange(n);
+      }}
+      onBlur={() => setDraft(null)}
+    />
   );
 }

@@ -18,6 +18,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/f/[token]">) {
   let body: Record<string, unknown>;
   try {
     body = await req.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("not an object");
   } catch {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }

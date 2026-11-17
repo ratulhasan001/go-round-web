@@ -172,7 +172,7 @@ function backSvg(template: string, css: string, { employee: e, facebook, support
   const issuedLabel = textNode(doc, "ISSUED")!;
   const issued = textNode(doc, "NOV 2026")!;
   const attendant = !e.head;
-  if (attendant) setText(issued, new Date().toLocaleDateString("en-GB", { month: "short", year: "numeric" }).toUpperCase(), 200);
+  if (attendant) setText(issued, issueMonth(), 200);
   else {
     issuedLabel.remove();
     issued.remove();
@@ -193,6 +193,10 @@ function backSvg(template: string, css: string, { employee: e, facebook, support
   setText(mail, supportEmail, attendant ? 260 : 452);
   return finish(doc, css);
 }
+
+/** "NOV 2026" - a fixed list, since some browsers write September as "SEPT". */
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const issueMonth = (d = new Date()) => `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 
 function finish(doc: Document, css: string) {
   const style = el(doc, "style", {});

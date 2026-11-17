@@ -13,7 +13,8 @@ export function VerifyHub() {
   const router = useRouter();
   const [tab, setTab] = useState<"order" | "staff">("order");
   const [code, setCode] = useState("");
-  const clean = code.trim().toLowerCase().replace(/^.*\//, ""); // a pasted QR link works too
+  // a pasted QR link works too (with or without ?…, # or a trailing slash)
+  const clean = code.trim().toLowerCase().replace(/[?#].*$/, "").replace(/\/+$/, "").replace(/^.*\//, "");
 
   return (
     <div>

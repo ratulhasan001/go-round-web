@@ -13,8 +13,8 @@ import RichEditor from "@/components/RichEditor";
 
 type Job = "" | "pdf" | "docx" | "print" | "blank-pdf" | "blank-docx" | "blank-print";
 
-// the saved copy and the one being edited differ only in their timestamps
-const sameLetter = (a: Letter, b: Letter) => JSON.stringify({ ...a, createdAt: 0, updatedAt: 0 }) === JSON.stringify({ ...b, createdAt: 0, updatedAt: 0 });
+// the saved copy and the one being edited say the same thing (field by field: the database may reorder keys)
+const sameLetter = (a: Letter, b: Letter) => a.id === b.id && a.ref === b.ref && a.date === b.date && a.to === b.to && a.subject === b.subject && a.body === b.body && a.signed === b.signed;
 
 export default function LetterheadPage() {
   const { shop, products, letters, saveLetter, deleteLetter, ready } = useStore();
@@ -40,19 +40,37 @@ export default function LetterheadPage() {
     if (!stored && !letter.ref.trim()) setLetter({ ...letter, ref: nextLetterRef(letters) }); // eslint-disable-line react-hooks/set-state-in-effect -- one-time fill after load
   }, [ready, letter, stored, letters]);
 
+  // Typing here is what saves the letter - never a copy that merely arrived (another device's edit, or a reload).
+  const edited = useRef(false);
   // keep the draft on this device, and once the letter is saved, keep the saved copy up to date as you type
   useEffect(() => {
     if (!letter) return;
     if (first.current) return void (first.current = false);
     const t = setTimeout(() => {
       saveDraft(letter);
-      if (stored && !sameLetter(stored, letter)) saveLetter({ ...letter, createdAt: stored.createdAt });
+      if (stored && edited.current && !sameLetter(stored, letter)) {
+        edited.current = false;
+        saveLetter({ ...letter, createdAt: stored.createdAt });
+      }
     }, 300);
     return () => clearTimeout(t);
   }, [letter, stored, saveLetter]);
 
+  // a newer saved copy (edited on another device, or since this draft was kept) replaces what is on screen,
+  // unless you are in the middle of typing
+  useEffect(() => {
+    if (!letter || !stored || edited.current || sameLetter(stored, letter)) return;
+    if ((stored.updatedAt ?? 0) > (letter.updatedAt ?? 0)) {
+      setLetter(stored); // eslint-disable-line react-hooks/set-state-in-effect -- take the newer saved copy
+      setEditorKey((k) => k + 1);
+    }
+  }, [stored]); // eslint-disable-line react-hooks/exhaustive-deps -- only when the saved copy changes
+
   if (!letter) return <div className="grid h-[60vh] place-items-center text-muted">Loading…</div>;
-  const update = (p: Partial<Letter>) => setLetter((l) => (l ? { ...l, ...p } : l));
+  const update = (p: Partial<Letter>) => {
+    edited.current = true;
+    setLetter((l) => (l ? { ...l, ...p, updatedAt: Date.now() } : l));
+  };
 
   /** Saves the letter to the list (a new letter whose number was taken meanwhile gets the next free one). */
   const persist = (l: Letter) => {
@@ -68,6 +86,9 @@ export default function LetterheadPage() {
   };
 
   const open = (l: Letter) => {
+    // an unsaved draft is lost when another letter opens: ask first
+    if (!stored && !isBlank(letter) && l.id !== letter.id && !window.confirm("Your unsaved letter will be discarded. Continue?")) return;
+    edited.current = false;
     setLetter(l);
     setEditorKey((k) => k + 1);
     setMobileTab("edit");

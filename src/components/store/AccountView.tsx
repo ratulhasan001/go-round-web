@@ -227,7 +227,24 @@ function Details({ account, reload }: { account: Account; reload: () => void }) 
   const [pw, setPw] = useState({ password: "", next: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState("");
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const [busy, setBusy] = useState("");
+  const [problem, setProblem] = useState({ which: "", text: "" });
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setSaved("");
+    setF((x) => ({ ...x, [k]: e.target.value }));
+  };
+  /** Sends one of the two forms, with a busy state and a message when it fails without field errors. */
+  const send = async (which: "details" | "password", body: Record<string, unknown>) => {
+    if (busy) return null;
+    setBusy(which);
+    setSaved("");
+    setProblem({ which: "", text: "" });
+    const r = await post(body);
+    setBusy("");
+    setErrors(r.fields);
+    if (!r.ok && !Object.keys(r.fields).length) setProblem({ which, text: r.message || "Couldn't save - you may have been logged out. Reload the page and try again." });
+    return r;
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -237,9 +254,8 @@ function Details({ account, reload }: { account: Account; reload: () => void }) 
           className="grid gap-4"
           onSubmit={async (e) => {
             e.preventDefault();
-            const r = await post({ action: "update", ...f });
-            setErrors(r.fields);
-            if (r.ok) {
+            const r = await send("details", { action: "update", ...f });
+            if (r?.ok) {
               setSaved("details");
               reload();
             }
@@ -257,8 +273,9 @@ function Details({ account, reload }: { account: Account; reload: () => void }) 
           <SeaField label="Delivery address">
             <SeaTextarea rows={3} value={f.address} onChange={set("address")} />
           </SeaField>
-          <button className={btn("primary", "md", "justify-self-start")}>Save</button>
+          <button disabled={!!busy} className={btn("primary", "md", "justify-self-start")}>{busy === "details" ? "Saving…" : "Save"}</button>
           {saved === "details" && <p className="text-[13px] font-semibold text-sea-leaf">Saved.</p>}
+          {problem.which === "details" && <p className="text-[13px] font-semibold text-red-600">{problem.text}</p>}
         </form>
       </Panel>
       <Panel>
@@ -267,9 +284,8 @@ function Details({ account, reload }: { account: Account; reload: () => void }) 
           className="grid gap-4"
           onSubmit={async (e) => {
             e.preventDefault();
-            const r = await post({ action: "password", ...pw });
-            setErrors(r.fields);
-            if (r.ok) {
+            const r = await send("password", { action: "password", ...pw });
+            if (r?.ok) {
               setSaved("password");
               setPw({ password: "", next: "" });
             }
@@ -281,8 +297,9 @@ function Details({ account, reload }: { account: Account; reload: () => void }) 
           <SeaField label="New password" hint="at least 6 characters" error={errors.next}>
             <SeaInput type="password" autoComplete="new-password" value={pw.next} onChange={(e) => setPw((x) => ({ ...x, next: e.target.value }))} invalid={!!errors.next} />
           </SeaField>
-          <button className={btn("outline", "md", "justify-self-start")}>Update password</button>
-          {saved === "password" && <p className="text-[13px] font-semibold text-sea-leaf">Password changed.</p>}
+          <button disabled={!!busy} className={btn("outline", "md", "justify-self-start")}>{busy === "password" ? "Updating…" : "Update password"}</button>
+          {saved === "password" && <p className="text-[13px] font-semibold text-sea-leaf">Password changed. Other devices are signed out.</p>}
+          {problem.which === "password" && <p className="text-[13px] font-semibold text-red-600">{problem.text}</p>}
         </form>
       </Panel>
     </div>

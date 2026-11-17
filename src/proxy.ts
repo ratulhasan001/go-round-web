@@ -3,8 +3,10 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, isAuthed } from "@/lib/server/auth";
 import { HOSTS, STORE_BASE, areaOf, isStorePath } from "@/lib/site";
 
-// exactly what makeStaffCode() produces, so store paths like /products never look like one
-const STAFF_CODE = /^\/([a-hjkmnp-z2-9]{12})\/?$/;
+// a staff code on the verify address: any single word of letters and digits (typed codes may be mistyped, in capitals or
+// the wrong length - they still get the "can't verify" page), except the store's own page names
+const STAFF_CODE = /^\/([a-z0-9]{6,40})\/?$/i;
+const STORE_PAGES = new Set(["about", "account", "cart", "checkout", "contact", "faq", "products", "reviews", "verify"]);
 // the only API routes the public addresses may call
 const PUBLIC_API = (p: string) => p.startsWith("/api/site/") || p.startsWith("/api/img/") || p === "/api/shop-logo";
 
@@ -49,7 +51,7 @@ export function proxy(request: NextRequest) {
   if (area === "verify" && !api) {
     if (pathname === "/") return NextResponse.rewrite(new URL(`${STORE_BASE}/verify${search}`, request.url));
     const staff = STAFF_CODE.exec(pathname);
-    if (staff) return NextResponse.rewrite(new URL(`${STORE_BASE}/verify/${staff[1]}${search}`, request.url));
+    if (staff && !STORE_PAGES.has(staff[1]!.toLowerCase())) return NextResponse.rewrite(new URL(`${STORE_BASE}/verify/${staff[1]!.toLowerCase()}${search}`, request.url));
     return to(HOSTS.store, isStorePath(pathname) ? pathname.slice(STORE_BASE.length) || "/" : pathname); // anything else is a store page
   }
 
@@ -58,6 +60,20 @@ export function proxy(request: NextRequest) {
   if (pathname === "/login" || pathname === "/api/login") return NextResponse.next();
   if (pathname.startsWith("/f/") || pathname.startsWith("/api/f/")) return NextResponse.next();
   if (isStorePath(pathname) || PUBLIC_API(pathname)) return NextResponse.next();
+  // admin changes may only come from the admin's own pages: the store and verify addresses count as the "same site" to
+  // the browser, so the session cookie alone wouldn't stop a script elsewhere on goroundbd.com from sending them
+  if (api && request.method !== "GET" && request.method !== "HEAD") {
+    const origin = request.headers.get("origin");
+    if (origin) {
+      let from = "";
+      try {
+        from = new URL(origin).host.toLowerCase();
+      } catch {
+        /* not a URL */
+      }
+      if (from !== host.toLowerCase()) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+  }
   if (isAuthed(request.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
 
   if (api) return NextResponse.json({ error: "unauthorized" }, { status: 401 });

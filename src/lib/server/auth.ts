@@ -8,9 +8,20 @@ export const authEnabled = () => !!process.env.APP_PASSWORD;
 
 const sha = (s: string) => createHash("sha256").update(s).digest();
 
-/** Session value derived from the password - changing APP_PASSWORD logs every device out. */
+/**
+ * Session value derived from the password and a server-only secret (SESSION_SECRET, else the database address), so
+ * nobody can work the cookie out from a guessed PIN. Changing APP_PASSWORD logs every device out.
+ */
 export const sessionToken = () =>
-  createHmac("sha256", process.env.APP_PASSWORD ?? "").update("go-round-session-v1").digest("base64url");
+  createHmac("sha256", `${process.env.APP_PASSWORD ?? ""}\u0000${process.env.SESSION_SECRET ?? process.env.DATABASE_URL ?? ""}`)
+    .update("go-round-session-v2")
+    .digest("base64url");
+
+/** How many digits the login keypad asks for: the PIN's own length when it is all digits. */
+export const pinLength = () => {
+  const p = process.env.APP_PASSWORD ?? "";
+  return /^\d{4,12}$/.test(p) ? p.length : 4;
+};
 
 export function checkPassword(input: string) {
   if (!authEnabled()) return true;

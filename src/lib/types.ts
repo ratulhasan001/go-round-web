@@ -236,7 +236,6 @@ export interface Employee {
   notes: string;
   active?: boolean; // missing means still working here
   code: string; // random, unguessable: the address of their public verification page (what their QR code opens)
-  idNo?: string; // printed on the ID card, e.g. GR-0001 (given automatically, editable)
   updatedAt?: number;
 }
 

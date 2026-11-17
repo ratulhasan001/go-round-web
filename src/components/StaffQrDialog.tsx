@@ -2,193 +2,62 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { Copy, Download, ExternalLink, IdCard, QrCode } from "lucide-react";
+import { Copy, Download, ExternalLink, IdCard, Loader2, QrCode } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { absolute, prettyPhone, publicLinks } from "@/lib/site";
-import { supportEmail } from "@/lib/letter";
-import { initials, logoUrl } from "@/lib/theme";
+import { absolute, publicLinks, siteSettings } from "@/lib/site";
+import { nextIdNo, renderCardPdf, renderCardSides, type CardInput } from "@/lib/idCard";
 import type { Employee } from "@/lib/types";
 import { saveBlob } from "@/lib/download";
 import { Modal } from "./Modal";
 import { Button, useToast } from "./ui";
 
 const INK = "#113A2D";
-const TEAL = "#1F7FA8";
 
 export const verifyUrl = (e: Employee) => absolute(publicLinks(window.location.host).staff(e.code), window.location.origin);
 const fileName = (e: Employee, what: string, ext = "png") => `${(e.name.trim() || "staff").replace(/[^\w-]+/g, "_")}-${what}.${ext}`;
 
-const loadImage = (src: string) =>
-  new Promise<HTMLImageElement | null>((resolve) => {
-    if (!src) return resolve(null);
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = src;
-  });
-
-/** Draws `text` centred at y, shrinking the font until it fits `max` px wide. */
-function fitText(g: CanvasRenderingContext2D, text: string, y: number, font: (px: number) => string, size: number, max: number, min = 18) {
-  g.font = font(size);
-  while (g.measureText(text).width > max && size > min) g.font = font((size -= 2));
-  g.fillText(text, W / 2, y);
-}
-
-// portrait CR80 (54 x 85.6 mm) at about 300 dpi
-const W = 638;
-const H = 1012;
-
-/** A printable vertical staff ID card with the verification QR; team heads get their photo on it. */
-async function renderCard(e: Employee, shop: { name: string; logo: string; email: string; phone: string }) {
-  await Promise.all([document.fonts?.load('600 40px "Fraunces"'), document.fonts?.load('italic 400 30px "Fraunces"')]).catch(() => null);
-  const sans = getComputedStyle(document.body).fontFamily; // Manrope, under the name next/font gave it
-  const serif = (w: string) => (px: number) => `${w} ${px}px "Fraunces", Georgia, serif`;
-  const c = document.createElement("canvas");
-  c.width = W;
-  c.height = H;
-  const g = c.getContext("2d")!;
-  g.fillStyle = "#FFFFFF"; // white card, prints clean
-  g.fillRect(0, 0, W, H);
-  g.textAlign = "center";
-
-  // grass strip along the bottom, as on the visiting card
-  const greens = ["#1E5A45", "#2F6B3A", "#4C8C3A", "#6FAE45", "#8CBF5A"];
-  for (let x = 0; x < W; x += 8) {
-    g.strokeStyle = greens[(x * 7) % greens.length]!;
-    g.globalAlpha = 0.55;
-    g.lineWidth = 3;
-    g.beginPath();
-    g.moveTo(x, H);
-    g.quadraticCurveTo(x + ((x * 13) % 20) - 10, H - 26, x + ((x * 17) % 24) - 12, H - 34 - ((x * 31) % 42));
-    g.stroke();
-  }
-  g.globalAlpha = 1;
-
-  // logo + shop name
-  const logo = await loadImage(logoUrl(shop.logo));
-  if (logo) g.drawImage(logo, W / 2 - 42, 38, 84, 84);
-  g.fillStyle = INK;
-  fitText(g, shop.name, logo ? 166 : 110, serif("600"), 40, W - 96);
-  // team heads' cards carry no "Staff ID" line
-  if (!e.head) {
-    g.font = `800 15px ${sans}`;
-    g.fillStyle = "rgba(17,58,45,0.6)";
-    g.fillText("S T A F F   I D", W / 2, 200);
-  }
-  g.fillStyle = "#5E9E39";
-  g.fillRect(W / 2 - 24, 214, 48, 4);
-
-  // photo (team heads) or initials
-  const cy = 318;
-  const r = 88;
-  const photo = e.head && e.photo ? await loadImage(e.photo) : null;
-  g.save();
-  g.beginPath();
-  g.arc(W / 2, cy, r, 0, Math.PI * 2);
-  g.closePath();
-  if (photo) {
-    g.clip();
-    const k = Math.max((2 * r) / photo.width, (2 * r) / photo.height); // cover
-    g.drawImage(photo, W / 2 - (photo.width * k) / 2, cy - (photo.height * k) / 2, photo.width * k, photo.height * k);
-  } else {
-    g.fillStyle = "#E3ECDD";
-    g.fill();
-    g.fillStyle = INK;
-    g.font = serif("600")(70);
-    g.textBaseline = "middle";
-    g.fillText(initials(e.name.trim() || "?"), W / 2, cy + 4);
-    g.textBaseline = "alphabetic";
-  }
-  g.restore();
-  g.strokeStyle = "#5E9E39";
-  g.lineWidth = 6;
-  g.beginPath();
-  g.arc(W / 2, cy, r + 3, 0, Math.PI * 2);
-  g.stroke();
-
-  // name and role
-  g.fillStyle = INK;
-  fitText(g, e.name.trim() || "Staff member", 464, serif("400"), 46, W - 80, 26);
-  if (e.role.trim()) {
-    g.fillStyle = TEAL;
-    fitText(g, e.role.trim(), 504, serif("italic 400"), 30, W - 80);
-  }
-
-  // QR
-  const qr = await QRCode.toDataURL(verifyUrl(e), { errorCorrectionLevel: "M", margin: 1, width: 224, color: { dark: INK, light: "#FFFFFF" } });
-  const img = await loadImage(qr);
-  g.fillStyle = "#FFFFFF";
-  g.strokeStyle = "#DDD6C6"; // a thin frame keeps the QR box visible on the white card
-  g.lineWidth = 2;
-  g.beginPath();
-  g.roundRect(W / 2 - 122, 530, 244, 244, 24);
-  g.fill();
-  g.stroke();
-  if (img) g.drawImage(img, W / 2 - 112, 540, 224, 224);
-  g.font = `800 15px ${sans}`;
-  g.fillStyle = TEAL;
-  g.fillText("SCAN TO VERIFY", W / 2, 804);
-
-  // support contact
-  g.fillStyle = INK;
-  g.font = `700 18px ${sans}`;
-  g.fillText(`Support: ${supportEmail(shop)}`, W / 2, 846);
-  if (shop.phone.trim()) {
-    g.font = `600 17px ${sans}`;
-    g.fillStyle = "rgba(17,58,45,0.75)";
-    g.fillText(prettyPhone(shop.phone), W / 2, 874);
-  }
-  return new Promise<Blob>((res) => c.toBlob((b) => res(b!), "image/png"));
-}
-
-/** The ID card as a PDF, one card-sized page (54 x 85.6 mm), ready to print. */
-async function renderCardPdf(png: Blob) {
-  const [{ pdf, Document, Page, Image }, src] = await Promise.all([
-    import("@react-pdf/renderer"),
-    new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result));
-      r.onerror = () => reject(r.error);
-      r.readAsDataURL(png);
-    }),
-  ]);
-  const mm = 72 / 25.4;
-  const size: [number, number] = [54 * mm, 85.6 * mm];
-  return pdf(
-    <Document title="Staff ID card">
-      <Page size={size} style={{ padding: 0, backgroundColor: "#FFFFFF" }}>
-        {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt */}
-        <Image src={src} style={{ width: size[0], height: size[1] }} />
-      </Page>
-    </Document>,
-  ).toBlob();
-}
-
-/** The staff member's verification QR code: preview, download (QR alone or a printable ID card) and the link it opens. */
+/** The staff member's ID card (front and back, from the shop's card design) and verification QR: preview and downloads. */
 export function StaffQrDialog({ employee, onClose }: { employee: Employee | null; onClose: () => void }) {
-  const { shop, mode } = useStore();
+  const { shop, mode, employees } = useStore();
   const toast = useToast();
-  const [svg, setSvg] = useState("");
+  const [sides, setSides] = useState<{ key: string; front: string; back: string } | null>(null);
+  const [failed, setFailed] = useState("");
+  const [busy, setBusy] = useState(false);
   const url = employee ? verifyUrl(employee) : "";
 
+  const input: CardInput | null = employee
+    ? {
+        employee,
+        idNo: employee.idNo?.trim() || nextIdNo(employees),
+        verifyUrl: url,
+        facebook: siteSettings(shop).facebook,
+        shopPhone: shop.phone,
+      }
+    : null;
+  // redraw the preview whenever something printed on the card changes
+  const key = input ? JSON.stringify([input.employee.name, input.employee.role, input.employee.phone, input.employee.head, input.employee.photo, input.idNo, url, input.facebook]) : "";
+
   useEffect(() => {
-    if (!url) return;
+    if (!input || sides?.key === key) return;
     let alive = true;
-    void QRCode.toString(url, { type: "svg", errorCorrectionLevel: "M", margin: 1, color: { dark: INK, light: "#FFFFFF" } }).then((s) => alive && setSvg(s));
+    renderCardSides(input)
+      .then((s) => alive && setSides({ key, ...s }))
+      .catch(() => alive && setFailed(key));
     return () => {
       alive = false;
     };
-  }, [url]);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps -- `key` covers everything the card shows
 
-  if (!employee) return null;
+  if (!employee || !input) return null;
   const e = employee;
+  const ready = sides?.key === key;
   return (
     <Modal
       open
       onClose={onClose}
-      icon={<QrCode className="size-5" />}
+      icon={<IdCard className="size-5" />}
       title={e.name.trim() || "New staff member"}
-      subtitle="Verification QR code - anyone who scans it sees whether this person works for you"
+      subtitle="ID card (front and back) and the verification QR - anyone who scans it sees whether this person works for you"
       footer={
         <div className="flex flex-wrap gap-2">
           <Button
@@ -198,31 +67,53 @@ export function StaffQrDialog({ employee, onClose }: { employee: Employee | null
               toast("QR code downloaded");
             }}
           >
-            <Download className="size-4" /> QR code
+            <QrCode className="size-4" /> QR code only
           </Button>
           <Button
             variant="dark"
             className="flex-1"
+            disabled={busy}
             onClick={async () => {
+              setBusy(true);
               try {
-                saveBlob(await renderCardPdf(await renderCard(e, shop)), fileName(e, "ID-card", "pdf"));
-                toast("ID card PDF downloaded - print it at actual size (54 × 85.6 mm, portrait)");
+                saveBlob(await renderCardPdf(input), fileName(e, "ID-card", "pdf"));
+                toast("ID card PDF downloaded - print at actual size (100 %)");
               } catch {
                 toast("Couldn't make the ID card PDF - please try again", "err");
               }
+              setBusy(false);
             }}
           >
-            <IdCard className="size-4" /> ID card
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} ID card PDF
           </Button>
         </div>
       }
     >
       <div className="flex flex-col items-center gap-4 p-5">
-        {/* the QR is an SVG made by the qrcode library from this page's own link, never from user input */}
-        <div className="size-60 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-line [&_svg]:size-full" dangerouslySetInnerHTML={{ __html: svg }} />
+        {/* front and back, side by side, as they print */}
+        <div className="grid w-full grid-cols-2 gap-3">
+          {(["front", "back"] as const).map((side) => (
+            <figure key={side} className="min-w-0">
+              <div className="relative aspect-[54/85.6] overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-line">
+                {ready ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- generated card preview
+                  <img src={sides[side]} alt={`ID card ${side}`} className="size-full object-contain" />
+                ) : failed === key ? (
+                  <p className="grid size-full place-items-center p-3 text-center text-[12px] text-red-600">Preview failed</p>
+                ) : (
+                  <span className="grid size-full place-items-center text-muted">
+                    <Loader2 className="size-5 animate-spin" />
+                  </span>
+                )}
+              </div>
+              <figcaption className="mt-1.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted">{side}</figcaption>
+            </figure>
+          ))}
+        </div>
         <p className="text-center text-[13px] text-muted">
-          {e.role.trim() ? `${e.role.trim()} · ` : ""}
-          {e.active === false ? <b className="text-red-600">Marked as former - the page says they no longer work here</b> : "Active - the page shows them as verified staff"}
+          {input.idNo} · {e.role.trim() ? `${e.role.trim()} · ` : ""}
+          {e.active === false ? <b className="text-red-600">Marked as former - the page says they no longer work here</b> : "Active - scanning shows them as verified"}
+          {!e.head && <span className="block text-[12px]">Attendant cards show initials; switch on Team head and add a photo to put a photo in the arch.</span>}
         </p>
         <div className="flex w-full items-center gap-2 rounded-xl bg-canvas p-1.5 pl-3">
           <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-body">{url}</span>
@@ -239,7 +130,6 @@ export function StaffQrDialog({ employee, onClose }: { employee: Employee | null
           </a>
         </div>
         {mode !== "cloud" && <p className="text-center text-[12px] text-amber-700">The verification page needs the database, so it only works on the live site.</p>}
-        <p className="text-center text-[12px] text-faint">The QR opens the verify page on your website, so it keeps working however you open this panel.</p>
       </div>
     </Modal>
   );

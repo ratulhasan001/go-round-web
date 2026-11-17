@@ -10,6 +10,7 @@ import { initials } from "@/lib/theme";
 import type { Employee } from "@/lib/types";
 import { ListEditor } from "@/components/ListEditor";
 import { StaffQrDialog } from "@/components/StaffQrDialog";
+import { nextIdNo } from "@/lib/idCard";
 import { Input, cx, useToast } from "@/components/ui";
 
 const active = (e: Employee) => e.active !== false;
@@ -38,8 +39,8 @@ export default function EmployeesPage() {
         onChange={setEmployees}
         tableFrom="2xl"
         // a new person gets their verification code (and so their QR) straight away
-        blank={() => ({ id: uid(), name: "", phone: "", role: "", joined: todayISO(), notes: "", active: true, code: makeStaffCode(), updatedAt: Date.now() })}
-        touch={(e) => ({ ...e, code: e.code || makeStaffCode(), updatedAt: Date.now() })}
+        blank={() => ({ id: uid(), name: "", phone: "", role: "", joined: todayISO(), notes: "", active: true, code: makeStaffCode(), idNo: nextIdNo(employees), updatedAt: Date.now() })}
+        touch={(e) => ({ ...e, code: e.code || makeStaffCode(), idNo: e.idNo || nextIdNo(employees), updatedAt: Date.now() })}
         sorts={[
           { label: "Recently updated", compare: (a, b) => updated(b) - updated(a) },
           { label: "Name A → Z", compare: byName },
@@ -71,7 +72,8 @@ export default function EmployeesPage() {
           <button
             type="button"
             onClick={() => {
-              if (!e.code) setEmployees(employees.map((x) => (x.id === e.id ? { ...x, code: makeStaffCode(), updatedAt: Date.now() } : x)));
+              if (!e.code || !e.idNo?.trim())
+                setEmployees(employees.map((x) => (x.id === e.id ? { ...x, code: x.code || makeStaffCode(), idNo: x.idNo?.trim() || nextIdNo(employees), updatedAt: Date.now() } : x)));
               setQrFor(e.id);
             }}
             className="grid size-9 place-items-center rounded-xl text-muted transition hover:bg-canvas hover:text-ink active:scale-90"
@@ -82,6 +84,7 @@ export default function EmployeesPage() {
           </button>
         )}
         columns={[
+          { key: "idNo", label: "ID no.", placeholder: "GR-0001", width: "104px" },
           { key: "name", label: "Name", placeholder: "Full name", width: "minmax(0,1.3fr)" },
           { key: "phone", label: "Phone", type: "tel", placeholder: "01XXXXXXXXX", width: "150px" },
           { key: "role", label: "Role", placeholder: "e.g. Delivery, Packing", width: "minmax(0,1fr)" },

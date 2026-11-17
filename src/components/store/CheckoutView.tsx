@@ -31,7 +31,7 @@ export function CheckoutView() {
   const note = useFreshCart();
   const s = shop.site;
   const [me, setMe] = useState<Me | null | undefined>(undefined);
-  const [f, setF] = useState({ name: "", phone: "", email: "", address: "", ps: "", note: "", zone: "", method: "bKash" as OrderPayMethod, trxId: "", sender: "", password: "", website: "" });
+  const [f, setF] = useState({ name: "", phone: "", email: "", address: "", ps: "", note: "", zone: "", method: "bKash" as OrderPayMethod, trxId: "", sender: "", password: "", gr_hp: "" });
   const [area, setArea] = useState<DeliveryArea | "">("");
   const [accept, setAccept] = useState(false);
   const [makeAccount, setMakeAccount] = useState(false);
@@ -145,7 +145,7 @@ export function CheckoutView() {
         const products = await fetch("/api/site/products").then((r) => r.json()).catch(() => null);
         if (products?.products) refresh(products.products);
         setProblem(b.message);
-      } else setProblem(b.message ?? "Something went wrong. Please try again.");
+      } else setProblem(b.message ?? `Something went wrong (error ${res.status}). Please try again, or order on WhatsApp.`);
     } catch {
       setProblem("You seem to be offline. Check your connection and try again.");
     }
@@ -222,7 +222,8 @@ export function CheckoutView() {
             </SeaField>
           </div>
           {/* bots fill this in, people never see it */}
-          <input name="website" value={f.website} onChange={set("website")} tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] size-px opacity-0" aria-hidden />
+          {/* bot trap: people never see it. Not called "website" - browsers and password managers autofilled that, and real orders were refused */}
+          <input name="gr_hp" value={f.gr_hp} onChange={set("gr_hp")} tabIndex={-1} autoComplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" className="absolute -left-[9999px] size-px opacity-0" aria-hidden />
 
           {me === null && (
             <div className="mt-5 rounded-2xl bg-white p-4 ring-1 ring-sea-line">

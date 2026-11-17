@@ -73,9 +73,11 @@ export function linksFor(host: string | null | undefined): Links {
   };
 }
 
-/** Extra pages listed under "Explore" (footer and the phone menu): reviews and the shop's policies. */
-export const exploreLinks = (links: Links) => [
-  { href: links.store("/reviews"), label: "Customer reviews" },
+/** Extra pages listed under "Explore" (footer and the phone menu). */
+export const exploreLinks = (links: Links) => [{ href: links.store("/reviews"), label: "Customer reviews" }];
+
+/** The shop's policies, in their own "Policies" column (footer and the phone menu). */
+export const policyLinks = (links: Links) => [
   { href: links.store("/privacy-policy"), label: "Privacy policy" },
   { href: links.store("/terms-and-conditions"), label: "Terms and conditions" },
   { href: links.store("/return-policy"), label: "Return policy" },

@@ -1077,6 +1077,36 @@ input[type="number"] {
 .rich-editor table[data-calc] [contenteditable="false"] { cursor: default; }
 
 
+/* a hand cursor on everything clickable, admin and store alike (Tailwind 4 leaves buttons on the arrow).
+   In the base layer, so a cursor-* class on an element still wins. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="radio"],
+  [role="switch"],
+  [role="option"],
+  [role="menuitem"],
+  select:not(:disabled),
+  summary,
+  label[for],
+  label:has(> input[type="checkbox"], > input[type="radio"]),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  input[type="color"]:not(:disabled),
+  input[type="range"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled),
+  a[href] {
+    cursor: pointer;
+  }
+  button:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+}
+
 /* ================= customer website ================= */
 
 .store-root {

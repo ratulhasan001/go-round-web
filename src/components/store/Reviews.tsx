@@ -18,7 +18,8 @@ export function Stars({ value, className, size = "size-4" }: { value: number; cl
   );
 }
 
-const when = (ms: number) => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+// always in Bangladesh time, so the server and the browser print the same date
+const when = (ms: number) => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Dhaka" });
 
 export function ReviewCard({ r, showProduct }: { r: PublicReview; showProduct?: boolean }) {
   return (

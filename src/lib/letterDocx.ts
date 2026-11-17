@@ -201,7 +201,7 @@ function para(b: Para, list: number, inCell = false, bold = false) {
             strike: r.s,
             size: (r.size ?? BASE_SIZE) * 2,
             color: (r.color ?? T.body).slice(1),
-            font: faceInfo(r.face).docx,
+            font: bnFont(faceInfo(r.face).docx),
             ...(r.bg ? { shading: { type: ShadingType.CLEAR, color: "auto", fill: r.bg.slice(1) } } : {}),
           }),
       )
@@ -215,8 +215,10 @@ function para(b: Para, list: number, inCell = false, bold = false) {
       line: pt2twip(Math.max(BASE_SIZE, ...b.runs.map((r) => r.size ?? BASE_SIZE)) * (b.lh ?? (inCell ? CELL_LINE_HEIGHT : LINE_HEIGHT))),
       lineRule: LineRuleType.AT_LEAST,
     },
-    ...(b.kind === "bullet" ? { bullet: { level: 0 } } : {}),
-    ...(b.kind === "number" ? { numbering: { reference: "letter-numbers", level: 0, instance: list } } : {}),
+    // a continuation line sits under its item's text, with no bullet or number of its own
+    ...(b.cont ? { indent: { left: 360 } } : {}),
+    ...(b.kind === "bullet" && !b.cont ? { bullet: { level: 0 } } : {}),
+    ...(b.kind === "number" && !b.cont ? { numbering: { reference: "letter-numbers", level: 0, instance: list } } : {}),
   });
 }
 
@@ -236,7 +238,7 @@ function receiptTable(t: TableBlock) {
           cantSplit: true,
           tableHeader: kind === "head",
           children: cells.map((c, k) => {
-            const text = (s: string, o: Partial<ConstructorParameters<typeof TextRun>[0] & object>) => new TextRun({ text: s, font: "Manrope", color: AQ.ink.slice(1), ...o });
+            const text = (s: string, o: Partial<ConstructorParameters<typeof TextRun>[0] & object>) => new TextRun({ text: s, font: bnFont("Manrope"), color: AQ.ink.slice(1), ...o });
             const kids =
               kind === "item"
                 ? c.paras.length
@@ -249,7 +251,7 @@ function receiptTable(t: TableBlock) {
                         kind === "head"
                           ? text(cellText(c), { bold: true, size: RECEIPT_TABLE.head * 2, characterSpacing: 24 })
                           : k === 0
-                            ? text(cellText(c), { bold: true, size: RECEIPT_TABLE.total * 2, font: "Fraunces" })
+                            ? text(cellText(c), { bold: true, size: RECEIPT_TABLE.total * 2, font: bnFont("Fraunces") })
                             : text(cellText(c), { bold: true, size: RECEIPT_TABLE.totalAmount * 2 }),
                       ],
                     }),
@@ -300,21 +302,33 @@ function bodyParagraphs(blocks: Block[]): (Paragraph | Table)[] {
         ),
       });
     }
-    if (b.kind === "number" && blocks[i - 1]?.kind !== "number") list++;
+    if (b.kind === "number" && !b.cont && blocks[i - 1]?.kind !== "number") list++;
     return para(b, list);
   });
+}
+
+/**
+ * A run's font, with Bangla in Noto Sans Bengali: Word draws Bengali letters with the "complex script" font, and
+ * the letter's own fonts have none.
+ */
+const BANGLA = "Noto Sans Bengali";
+function bnFont(name: string) {
+  return { ascii: name, hAnsi: name, eastAsia: name, cs: BANGLA };
 }
 
 // the letter's fonts go inside the file, so it looks right on computers that don't have them installed
 async function embeddedFonts() {
   const get = (f: string) => fetch(`/fonts/${f}`).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(f))));
   try {
-    const [m4, m7, f4, f6, fi] = await Promise.all(["Manrope-400.ttf", "Manrope-700.ttf", "Fraunces-400.ttf", "Fraunces-600.ttf", "Fraunces-Italic.ttf"].map(get));
+    const [m4, m7, f4, f6, fi, b4, b7] = await Promise.all(
+      ["Manrope-400.ttf", "Manrope-700.ttf", "Fraunces-400.ttf", "Fraunces-600.ttf", "Fraunces-Italic.ttf", "NotoSansBengali-400.ttf", "NotoSansBengali-700.ttf"].map(get),
+    );
     // docx types these as Node Buffers; plain bytes work the same in the browser
     const b = (x: ArrayBuffer) => new Uint8Array(x) as unknown as Buffer;
     return [
       { name: "Manrope", data: b(m4), bold: b(m7), characterSet: CharacterSet.ANSI },
       { name: "Fraunces", data: b(f4), bold: b(f6), italic: b(fi), characterSet: CharacterSet.ANSI },
+      { name: BANGLA, data: b(b4), bold: b(b7) },
     ];
   } catch {
     return []; // offline: Word falls back to a similar installed font
@@ -328,8 +342,8 @@ export async function renderLetterDocx(letter: Letter, shop: Shop) {
     new Paragraph({
       alignment: AlignmentType.RIGHT,
       children: [
-        new TextRun({ text: `${k}  `, bold: true, size: 14, color: AQ.muted.slice(1), font: "Manrope" }),
-        new TextRun({ text: v, bold: true, size: 19, color: ink, font: "Manrope" }),
+        new TextRun({ text: `${k}  `, bold: true, size: 14, color: AQ.muted.slice(1), font: bnFont("Manrope") }),
+        new TextRun({ text: v, bold: true, size: 19, color: ink, font: bnFont("Manrope") }),
       ],
     });
 
@@ -338,12 +352,12 @@ export async function renderLetterDocx(letter: Letter, shop: Shop) {
   if (letter.date) children.push(meta("DATE", fmtDate(letter.date)));
   const to = letter.to.trim();
   if (to) {
-    children.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [new TextRun({ text: "TO", bold: true, size: 14, color: T.muted.slice(1), font: "Manrope" })] }));
-    for (const line of to.split("\n")) children.push(new Paragraph({ children: [new TextRun({ text: line, size: 20, color: ink, font: "Manrope" })] }));
+    children.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [new TextRun({ text: "TO", bold: true, size: 14, color: T.muted.slice(1), font: bnFont("Manrope") })] }));
+    for (const line of to.split("\n")) children.push(new Paragraph({ children: [new TextRun({ text: line, size: 20, color: ink, font: bnFont("Manrope") })] }));
   }
   if (letter.subject.trim())
     children.push(
-      new Paragraph({ spacing: { before: 400, after: 120 }, children: [new TextRun({ text: `Subject: ${letter.subject.trim()}`, bold: true, size: 26, color: ink, font: "Fraunces" })] }),
+      new Paragraph({ spacing: { before: 400, after: 120 }, children: [new TextRun({ text: `Subject: ${letter.subject.trim()}`, bold: true, size: 26, color: ink, font: bnFont("Fraunces") })] }),
     );
   const body = bodyParagraphs(parseRich(letter.body));
   if (body.length) children.push(new Paragraph({ children: [], spacing: { after: 120 } }), ...body);
@@ -370,7 +384,7 @@ export async function renderLetterDocx(letter: Letter, shop: Shop) {
     creator: shop.name,
     fonts,
     title: letter.subject || `${shop.name} letterhead`,
-    styles: { default: { document: { run: { font: "Manrope", size: BASE_SIZE * 2, color: T.body.slice(1) } } } },
+    styles: { default: { document: { run: { font: bnFont("Manrope"), size: BASE_SIZE * 2, color: T.body.slice(1) } } } },
     numbering: {
       config: [
         {

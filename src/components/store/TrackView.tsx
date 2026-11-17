@@ -61,7 +61,7 @@ export function TrackView() {
     return (
       <OrderCard
         order={open}
-        placed={placed}
+        placed={placed && open.code === wanted}
         onChange={(o) => setOrders((list) => (list ?? []).map((x) => (x.id === o.id ? o : x)))}
         phone={open.customer.phone}
         onBack={() => {
@@ -227,7 +227,7 @@ export function OrderCard({
                       {done && <Check className="size-3.5 shrink-0 text-sea-leaf" strokeWidth={3} />}
                       {ORDER_LABEL[s]}
                     </span>
-                    {t && done && <span className="text-[11px] text-sea-muted">{new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
+                    {t && done && <span className="text-[11px] text-sea-muted">{new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Dhaka" })}</span>}
                   </li>
                 );
               })}

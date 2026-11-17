@@ -8,20 +8,20 @@ import { fmtDate } from "./calc";
 import { T, initials, logoUrl } from "./theme";
 import { AQ } from "./aquascape";
 import { PdfFishBand, PdfGrassBand } from "./pdfArt";
-import { registerFonts } from "./pdf";
+import { registerFonts, withBangla } from "./pdf";
 import { drawSignature } from "./seal";
 import { WATERMARK_OPACITY, makeWatermark } from "./watermark";
 import { BASE_SIZE, CELL_LINE_HEIGHT, LINE_HEIGHT, RECEIPT_TABLE, cellAlign, cellText, faceInfo, parseRich, receiptRows, type Block, type Para, type Run, type Table } from "./richtext";
 
 // Same page, header and artwork as the receipt (src/lib/pdf.tsx); mirrored by src/components/LetterheadPreview.tsx.
 const s = StyleSheet.create({
-  page: { fontFamily: "Manrope", fontSize: 10, color: T.body, backgroundColor: AQ.paper, paddingTop: 54, paddingBottom: 92, paddingHorizontal: 40 },
+  page: { fontFamily: withBangla("Manrope"), fontSize: 10, color: T.body, backgroundColor: AQ.paper, paddingTop: 54, paddingBottom: 92, paddingHorizontal: 40 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   brand: { flexDirection: "row", alignItems: "center", gap: 14, maxWidth: 360 },
   logo: { width: 68, height: 68, objectFit: "contain" },
   mono: { width: 60, height: 60, borderRadius: 30, borderWidth: 4, borderColor: T.leaf, alignItems: "center", justifyContent: "center" },
-  monoTxt: { fontFamily: "Fraunces", fontWeight: 600, fontSize: 20, color: AQ.ink },
-  shopName: { fontFamily: "Fraunces", fontWeight: 600, fontSize: 25, color: AQ.ink, letterSpacing: -0.6 },
+  monoTxt: { fontFamily: withBangla("Fraunces"), fontWeight: 600, fontSize: 20, color: AQ.ink },
+  shopName: { fontFamily: withBangla("Fraunces"), fontWeight: 600, fontSize: 25, color: AQ.ink, letterSpacing: -0.6 },
   tagline: { fontSize: 6.4, color: AQ.muted, fontWeight: 800, letterSpacing: 1.6, marginTop: 2 },
   contact: { fontSize: 8, color: T.muted, marginTop: 5, lineHeight: 1.45 },
   metaK: { fontSize: 6.8, fontWeight: 800, letterSpacing: 1.4, color: AQ.muted, textAlign: "right" },
@@ -29,7 +29,7 @@ const s = StyleSheet.create({
   rule: { flexDirection: "row", alignItems: "center", marginTop: 20, marginBottom: 26, height: 2 },
   label: { fontSize: 7, fontWeight: 800, letterSpacing: 1.6, color: T.muted, marginBottom: 5 },
   to: { fontSize: 10, color: AQ.ink, lineHeight: 1.5 },
-  subject: { fontFamily: "Fraunces", fontWeight: 600, fontSize: 13, color: AQ.ink, marginTop: 20 },
+  subject: { fontFamily: withBangla("Fraunces"), fontWeight: 600, fontSize: 13, color: AQ.ink, marginTop: 20 },
   body: { marginTop: 16 },
   para: { fontSize: BASE_SIZE, color: T.body, lineHeight: LINE_HEIGHT },
   sign: { width: 180, height: 115, marginTop: 18, alignSelf: "flex-end", marginRight: -8 },
@@ -122,7 +122,7 @@ export async function renderLetterBlob(letter: Letter, shop: Shop) {
 }
 
 const runStyle = (r: Run) => ({
-  fontFamily: (r.face ?? "sans") === "sans" && r.i ? "SansItalic" : faceInfo(r.face).pdf,
+  fontFamily: withBangla((r.face ?? "sans") === "sans" && r.i ? "SansItalic" : faceInfo(r.face).pdf),
   fontWeight: r.b ? 700 : 400,
   fontStyle: r.i ? ("italic" as const) : ("normal" as const),
   fontSize: r.size ?? BASE_SIZE,
@@ -143,7 +143,7 @@ function PdfPara({ p, inCell }: { p: Para; inCell?: boolean }) {
   if (p.kind === "p") return text;
   return (
     <View style={[{ flexDirection: "row", paddingLeft: inCell ? 0 : 6 }, gap]} wrap={false}>
-      <Text style={[s.para, { width: 14, fontSize: size }, lh]}>{p.kind === "bullet" ? "\u2022" : `${p.n}.`}</Text>
+      <Text style={[s.para, { width: 14, fontSize: size }, lh]}>{p.cont ? " " : p.kind === "bullet" ? "\u2022" : `${p.n}.`}</Text>
       {text}
     </View>
   );
@@ -204,7 +204,7 @@ function PdfReceiptTable({ t }: { t: Table }) {
               {kind === "head" ? (
                 <Text style={{ fontSize: RECEIPT_TABLE.head, fontWeight: 800, letterSpacing: 1.2, color: AQ.ink, textAlign: cellAlign(c) }}>{cellText(c)}</Text>
               ) : kind === "total" ? (
-                <Text style={k === 0 ? { fontFamily: "Fraunces", fontWeight: 600, fontSize: RECEIPT_TABLE.total, color: AQ.ink, textAlign: cellAlign(c) } : { fontFamily: "Manrope", fontWeight: 800, fontSize: RECEIPT_TABLE.totalAmount, color: AQ.ink, textAlign: cellAlign(c) }}>{cellText(c)}</Text>
+                <Text style={k === 0 ? { fontFamily: withBangla("Fraunces"), fontWeight: 600, fontSize: RECEIPT_TABLE.total, color: AQ.ink, textAlign: cellAlign(c) } : { fontFamily: withBangla("Manrope"), fontWeight: 800, fontSize: RECEIPT_TABLE.totalAmount, color: AQ.ink, textAlign: cellAlign(c) }}>{cellText(c)}</Text>
               ) : c.paras.length ? (
                 c.paras.map((p, j) => <PdfPara key={j} p={{ ...p, runs: p.runs.map((x) => ({ ...x, size: x.size ?? RECEIPT_TABLE.item, color: x.color ?? T.ink })) }} inCell />)
               ) : (

@@ -1193,8 +1193,10 @@ input[type="number"] {
   animation: sea-rise var(--dur, 6s) ease-in var(--delay, 0s) infinite;
 }
 
-/* scroll reveal: elements fade up the first time they come into view */
-.reveal {
+/* scroll reveal: elements fade up the first time they come into view.
+   Only hidden when JavaScript runs (html.js, set by an inline script), and never for more than 3 s: on slow mobile
+   data, or if a script fails, the content still shows. */
+.js .reveal {
   opacity: 0;
   transform: translateY(18px);
   transition:
@@ -1202,9 +1204,18 @@ input[type="number"] {
     transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
   transition-delay: var(--reveal-delay, 0ms);
 }
-.reveal.is-in {
+.js .reveal:not(.is-in) {
+  animation: reveal-fallback 0.5s ease 3s forwards;
+}
+.js .reveal.is-in {
   opacity: 1;
   transform: none;
+}
+@keyframes reveal-fallback {
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes sea-pop {
@@ -1253,7 +1264,7 @@ input[type="number"] {
   .sea-bubble {
     animation: none;
   }
-  .reveal {
+  .js .reveal {
     opacity: 1;
     transform: none;
     transition: none;

@@ -46,9 +46,10 @@ export async function renderLedgerBlob(invoices: Invoice[], shop: Shop) {
   sorted.forEach((inv, i) => {
     const t = computeTotals(inv);
     const r = i + 4;
-    const [y, m, d] = inv.date.split("-").map(Number);
+    const [y, m, d] = (inv.date || "").split("-").map(Number);
+    const when = new Date(Date.UTC(y!, m! - 1, d));
     const row = ws.getRow(r);
-    row.values = [inv.number, new Date(Date.UTC(y, m - 1, d)), inv.customer.name, inv.customer.phone, filledItems(inv).length, t.grandTotal, t.paid];
+    row.values = [inv.number, Number.isNaN(when.getTime()) ? "" : when, inv.customer.name, inv.customer.phone, filledItems(inv).length, t.grandTotal, t.paid];
     row.getCell(8).value = { formula: `F${r}-G${r}`, result: t.due };
     row.getCell(9).value = STATUS_LABEL[t.status];
     row.height = 19;

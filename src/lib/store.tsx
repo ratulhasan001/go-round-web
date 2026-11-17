@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import type { CouponCode, Customer, Employee, Invoice, Letter, Order, Product, Review, Shop } from "./types";
 import { DEFAULT_SHOP, SEED_CUSTOMERS, SEED_INVOICES, SEED_PRODUCTS } from "./seed";
 import { uid } from "./calc";
-import { couponProblem, givenBy, usedBy } from "./coupons";
-import { normPhone } from "./phone";
+import { couponProblem, givenBy, normCode, usedBy } from "./coupons";
+import { normPhone, phoneKey } from "./phone";
 import { isStorePath, type Area } from "./site";
 
 const KEY = "go-round-receipts:v1"; // this device's copy of the data
@@ -30,6 +30,8 @@ export type Mode = "loading" | "local" | "cloud";
 export type SyncState = "idle" | "saving" | "offline";
 
 interface Store extends Data {
+  /** Receipts the server gave a new number (another device had taken theirs): id -> new number. */
+  renumbered: Record<string, string>;
   ready: boolean;
   mode: Mode;
   sync: SyncState;
@@ -80,10 +82,11 @@ const norm = (s: string) => s.trim().toLowerCase();
  * left alone, and so is one the sheet says this receipt can't have (expired, given to someone else…).
  */
 function linkCoupon(coupons: CouponCode[], inv: Invoice, deleted = false): CouponCode[] {
-  const code = deleted ? "" : norm(inv.coupon?.code ?? "");
+  // codes compare without spaces or case, the same way the receipt editor finds them
+  const code = deleted ? "" : normCode(inv.coupon?.code ?? "");
   const gift = !!inv.coupon?.gift;
   return coupons.map((c) => {
-    const ours = !!code && norm(c.code) === code;
+    const ours = !!code && normCode(c.code) === code;
     return linkGift(linkUse(c, inv, ours && !gift), inv, ours && gift);
   });
 }
@@ -215,35 +218,109 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
 
   const schedule = useRef<(ms: number) => void>(() => {});
 
+  // When the first load failed and this device had no saved copy, the app is showing demo data: nothing may be sent
+  // to the database from it (it would replace the real settings and records), until a load succeeds.
+  const noBase = useRef(false);
+
+  /**
+   * A receipt number another device had already taken: the server gave this receipt the next free one. The local
+   * copy (and the order and coupon pointing at it) take the new number; an open receipt editor reads `renumbered`.
+   */
+  const [renumbered, setRenumbered] = useState<Record<string, string>>({});
+  const applyRenumbers = useCallback((list: { id: string; number: string }[]) => {
+    if (!list.length) return;
+    const to = new Map(list.map((r) => [r.id, r.number]));
+    setRenumbered((m) => ({ ...m, ...Object.fromEntries(to) }));
+    setData((d) => {
+      const shop = { ...d.shop };
+      for (const n of to.values()) {
+        const k = n.startsWith(shop.invoicePrefix) ? Number(n.slice(shop.invoicePrefix.length)) : NaN;
+        if (Number.isFinite(k) && k >= shop.nextNumber) shop.nextNumber = k + 1;
+      }
+      return {
+        ...d,
+        shop,
+        invoices: d.invoices.map((i) => (to.has(i.id) ? { ...i, number: to.get(i.id)! } : i)),
+        orders: d.orders.map((o) => (o.invoiceId && to.has(o.invoiceId) ? { ...o, invoiceNumber: to.get(o.invoiceId)! } : o)),
+        coupons: d.coupons.map((c) => (c.usedInvoiceId && to.has(c.usedInvoiceId) ? { ...c, usedInvoice: to.get(c.usedInvoiceId)! } : c)),
+      };
+    });
+  }, []);
+
+  /** Sends one group of changes. "bad" = the server refuses them as they are (they will never go through). */
+  const send = useCallback(async (changes: Change[]): Promise<"ok" | "bad" | "auth" | "retry"> => {
+    const res = await fetch("/api/sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ changes }) }).catch(() => null);
+    if (!res) return "retry";
+    if (res.status === 401) return "auth";
+    if (res.ok) {
+      const b = (await res.json().catch(() => null)) as { renumbered?: { id: string; number: string }[] } | null;
+      if (b?.renumbered?.length) applyRenumbers(b.renumbered);
+      return "ok";
+    }
+    return res.status === 400 || res.status === 413 ? "bad" : "retry";
+  }, [applyRenumbers]);
+
   const flush = useCallback(async () => {
     if (flushing.current || outbox.current.size === 0) return;
     flushing.current = true;
     const batch = [...outbox.current.entries()];
     setSync("saving");
-    try {
-      const res = await fetch("/api/sync", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ changes: batch.map(([, c]) => c) }),
-      });
-      if (res.status === 401) {
-        flushing.current = false;
-        window.location.href = "/login"; // eslint-disable-line @next/next/no-location-assign-relative-destination -- full reload clears the session state
-        return;
+    // small groups (by count and size), so one huge import or one broken record can't block everything else
+    const groups: [string, Change][][] = [];
+    let cur: [string, Change][] = [];
+    let size = 0;
+    for (const e of batch) {
+      const n = JSON.stringify(e[1]).length;
+      if (cur.length && (cur.length >= 200 || size + n > 2_500_000)) {
+        groups.push(cur);
+        cur = [];
+        size = 0;
       }
-      if (!res.ok) throw new Error(`sync failed: ${res.status}`);
-      // drop what was saved, unless it changed again while we were saving
-      for (const [k, c] of batch) if (outbox.current.get(k) === c) outbox.current.delete(k);
-      writeJSON(OUTBOX, [...outbox.current.values()]);
-      setSync("idle");
-      flushing.current = false;
-      if (outbox.current.size) schedule.current(400); // more changes arrived while saving
+      cur.push(e);
+      size += n;
+    }
+    if (cur.length) groups.push(cur);
+
+    const done = (entries: [string, Change][]) => {
+      for (const [k, c] of entries) if (outbox.current.get(k) === c) outbox.current.delete(k); // unless it changed again meanwhile
+    };
+    let retry = false;
+    try {
+      const todo = [...groups];
+      while (todo.length) {
+        const g = todo.shift()!;
+        const r = await send(g.map(([, c]) => c));
+        if (r === "auth") {
+          flushing.current = false;
+          window.location.href = "/login"; // eslint-disable-line @next/next/no-location-assign-relative-destination -- full reload clears the session state
+          return;
+        }
+        if (r === "ok") done(g);
+        else if (r === "bad") {
+          // find the record the server won't take: split the group; a single refused record is dropped (kept on this device)
+          if (g.length > 1) todo.unshift(g.slice(0, Math.ceil(g.length / 2)), g.slice(Math.ceil(g.length / 2)));
+          else {
+            console.error("A change was refused by the server and won't be retried", g[0]![1]);
+            done(g);
+          }
+        } else {
+          retry = true;
+          break;
+        }
+      }
     } catch {
-      flushing.current = false;
+      retry = true;
+    }
+    writeJSON(OUTBOX, [...outbox.current.values()]);
+    flushing.current = false;
+    if (retry) {
       setSync("offline");
       schedule.current(10_000); // retry until the connection is back
+      return;
     }
-  }, []);
+    setSync("idle");
+    if (outbox.current.size) schedule.current(400); // more changes arrived while saving
+  }, [send]);
 
   useEffect(() => {
     schedule.current = (ms: number) => {
@@ -257,7 +334,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
 
   const queue = useCallback(
     (changes: Change[]) => {
-      if (!changes.length) return;
+      if (!changes.length || noBase.current) return;
       for (const c of changes) outbox.current.set(`${c.kind}:${c.id}`, c);
       writeJSON(OUTBOX, [...outbox.current.values()]);
       schedule.current(600);
@@ -321,6 +398,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
     merged = applyChanges(merged, unsent);
     pending.push(...unsent);
 
+    noBase.current = false; // the real data is here now
     lastSeen.current = merged;
     setData(merged);
     queue(pending);
@@ -347,6 +425,14 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
           setSync("offline");
           for (const c of readJSON<Change[]>(OUTBOX) ?? []) outbox.current.set(`${c.kind}:${c.id}`, c);
           schedule.current(10_000);
+          if (!local) {
+            // no copy on this device (e.g. after logging out): what's on screen is demo data - never save it over the
+            // real records; keep trying to load them instead
+            noBase.current = true;
+            const retry = setInterval(() => {
+              void loadFromServer().then((r) => r === "ok" && clearInterval(retry));
+            }, 10_000);
+          }
         }
       }
       setReady(true);
@@ -408,7 +494,10 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
       let customers = d.customers;
       const c = inv.customer;
       if (remember && c.name.trim()) {
-        const hit = customers.find((x) => norm(x.name) === norm(c.name));
+        // the same person is the same phone number; a name alone only matches when one side has no number
+        const key = phoneKey(c.phone);
+        const byName = customers.find((x) => norm(x.name) === norm(c.name));
+        const hit = (key ? customers.find((x) => phoneKey(x.phone) === key) : undefined) ?? (byName && (!key || !phoneKey(byName.phone)) ? byName : undefined);
         if (!hit) customers = [...customers, { id: uid(), name: c.name.trim(), phone: c.phone, address: c.address, updatedAt: Date.now() }];
         else if (hit.phone !== c.phone || hit.address !== c.address)
           customers = customers.map((x) =>
@@ -441,6 +530,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
 
   const store = useMemo<Store>(
     () => ({
+      renumbered,
       ...data,
       ready,
       mode,
@@ -504,7 +594,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
         if (mode === "cloud" && outbox.current.size === 0 && !flushing.current) void loadFromServer();
       },
     }),
-    [data, ready, mode, sync, authEnabled, saveInvoice, nextInvoiceNumber, logout, loadFromServer],
+    [data, ready, mode, sync, authEnabled, saveInvoice, nextInvoiceNumber, logout, loadFromServer, renumbered],
   );
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;

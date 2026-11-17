@@ -15,7 +15,15 @@ export default function WebsitePage() {
   const { shop, setShop, products, mode, ready } = useStore();
   const toast = useToast();
   const s = siteSettings(shop);
-  const set = (patch: Partial<SiteSettings>) => setShop({ ...shop, site: { ...s, ...patch } });
+  // always the newest settings: a slow upload finishing later must not undo edits made meanwhile
+  const latest = useRef(shop);
+  useEffect(() => void (latest.current = shop), [shop]);
+  const set = (patch: Partial<SiteSettings>) => {
+    const now = latest.current;
+    const next = { ...now, site: { ...siteSettings(now), ...patch } };
+    latest.current = next;
+    setShop(next);
+  };
 
   // the store's full address, read after mount (it depends on where the app is opened from)
   const [origin, setOrigin] = useState("");
@@ -164,7 +172,7 @@ export default function WebsitePage() {
                 </Select>
               </Field>
             </div>
-            <BkashQr value={s.bkash.qr ?? ""} cloud={mode === "cloud"} onChange={(qr) => set({ bkash: { ...s.bkash, qr: qr || undefined } })} />
+            <BkashQr value={s.bkash.qr ?? ""} cloud={mode === "cloud"} onChange={(qr) => set({ bkash: { ...siteSettings(latest.current).bkash, qr: qr || undefined } })} />
             <p className="mb-2 mt-5 text-[12px] font-bold uppercase tracking-wide text-aqua-deep">Bank transfer</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Bank name">
@@ -534,17 +542,22 @@ function FeaturedEditor({
   onIcons: (v: Record<string, string>) => void;
 }) {
   const [custom, setCustom] = useState("");
+  const [edit, setEdit] = useState<{ i: number; draft: string } | null>(null);
   const on = (c: string) => value.some((v) => sameName(v, c));
   const options = [...FEATURE_CATEGORY_IDEAS, ...categories, ...value].filter((c, i, all) => all.findIndex((x) => sameName(x, c)) === i);
-  const toggle = (c: string) => onChange(on(c) ? value.filter((v) => !sameName(v, c)) : [...value, c]);
+  // the name editor is tied to a position, so it closes whenever the list changes under it
+  const toggle = (c: string) => {
+    setEdit(null);
+    onChange(on(c) ? value.filter((v) => !sameName(v, c)) : [...value, c]);
+  };
   const move = (i: number, d: -1 | 1) => {
+    setEdit(null);
     const next = [...value];
     [next[i], next[i + d]] = [next[i + d]!, next[i]!];
     onChange(next);
   };
   const iconBtn = "grid size-8 place-items-center rounded-lg text-faint transition hover:bg-canvas hover:text-ink disabled:pointer-events-none disabled:opacity-30";
   const toast = useToast();
-  const [edit, setEdit] = useState<{ i: number; draft: string } | null>(null);
   /** Renames a tile; its icon pick moves with it. */
   const rename = (i: number, draft: string) => {
     const name = draft.trim().replace(/\s+/g, " ");

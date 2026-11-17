@@ -1,3 +1,4 @@
+import type postgres from "postgres";
 import { randomBytes, randomUUID } from "node:crypto";
 import { clean, normPhone, phoneKey } from "@/lib/phone";
 import { cleanCode, deliveryFee, makeOrderCode, needsTrxAtCheckout, onSite, siteSettings, splitPoliceStation, thumb, withPoliceStation } from "@/lib/site";
@@ -73,53 +74,55 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
 
   if (!settings.open) throw new OrderError(409, { error: "closed", message: "We're not taking orders on the website right now. Please message us on WhatsApp." });
 
-  const rows = await db()<{ data: Product }[]>`select data from gr_docs where kind = 'product' and id = any(${[...wanted.keys()]})`;
-  const byId = new Map(rows.map((r) => [r.data.id, r.data]));
-  const items: OrderItem[] = [];
-  const unavailable: string[] = [];
-  const short: string[] = []; // fewer in stock than ordered
-  for (const [id, qty] of wanted) {
-    const p = byId.get(id);
-    if (!p || !onSite(p) || p.inStock === false || (typeof p.stock === "number" && p.stock <= 0)) {
-      unavailable.push(id);
-      continue;
-    }
-    if (typeof p.stock === "number" && p.stock < qty) {
-      short.push(`${p.name.trim()} (only ${p.stock} left)`);
-      continue;
-    }
-    items.push({ productId: id, name: p.name.trim(), unit: p.unit?.trim() || undefined, price: p.price, qty, image: p.images?.[0] ? thumb(p.images[0]) : undefined });
-  }
-  if (short.length && !unavailable.length)
-    throw new OrderError(409, { error: "unavailable", ids: [], message: `We don't have that many of ${short.join(", ")}. We've lowered the quantity in your cart - please check it.` });
-  if (unavailable.length)
-    throw new OrderError(409, { error: "unavailable", ids: unavailable, message: "Some items in your cart are no longer available. We've removed them - please check your cart." });
-
-  const subtotal = round2(items.reduce((s, i) => s + i.price * i.qty, 0));
-  const weight = Math.round(items.reduce((s, i) => s + (Number(byId.get(i.productId)?.weight) || 0) * i.qty, 0) * 1000) / 1000;
-  const { zone, fee, quote } = deliveryFee(settings, String(body.zone ?? ""), subtotal, weight);
+  // Products are read and their stock taken inside one transaction, with the rows locked: two customers can't both
+  // buy the last one, and an admin edit made a moment ago is never overwritten with an older copy.
   const now = Date.now();
-  const order: Order = {
-    id: randomUUID(),
-    code: "",
-    status: "placed",
-    history: [{ status: "placed", at: now }],
-    customer: { name, phone, address, ...(email ? { email } : {}) },
-    ...(accountId ? { accountId } : {}),
-    items,
-    subtotal,
-    delivery: fee,
-    zone,
-    ...(weight > 0 ? { weight } : {}),
-    ...(quote ? { deliveryQuote: true } : {}),
-    total: round2(subtotal + fee),
-    payment: { method: method!, ...(trxId ? { trxId, submittedAt: now } : {}), ...(sender ? { sender } : {}) },
-    ...(clean(body.note) ? { note: String(body.note).trim().slice(0, 500) } : {}),
-    createdAt: now,
-    updatedAt: now,
-  };
+  const order = await db().begin(async (tx) => {
+    const rows = await tx<{ data: Product }[]>`select data from gr_docs where kind = 'product' and id = any(${[...wanted.keys()]}) for update`;
+    const byId = new Map(rows.map((r) => [r.data.id, r.data]));
+    const items: OrderItem[] = [];
+    const unavailable: string[] = [];
+    const short: string[] = []; // fewer in stock than ordered
+    for (const [id, qty] of wanted) {
+      const p = byId.get(id);
+      if (!p || !onSite(p) || p.inStock === false || (typeof p.stock === "number" && p.stock <= 0)) {
+        unavailable.push(id);
+        continue;
+      }
+      if (typeof p.stock === "number" && p.stock < qty) {
+        short.push(`${p.name.trim()} (only ${p.stock} left)`);
+        continue;
+      }
+      items.push({ productId: id, name: p.name.trim(), unit: p.unit?.trim() || undefined, price: p.price, qty, image: p.images?.[0] ? thumb(p.images[0]) : undefined });
+    }
+    if (short.length && !unavailable.length)
+      throw new OrderError(409, { error: "unavailable", ids: [], message: `We don't have that many of ${short.join(", ")}. We've lowered the quantity in your cart - please check it.` });
+    if (unavailable.length)
+      throw new OrderError(409, { error: "unavailable", ids: unavailable, message: "Some items in your cart are no longer available. We've removed them - please check your cart." });
 
-  await db().begin(async (tx) => {
+    const subtotal = round2(items.reduce((s, i) => s + i.price * i.qty, 0));
+    const weight = Math.round(items.reduce((s, i) => s + (Number(byId.get(i.productId)?.weight) || 0) * i.qty, 0) * 1000) / 1000;
+    const { zone, fee, quote } = deliveryFee(settings, String(body.zone ?? ""), subtotal, weight);
+    const order: Order = {
+      id: randomUUID(),
+      code: "",
+      status: "placed",
+      history: [{ status: "placed", at: now }],
+      customer: { name, phone, address, ...(email ? { email } : {}) },
+      ...(accountId ? { accountId } : {}),
+      items,
+      subtotal,
+      delivery: fee,
+      zone,
+      ...(weight > 0 ? { weight } : {}),
+      ...(quote ? { deliveryQuote: true } : {}),
+      total: round2(subtotal + fee),
+      payment: { method: method!, ...(trxId ? { trxId, submittedAt: now } : {}), ...(sender ? { sender } : {}) },
+      ...(clean(body.note) ? { note: String(body.note).trim().slice(0, 500) } : {}),
+      createdAt: now,
+      updatedAt: now,
+    };
+
     // a fresh code (the alphabet has ~887 million six-letter codes, so a clash is rare)
     for (let i = 0; i < 5 && !order.code; i++) {
       const code = makeOrderCode((n) => randomBytes(n));
@@ -128,15 +131,10 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
     }
     await tx`insert into gr_docs (kind, id, data) values ('order', ${order.id}, ${tx.json(order as never)})`;
     // counted stock goes down by what was ordered (and the product sells out at 0)
-    for (const it of items) {
-      const p = byId.get(it.productId)!;
-      if (typeof p.stock !== "number") continue;
-      const stock = Math.max(0, p.stock - it.qty);
-      const next: Product = { ...p, stock, ...(stock === 0 ? { inStock: false } : {}), updatedAt: Date.now() };
-      await tx`update gr_docs set data = ${tx.json(next as never)}, updated_at = now() where kind = 'product' and id = ${p.id}`;
-    }
+    await adjustStock(tx, items, -1);
     await upsertCustomer(tx, { name, phone, address, email });
     if (accountId) await syncAccount(tx, { name, phone, address, email }, accountId);
+    return order;
   });
   return order;
 }
@@ -238,6 +236,53 @@ export function mergeOrder(server: Order | undefined, incoming: Order): Order {
       seen: incoming.seen && server.seen,
     };
   return incoming;
+}
+
+type Tx = postgres.TransactionSql | postgres.Sql;
+
+/**
+ * Moves counted stock for an order's items: -1 takes them (an order placed or brought back), +1 puts them back (an
+ * order cancelled or deleted). Rows are locked, only stock changes, and products without a count are left alone.
+ */
+export async function adjustStock(tx: Tx, items: { productId: string; qty: number }[], sign: 1 | -1) {
+  const ids = [...new Set(items.map((i) => i.productId))];
+  if (!ids.length) return;
+  const rows = await tx<{ data: Product }[]>`select data from gr_docs where kind = 'product' and id = any(${ids}) for update`;
+  const at = Date.now();
+  for (const { data: p } of rows) {
+    if (typeof p.stock !== "number") continue;
+    const qty = items.filter((i) => i.productId === p.id).reduce((s, i) => s + i.qty, 0);
+    const stock = Math.max(0, p.stock + sign * qty);
+    const next: Product = { ...p, stock, stockAt: at, ...(stock === 0 ? { inStock: false } : sign > 0 && p.stock <= 0 ? { inStock: true } : {}), updatedAt: at };
+    await tx`update gr_docs set data = ${tx.json(next as never)}, updated_at = now() where kind = 'product' and id = ${p.id}`;
+  }
+}
+
+/** Orders whose stock is still taken: not cancelled, and not yet out of the door on a deleted order. */
+const holdsStock = (o: Order) => o.status !== "cancelled";
+
+/**
+ * Stock follows an order's life when the admin panel saves it: cancelling puts the items back, bringing a cancelled
+ * order back takes them again, and deleting an order that never left (placed or approved) puts them back.
+ */
+export async function stockForOrderChange(tx: Tx, before: Order | undefined, after: Order | null) {
+  if (!before) return;
+  if (after === null) {
+    if (holdsStock(before) && (before.status === "placed" || before.status === "confirmed")) await adjustStock(tx, before.items, 1);
+    return;
+  }
+  if (holdsStock(before) && !holdsStock(after)) await adjustStock(tx, before.items, 1);
+  else if (!holdsStock(before) && holdsStock(after)) await adjustStock(tx, after.items, -1);
+}
+
+/**
+ * A product saved from the admin panel keeps the stock count the server has when that count is newer (a website
+ * order took stock after the panel loaded): an edit to the price or photos must not bring old stock back.
+ */
+export function mergeProduct(server: Product | undefined, incoming: Product): Product {
+  if (!server || typeof server.stock !== "number") return incoming;
+  if ((server.stockAt ?? 0) <= (incoming.stockAt ?? 0)) return incoming;
+  return { ...incoming, stock: server.stock, stockAt: server.stockAt, ...(server.stock <= 0 ? { inStock: false } : {}) };
 }
 
 /** The receipt the shop made for an approved order, with the shop details it prints (null until approved). */

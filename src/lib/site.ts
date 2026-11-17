@@ -246,12 +246,19 @@ const RENAMED_ANSWERS: Record<string, string> = {
   "We ship within 1 to 2 working days after approving the payment. You can follow every step on the Order status page - just type your transaction ID.": "We ship within 1 to 2 working days after approving the payment. You can follow every step on the Order status page - just type your mobile number.",
 };
 
+/** Settings saved from this version on are taken as they are; older ones get the one-time fixes below. */
+const SETTINGS_VERSION = 2;
+
 export function siteSettings(shop: Shop): SiteSettings {
   const s = shop.site;
+  // One-time fixes for settings saved by older versions (old FAQ wording, "24/7" hours, the old delivery note).
+  // Once the admin saves the Website page the version is stored and what they type is never rewritten again.
+  const old = (s?.settingsVersion ?? 0) < SETTINGS_VERSION;
   return {
+    settingsVersion: SETTINGS_VERSION,
     open: s?.open ?? true,
     announcement: s?.announcement ?? "",
-    openingHours: s?.openingHours === undefined || OLD_HOURS.includes(s.openingHours.trim()) ? DEFAULT_HOURS : s.openingHours,
+    openingHours: s?.openingHours === undefined || (old && OLD_HOURS.includes(s.openingHours.trim())) ? DEFAULT_HOURS : s.openingHours,
     whatsapp: s?.whatsapp ?? shop.phone,
     facebook: s?.facebook ?? FACEBOOK_URL,
     bkash: { number: shop.phone, type: "Personal", ...s?.bkash },
@@ -260,9 +267,9 @@ export function siteSettings(shop: Shop): SiteSettings {
     zones: s?.zones?.some((x) => x.area) ? s.zones : DEFAULT_ZONES,
     freeDeliveryOver: s?.freeDeliveryOver ?? 0,
     address: s?.address ?? DEFAULT_ADDRESS,
-    deliveryNote: !s?.deliveryNote || s.deliveryNote === OLD_DELIVERY_NOTE ? DEFAULT_DELIVERY_NOTE : s.deliveryNote,
+    deliveryNote: s?.deliveryNote === undefined || (old && (!s.deliveryNote || s.deliveryNote === OLD_DELIVERY_NOTE)) ? DEFAULT_DELIVERY_NOTE : s.deliveryNote,
     about: s?.about ?? DEFAULT_ABOUT,
-    faq: migrateFaq(s?.faq ?? DEFAULT_FAQ).map((f) => ({ ...f, a: RENAMED_ANSWERS[f.a] ?? f.a })),
+    faq: !s?.faq ? DEFAULT_FAQ : old ? migrateFaq(s.faq).map((f) => ({ ...f, a: RENAMED_ANSWERS[f.a] ?? f.a })) : s.faq,
     // older lists give way once to the six categories the shop asked for; after that the shop's own picks stay
     featuredCategories: s?.featuredCategories && (s.featuredVersion ?? 0) >= FEATURED_VERSION ? s.featuredCategories : DEFAULT_FEATURED,
     featuredVersion: FEATURED_VERSION,
@@ -428,7 +435,7 @@ export function deliveryFee(settings: SiteSettings, zoneId: string, subtotal: nu
 
 // ---------- police station ----------
 // Checkout asks for the police station on its own; orders and the customer list keep it at the end of the address.
-const PS_RE = /,?\s*P\.?\s*S\.?\s*:\s*([^,\n]+)\s*$/i;
+const PS_RE = /,?\s*P\.?\s*S\.?\s*:\s*([^\n]+?)\s*$/i; // the station may hold a comma ("Mirpur, Dhaka")
 export const withPoliceStation = (address: string, ps: string) => {
   const a = address.trim().replace(PS_RE, "");
   return ps.trim() ? `${a}, P.S.: ${ps.trim()}` : a;

@@ -55,6 +55,12 @@ export async function endSession() {
   jar.delete(CUSTOMER_COOKIE);
 }
 
+/** Logs the account out everywhere except this browser (after a password change). */
+export async function endOtherSessions(accountId: string) {
+  const token = (await cookies()).get(CUSTOMER_COOKIE)?.value ?? "";
+  await db()`delete from gr_sessions where account_id = ${accountId} and token_hash <> ${sha(token)}`;
+}
+
 /** The logged-in customer, or null. */
 export async function currentAccount(): Promise<Account | null> {
   if (!dbEnabled()) return null;

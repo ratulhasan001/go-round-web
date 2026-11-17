@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Delete, LockKeyhole, LockKeyholeOpen } from "lucide-react";
 import { WAVE_BACK, WAVE_FRONT } from "@/lib/theme";
 
-const PIN_LENGTH = 4;
+const DEFAULT_PIN_LENGTH = 4;
 const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
 /** Keypad layout: 10 digits in random order, with Clear and Delete in the bottom corners. */
@@ -19,7 +19,26 @@ const shuffledKeys = () => {
 
 type Status = "idle" | "checking" | "error" | "success";
 
+/** Only a path on this site: "/\\evil.com" or "/\tevil.com" would leave it. */
+function safeNext(next: string | null) {
+  if (!next) return "/";
+  try {
+    const u = new URL(next, window.location.origin);
+    return u.origin === window.location.origin ? u.pathname + u.search + u.hash : "/";
+  } catch {
+    return "/";
+  }
+}
+
 export default function LoginPage() {
+  const [PIN_LENGTH, setPinLength] = useState(DEFAULT_PIN_LENGTH);
+  useEffect(() => {
+    // the PIN can be longer than 4 digits (set in APP_PASSWORD)
+    fetch("/api/login")
+      .then((r) => r.json())
+      .then((b: { length?: number }) => b.length && setPinLength(b.length))
+      .catch(() => null);
+  }, []);
   const [pin, setPin] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
@@ -43,13 +62,14 @@ export default function LoginPage() {
       navigator.vibrate?.(30);
       const next = new URLSearchParams(window.location.search).get("next");
       setTimeout(() => {
-        window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+        window.location.href = safeNext(next);
       }, 650);
       return;
     }
     setStatus("error");
     navigator.vibrate?.([60, 40, 60]);
-    setError(res ? "Wrong PIN. Try again." : "Can't connect. Check your internet.");
+    const b = res && res.status === 429 ? ((await res.json().catch(() => ({}))) as { message?: string }) : null;
+    setError(b?.message ?? (res ? "Wrong PIN. Try again." : "Can't connect. Check your internet."));
     setTimeout(() => {
       setPin("");
       setStatus("idle");
@@ -83,7 +103,7 @@ export default function LoginPage() {
         setTimeout(() => submit(next), 180);
       }
     },
-    [locked, status, pin, submit],
+    [locked, status, pin, submit, PIN_LENGTH],
   );
 
   // physical keyboard support

@@ -13,7 +13,7 @@ import { Reveal } from "@/components/store/Reveal";
 
 async function find(id: string) {
   const { products } = await loadCatalog();
-  return { product: products.find((p) => p.id === decodeURIComponent(id)), products };
+  return { product: products.find((p) => p.id === id), products };
 }
 
 export async function generateMetadata({ params }: PageProps<"/store/products/[id]">): Promise<Metadata> {

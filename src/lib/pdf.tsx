@@ -12,6 +12,9 @@ import { WATERMARK_OPACITY, makeWatermark } from "./watermark";
 
 type Style = Parameters<typeof StyleSheet.create>[0][string];
 
+/** A font with Bangla as its fallback: [font, Noto Sans Bengali] - react-pdf takes the first one that has each letter. */
+export const withBangla = (family: string) => [family, "NotoBengali"];
+
 let fontsReady = false;
 export function registerFonts() {
   if (fontsReady) return;
@@ -41,6 +44,15 @@ export function registerFonts() {
       { src: `${base}/SansItalic-${w}.woff`, fontWeight: w },
     ]),
   });
+  // Bangla: none of the fonts above has Bengali letters, so every font falls back to Noto Sans Bengali for them
+  Font.register({
+    family: "NotoBengali",
+    // the same upright letters serve italic text too (Bangla has no italic), so italic runs never fail to find a font
+    fonts: [400, 700].flatMap((w) => [
+      { src: `${base}/NotoSansBengali-${w}.ttf`, fontWeight: w },
+      { src: `${base}/NotoSansBengali-${w}.ttf`, fontWeight: w, fontStyle: "italic" as const },
+    ]),
+  });
   Font.registerHyphenationCallback((w) => [w]);
   // the receipt fonts have no emoji, so draw them as images (e.g. a 🎉 in the notes); skipped quietly when offline
   Font.registerEmojiSource({ format: "png", url: "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/" });
@@ -48,27 +60,27 @@ export function registerFonts() {
 }
 
 const s = StyleSheet.create({
-  page: { fontFamily: "Manrope", fontSize: 9, color: T.body, backgroundColor: AQ.paper, paddingTop: 54, paddingBottom: 118, paddingHorizontal: 40 },
+  page: { fontFamily: withBangla("Manrope"), fontSize: 9, color: T.body, backgroundColor: AQ.paper, paddingTop: 54, paddingBottom: 118, paddingHorizontal: 40 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   brand: { flexDirection: "row", alignItems: "center", gap: 14, maxWidth: 330 },
   logo: { width: 68, height: 68, objectFit: "contain" },
   mono: { width: 60, height: 60, borderRadius: 30, borderWidth: 4, borderColor: T.leaf, alignItems: "center", justifyContent: "center" },
-  monoTxt: { fontFamily: "Bricolage", fontWeight: 800, fontSize: 20, color: T.ink },
-  shopName: { fontFamily: "Fraunces", fontWeight: 600, fontSize: 25, color: AQ.ink, letterSpacing: -0.6 },
+  monoTxt: { fontFamily: withBangla("Bricolage"), fontWeight: 800, fontSize: 20, color: T.ink },
+  shopName: { fontFamily: withBangla("Fraunces"), fontWeight: 600, fontSize: 25, color: AQ.ink, letterSpacing: -0.6 },
   tagline: { fontSize: 6.4, color: AQ.muted, fontWeight: 800, letterSpacing: 1.6, marginTop: 2 },
   contact: { fontSize: 8, color: T.muted, marginTop: 5, lineHeight: 1.45 },
-  title: { fontFamily: "Fraunces", fontWeight: 600, fontSize: 26, color: AQ.ink, letterSpacing: 3, textAlign: "right" },
+  title: { fontFamily: withBangla("Fraunces"), fontWeight: 600, fontSize: 26, color: AQ.ink, letterSpacing: 3, textAlign: "right" },
   invNo: { fontSize: 9.5, fontWeight: 800, color: AQ.blue, letterSpacing: 0.6, textAlign: "right", marginTop: 1 },
   pill: { alignSelf: "flex-end", marginTop: 7, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 9, fontSize: 7.5, fontWeight: 800, letterSpacing: 0.8 },
   rule: { flexDirection: "row", alignItems: "center", marginTop: 20, marginBottom: 20, height: 2 },
   label: { fontSize: 7, fontWeight: 800, letterSpacing: 1.6, color: T.muted, marginBottom: 6 },
-  billName: { fontFamily: "Manrope", fontWeight: 700, fontSize: 13, color: AQ.ink, marginBottom: 3 },
+  billName: { fontFamily: withBangla("Manrope"), fontWeight: 700, fontSize: 13, color: AQ.ink, marginBottom: 3 },
   small: { fontSize: 8.5, color: T.body, lineHeight: 1.45 },
   kv: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4.5 },
   kvK: { fontSize: 8.5, color: T.muted },
   kvV: { fontSize: 8.5, color: T.ink, fontWeight: 700 },
   sumCard: { flex: 1.15, borderWidth: 0.8, borderColor: AQ.line, borderRadius: 8, padding: 12, backgroundColor: AQ.panel },
-  sumAmt: { fontFamily: "Manrope", fontWeight: 800, fontSize: 16, color: AQ.ink, letterSpacing: -0.2, marginBottom: 8 },
+  sumAmt: { fontFamily: withBangla("Manrope"), fontWeight: 800, fontSize: 16, color: AQ.ink, letterSpacing: -0.2, marginBottom: 8 },
   sumRow: { flexDirection: "row", justifyContent: "space-between", paddingTop: 4, borderTopWidth: 0.5, borderTopColor: AQ.line, marginTop: 3 },
   table: { marginTop: 24 },
   th: { flexDirection: "row", backgroundColor: AQ.sage, borderRadius: 6, paddingVertical: 7, paddingHorizontal: 8 },
@@ -84,15 +96,15 @@ const s = StyleSheet.create({
   words: { backgroundColor: AQ.blueSoft, borderRadius: 6, padding: 10, marginBottom: 14, borderLeftWidth: 3, borderLeftColor: AQ.blue },
   wordsTxt: { fontSize: 8.5, color: T.ink, fontWeight: 700, lineHeight: 1.4 },
   reward: { backgroundColor: AQ.sage, borderRadius: 6, padding: 9, marginTop: 10, borderLeftWidth: 3, borderLeftColor: AQ.green },
-  rewardTitle: { fontFamily: "Fraunces", fontWeight: 600, fontSize: 10.5, color: AQ.ink, marginBottom: 2 },
+  rewardTitle: { fontFamily: withBangla("Fraunces"), fontWeight: 600, fontSize: 10.5, color: AQ.ink, marginBottom: 2 },
   rewardTxt: { fontSize: 8.2, color: T.ink, lineHeight: 1.45 },
   payRow: { flexDirection: "row", paddingVertical: 4.5, borderBottomWidth: 0.5, borderBottomColor: AQ.line },
   totRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 5, paddingHorizontal: 8 },
   totK: { fontSize: 9, color: T.muted },
   totV: { fontSize: 9, color: T.ink, fontWeight: 700 },
   grand: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, paddingHorizontal: 8, marginVertical: 4, backgroundColor: AQ.sage, borderRadius: 6 },
-  grandTxt: { fontFamily: "Fraunces", fontWeight: 600, fontSize: 13, color: AQ.ink },
-  grandAmt: { fontFamily: "Manrope", fontWeight: 800, fontSize: 12.5, color: AQ.ink },
+  grandTxt: { fontFamily: withBangla("Fraunces"), fontWeight: 600, fontSize: 13, color: AQ.ink },
+  grandAmt: { fontFamily: withBangla("Manrope"), fontWeight: 800, fontSize: 12.5, color: AQ.ink },
   balRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, paddingHorizontal: 8, marginTop: 2, borderTopWidth: 0.8, borderTopColor: AQ.line },
   balK: { fontSize: 9, fontWeight: 700, color: T.ink },
   balV: { fontSize: 10, fontWeight: 800, color: T.ink },
@@ -101,7 +113,7 @@ const s = StyleSheet.create({
   watermark: { position: "absolute", width: 380, height: 380, left: 107.6, top: 250, objectFit: "contain", opacity: WATERMARK_OPACITY },
   footer: { position: "absolute", left: 40, right: 40, bottom: 44 },
   footTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
-  thanks: { fontFamily: "Fraunces", fontStyle: "italic", fontSize: 14, color: AQ.blue },
+  thanks: { fontFamily: withBangla("Fraunces"), fontStyle: "italic", fontSize: 14, color: AQ.blue },
   terms: { fontSize: 7, color: T.muted, marginTop: 3, maxWidth: 300, lineHeight: 1.4 },
   verify: { alignItems: "flex-end" },
   verifyTop: { flexDirection: "row", alignItems: "center", gap: 4 },

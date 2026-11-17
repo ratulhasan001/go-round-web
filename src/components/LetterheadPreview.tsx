@@ -163,7 +163,7 @@ function HtmlPara({ p, inCell, bold }: { p: Para; inCell?: boolean; bold?: boole
   if (p.kind === "p") return <div style={{ ...box, ...gap }}>{runs}</div>;
   return (
     <div style={{ display: "flex", paddingLeft: inCell ? 0 : 6, ...gap }}>
-      <span style={{ ...box, width: 14, flexShrink: 0 }}>{p.kind === "bullet" ? "\u2022" : `${p.n}.`}</span>
+      <span style={{ ...box, width: 14, flexShrink: 0 }}>{p.cont ? "" : p.kind === "bullet" ? "\u2022" : `${p.n}.`}</span>
       <div style={{ ...box, flex: 1 }}>{runs}</div>
     </div>
   );

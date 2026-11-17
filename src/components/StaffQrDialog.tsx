@@ -40,6 +40,7 @@ export function StaffQrDialog({ employee, onClose }: { employee: Employee | null
   useEffect(() => {
     if (!input || sides?.key === key) return;
     let alive = true;
+    setFailed(""); // eslint-disable-line react-hooks/set-state-in-effect -- a new attempt clears the old failure
     renderCardSides(input)
       .then((s) => alive && setSides({ key, ...s }))
       .catch(() => alive && setFailed(key));
@@ -63,8 +64,12 @@ export function StaffQrDialog({ employee, onClose }: { employee: Employee | null
           <Button
             className="flex-1"
             onClick={async () => {
-              saveBlob(await (await fetch(await QRCode.toDataURL(url, { errorCorrectionLevel: "M", margin: 2, width: 1024, color: { dark: INK, light: "#FFFFFF" } }))).blob(), fileName(e, "QR"));
-              toast("QR code downloaded");
+              try {
+                saveBlob(await (await fetch(await QRCode.toDataURL(url, { errorCorrectionLevel: "M", margin: 2, width: 1024, color: { dark: INK, light: "#FFFFFF" } }))).blob(), fileName(e, "QR"));
+                toast("QR code downloaded");
+              } catch {
+                toast("Couldn't make the QR code - please try again", "err");
+              }
             }}
           >
             <QrCode className="size-4" /> QR code only
@@ -120,7 +125,10 @@ export function StaffQrDialog({ employee, onClose }: { employee: Employee | null
           <Button
             size="sm"
             onClick={() => {
-              void navigator.clipboard?.writeText(url).then(() => toast("Link copied"));
+              void navigator.clipboard
+                ?.writeText(url)
+                .then(() => toast("Link copied"))
+                .catch(() => toast("Could not copy - your browser blocked the clipboard", "err"));
             }}
           >
             <Copy className="size-3.5" /> Copy

@@ -57,6 +57,7 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
   const galleryRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(0); // photos still uploading
   const [drag, setDrag] = useState(false);
+  const [dragThumb, setDragThumb] = useState(false); // a photo is being dragged over the thumbnail box
   // the newest list, so photos finishing one after another don't overwrite each other
   const latest = useRef(products);
   useEffect(() => {
@@ -226,30 +227,19 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
           </label>
           <label className="block">
             <Label required>Regular price</Label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              value={regular || ""}
+            <PriceInput
+              value={regular}
               placeholder="Regular price"
-              onChange={(e) => {
-                const v = num(e.target.value) ?? 0;
-                update(discounted && p.price < v ? { regularPrice: v } : { price: v, regularPrice: undefined });
-              }}
+              // applied when the field is left, so half-typed numbers never reach the website
+              onCommit={(v) => update(discounted && p.price < v ? { regularPrice: v } : { price: v, regularPrice: undefined })}
             />
           </label>
           <label className="block">
             <Label hint="leave empty for no discount">Discounted price</Label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              value={discounted ? p.price : ""}
+            <PriceInput
+              value={discounted ? p.price : 0}
               placeholder="Discounted price"
-              onChange={(e) => {
-                const v = num(e.target.value);
-                update(v && v < regular ? { price: v, regularPrice: regular } : { price: regular, regularPrice: undefined });
-              }}
+              onCommit={(v) => update(v && v < regular ? { price: v, regularPrice: regular } : { price: regular, regularPrice: undefined })}
             />
           </label>
           {discounted && (
@@ -268,7 +258,7 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
               onChange={(e) => {
                 const v = num(e.target.value);
                 const stock = v === undefined ? undefined : Math.floor(v);
-                update({ stock, ...(stock !== undefined ? { inStock: stock > 0 } : {}) });
+                update({ stock, stockAt: Date.now(), ...(stock !== undefined ? { inStock: stock > 0 } : {}) });
               }}
             />
           </label>
@@ -295,12 +285,41 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
         {/* photos */}
         <div className={section}>
           <div className="grid gap-5 sm:grid-cols-[220px_1fr]">
-            <div>
-              <Label hint="any size">Upload thumbnail image</Label>
+            <div
+              // drop a photo here to make it the thumbnail (the old one moves into the gallery)
+              onDragOver={(e) => {
+                if (![...e.dataTransfer.types].includes("Files")) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+                setDragThumb(true);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragThumb(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragThumb(false);
+                const files = [...e.dataTransfer.files];
+                if (files.length) void add(files, true);
+              }}
+            >
+              <Label hint="any size · drag & drop">Upload thumbnail image</Label>
               {images[0] ? (
-                <div className="group relative aspect-square overflow-hidden rounded-xl border border-line bg-canvas">
+                <div className={cx("group relative aspect-square overflow-hidden rounded-xl border border-line bg-canvas transition", dragThumb && "ring-2 ring-aqua-deep/50")}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- uploaded product photo */}
                   <img src={thumb(images[0])} alt="" className="size-full object-cover" />
+                  {dragThumb && (
+                    <div className="pointer-events-none absolute inset-0 grid place-items-center bg-aqua-soft/85 text-aqua-deep">
+                      <span className="flex flex-col items-center gap-1.5 text-[13px] font-bold">
+                        <CloudUpload className="size-7" /> Drop to replace
+                      </span>
+                    </div>
+                  )}
+                  {busy > 0 && (
+                    <div className="absolute inset-0 grid place-items-center bg-white/60">
+                      <Loader2 className="size-6 animate-spin text-aqua-deep" />
+                    </div>
+                  )}
                   <div className="absolute inset-x-2 bottom-2 flex justify-end gap-1">
                     <button type="button" onClick={() => pick(thumbRef)} className="rounded-lg bg-white/90 px-2.5 py-1.5 text-[12px] font-bold text-ink shadow hover:bg-white">
                       Change
@@ -314,10 +333,14 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
                 <button
                   type="button"
                   onClick={() => pick(thumbRef)}
-                  className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line text-muted transition hover:border-aqua-deep hover:bg-aqua-soft hover:text-aqua-deep"
+                  className={cx(
+                    "flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-muted transition hover:border-aqua-deep hover:bg-aqua-soft hover:text-aqua-deep",
+                    dragThumb ? "border-aqua-deep bg-aqua-soft text-aqua-deep" : "border-line",
+                  )}
                 >
                   {busy ? <Loader2 className="size-7 animate-spin" /> : <CloudUpload className="size-8" />}
-                  <span className="text-[13px] font-semibold">Upload thumbnail image</span>
+                  <span className="text-[13px] font-semibold">{dragThumb ? "Drop the photo here" : "Upload thumbnail image"}</span>
+                  <span className="text-[11.5px]">or drag a photo here</span>
                 </button>
               )}
               {fileInput(thumbRef, true)}
@@ -409,5 +432,31 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
         {!(p.price > 0) && <p className="-mt-2 text-[12.5px] text-amber-700">Products without a price aren&apos;t shown on the website.</p>}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * A price box that keeps what is typed to itself and hands the number over when the field is left (or Enter is
+ * pressed): prices go live on the website as they change, so in-between values like "9" on the way to "900" must not.
+ */
+function PriceInput({ value, placeholder, onCommit }: { value: number; placeholder: string; onCommit: (v: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const v = num(draft) ?? 0;
+    setDraft(null);
+    if (v !== value) onCommit(v);
+  };
+  return (
+    <Input
+      type="number"
+      inputMode="decimal"
+      min={0}
+      value={draft ?? (value || "")}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commit())}
+    />
   );
 }

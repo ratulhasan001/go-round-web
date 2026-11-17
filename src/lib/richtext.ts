@@ -22,6 +22,7 @@ export interface Para {
   align: Align;
   runs: Run[];
   n?: number; // number shown on a numbered item
+  cont?: boolean; // a further line of the list item above (after a line break): indented, no bullet or number
   lh?: number; // line spacing, a multiple of the text size (missing = LINE_HEIGHT)
   after?: number; // space after the paragraph, pt
 }
@@ -194,9 +195,17 @@ function parseNodes(root: HTMLElement, allowTables: boolean): Block[] {
   const blocks: Block[] = [];
   let cur: Para | null = null;
 
-  type Ctx = { list?: "bullet" | "number"; align: Align; lh?: number; after?: number };
+  // li: inside a list item, which kind it is - a line opened there after a line break continues that item
+  type Ctx = { list?: "bullet" | "number"; li?: "bullet" | "number"; align: Align; lh?: number; after?: number };
   const open = (ctx: Ctx, kind?: Para["kind"]) =>
-    (cur ??= { kind: kind ?? "p", align: ctx.align, runs: [], ...(ctx.lh ? { lh: ctx.lh } : {}), ...(ctx.after !== undefined ? { after: ctx.after } : {}) });
+    (cur ??= {
+      kind: kind ?? ctx.li ?? "p",
+      ...(!kind && ctx.li ? { cont: true } : {}),
+      align: ctx.align,
+      runs: [],
+      ...(ctx.lh ? { lh: ctx.lh } : {}),
+      ...(ctx.after !== undefined ? { after: ctx.after } : {}),
+    });
   const close = () => {
     if (cur) blocks.push(cur);
     cur = null;
@@ -254,7 +263,8 @@ function parseNodes(root: HTMLElement, allowTables: boolean): Block[] {
       close();
       const inner: Ctx = { ...ctx, align: alignOf(el, ctx.align), lh: lineHeightOf(el) ?? ctx.lh, after: gapOf(el) ?? ctx.after };
       if (tag !== "LI") inner.list = undefined;
-      open(inner, tag === "LI" ? (ctx.list ?? "bullet") : "p");
+      if (tag === "LI") inner.li = ctx.list ?? "bullet";
+      open(inner, tag === "LI" ? (ctx.list ?? "bullet") : ctx.li ? undefined : "p");
       el.childNodes.forEach((c) => walk(c, s, inner));
       // an empty <div></div> still made a block (a blank line); one that only held a <br> already closed it
       close();
@@ -277,8 +287,10 @@ function parseNodes(root: HTMLElement, allowTables: boolean): Block[] {
   }
   const emptyPara = (b: Block) => b.kind !== "hr" && b.kind !== "table" && !b.runs.length;
   while (blocks.length && emptyPara(blocks[blocks.length - 1]!)) blocks.pop();
+  // a continuation line keeps its item's count going (it gets no number of its own)
   let n = 0;
   for (const b of blocks) {
+    if (b.kind === "number" && b.cont) continue;
     n = b.kind === "number" ? n + 1 : 0;
     if (b.kind === "number") b.n = n;
   }

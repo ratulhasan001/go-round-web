@@ -74,7 +74,8 @@ export default function Home() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input, textarea, select")) return;
-      const s = /^[1-9]$/.test(e.key) ? SECTIONS[Number(e.key) - 1] : undefined;
+      // 1-9 open the first nine sections, 0 the tenth
+      const s = /^[0-9]$/.test(e.key) ? SECTIONS[e.key === "0" ? 9 : Number(e.key) - 1] : undefined;
       if (s) router.push(s.href, { transitionTypes: ["nav-forward"] });
     };
     window.addEventListener("keydown", onKey);
@@ -183,7 +184,9 @@ function Tile({ i, section, meta, featured }: { i: number; section: (typeof SECT
       className={cx(
         "animate-tile-in group relative isolate flex min-h-44 flex-col overflow-hidden rounded-3xl border p-5 shadow-[0_1px_2px_rgba(20,32,26,0.05)] transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-deep/10 active:translate-y-0 active:scale-[0.985] sm:p-6",
         featured && "sm:col-span-2",
-        (section.key === "website" || section.key === "settings") && "lg:col-span-2", // keeps the last row of four full
+        // rows stay full: on large screens Website is wide (coupons + website + settings = 4), on tablets Settings is
+        section.key === "website" && "lg:col-span-2",
+        section.key === "settings" && "sm:col-span-2 lg:col-span-1",
         featured ? "border-lime/60 bg-gradient-to-br from-lime to-[#b6e27f] text-deep" : "border-line bg-white hover:border-transparent",
       )}
     >

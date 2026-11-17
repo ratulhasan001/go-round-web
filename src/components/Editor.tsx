@@ -103,6 +103,14 @@ function EditorForm({
   const isSaved = invoices.some((i) => i.id === inv.id);
   const dupNumber = invoices.some((i) => i.id !== inv.id && i.number.trim().toLowerCase() === inv.number.trim().toLowerCase());
 
+  // another device had already used this receipt's number: the server gave it the next free one - show it here too
+  const newNumber = store.renumbered[inv.id];
+  useEffect(() => {
+    if (!newNumber || inv.number === newNumber) return; // already showing it (e.g. reopened later)
+    setInv((x) => (x ? { ...x, number: newNumber } : x));
+    toast(`Another device had already used that number - this receipt is now ${newNumber}`);
+  }, [newNumber]); // eslint-disable-line react-hooks/exhaustive-deps -- runs once per new number
+
   // auto-saves skip remembering the customer / products; catch up once the editor closes
   const unremembered = useRef(false);
   const latest = useRef(inv);
@@ -191,6 +199,11 @@ function EditorForm({
   // the typed code's entry in the coupon sheet, and why it can't be used / given (if so)
   const sheetCoupon = cp.code.trim() ? coupons.find((c) => normCode(c.code) === normCode(cp.code)) : undefined;
   const sheetProblem = sheetCoupon ? couponProblem(sheetCoupon, inv, inv.customer, inv.date, gift) : "";
+  // a coupon the sheet refuses (expired, already used, someone else's) takes nothing off the receipt
+  const couponBad = !!sheetProblem && !gift;
+  useEffect(() => {
+    if (!!inv.coupon?.invalid !== couponBad && inv.coupon) setInv((x) => (x?.coupon ? { ...x, coupon: { ...x.coupon, invalid: couponBad || undefined } } : x));
+  }, [couponBad, inv.coupon, setInv]);
   const reward = rewardNote(inv);
   // coupons this receipt can use, for the search: this customer's own first. As a gift: the ones nobody has yet
   const couponOpts = useMemo(() => {
@@ -359,7 +372,7 @@ function EditorForm({
                 {dupNumber && <span className="mt-1 block text-[11.5px] font-semibold text-red-600">Another receipt already has this number</span>}
               </Field>
               <Field label="Invoice date">
-                <Input type="date" value={inv.date} onChange={(e) => update({ date: e.target.value })} />
+                <Input type="date" value={inv.date} onChange={(e) => update({ date: e.target.value || todayISO() })} />
               </Field>
             </div>
           </Card>

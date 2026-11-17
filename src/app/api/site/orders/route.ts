@@ -12,6 +12,7 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try {
     body = await req.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("not an object");
   } catch {
     return NextResponse.json({ error: "bad request", message: "Please refresh the page and try again." }, { status: 400 });
   }
@@ -30,6 +31,8 @@ export async function POST(req: Request) {
     }
     const order = await placeOrder(body, account?.id ?? null);
     if (!account && password) {
+      // the order is already saved: if making the account fails, still tell the customer their order is in
+      try {
       // the order is in; now make the account it belongs to
       const id = newAccountId();
       await db()`
@@ -40,6 +43,10 @@ export async function POST(req: Request) {
       await db()`update gr_docs set data = ${db().json(next as never)} where kind = 'order' and id = ${order.id}`;
       await startSession(id);
       return NextResponse.json({ ok: true, order: orderView(next), created: true });
+      } catch (e) {
+        console.error("account after order failed", e);
+        return NextResponse.json({ ok: true, order: orderView(order), created: false });
+      }
     }
     return NextResponse.json({ ok: true, order: orderView(order), created: false });
   } catch (e) {

@@ -21,8 +21,9 @@ const DATE = "dd mmm yyyy";
 const CARD = "#FAFCFA";
 
 const excelDate = (iso: string) => {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
+  const [y, m, d] = (iso || "").split("-").map(Number);
+  const date = new Date(Date.UTC(y!, m! - 1, d));
+  return Number.isNaN(date.getTime()) ? new Date() : date; // a receipt without a date gets today, not a broken cell
 };
 
 async function logoDataUrl(logo: string): Promise<string | null> {

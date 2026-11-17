@@ -42,7 +42,7 @@ export function ProductReviews({ productId, initial, page }: { productId: string
   const { online } = useShop();
   const [list, setList] = useState(initial);
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ name: "", rating: 0, text: "", website: "" });
+  const [f, setF] = useState({ name: "", rating: 0, text: "", gr_hp: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState("");
@@ -60,10 +60,10 @@ export function ProductReviews({ productId, initial, page }: { productId: string
       if (res.ok && b.review) {
         if (b.approved) setList((l) => [b.review, ...l]);
         setDone(b.approved ? "Thank you! Your review is up." : "Thank you! Your review will appear once we've checked it.");
-        setF({ name: "", rating: 0, text: "", website: "" });
+        setF({ name: "", rating: 0, text: "", gr_hp: "" });
         setOpen(false);
       } else if (b.fields) setErrors(b.fields);
-      else setErrors({ form: b.message ?? "Something went wrong. Please try again." });
+      else setErrors({ form: b.message ?? `Something went wrong (error ${res.status}). Please try again.` });
     } catch {
       setErrors({ form: "You seem to be offline. Check your connection and try again." });
     }
@@ -116,7 +116,7 @@ export function ProductReviews({ productId, initial, page }: { productId: string
           <SeaField label="Your review" error={errors.text} className="sm:col-span-2" htmlFor="r-text">
             <SeaTextarea id="r-text" rows={4} value={f.text} onChange={(e) => setF((x) => ({ ...x, text: e.target.value }))} placeholder={page ? "How was your order, the products and our service?" : "How did it work in your tank?"} invalid={!!errors.text} />
           </SeaField>
-          <input value={f.website} onChange={(e) => setF((x) => ({ ...x, website: e.target.value }))} tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] size-px opacity-0" aria-hidden />
+          <input name="gr_hp" value={f.gr_hp} onChange={(e) => setF((x) => ({ ...x, gr_hp: e.target.value }))} tabIndex={-1} autoComplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" className="absolute -left-[9999px] size-px opacity-0" aria-hidden />
           {errors.form && <p className="text-[13px] font-semibold text-red-600 sm:col-span-2">{errors.form}</p>}
           <div className="flex gap-2 sm:col-span-2">
             <button type="submit" disabled={busy} className={btn("primary", "md")}>

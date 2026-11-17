@@ -17,9 +17,10 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "bad request" }, { status: 400 });
+    return NextResponse.json({ error: "bad request", message: "Please refresh the page and try again." }, { status: 400 });
   }
-  if (body.website) return NextResponse.json({ error: "bad request" }, { status: 400 }); // bots fill the hidden field
+  // bots fill the hidden trap field (gr_hp). The old trap was called "website", which browsers autofilled, so that name is no longer checked
+  if (typeof body.gr_hp === "string" && body.gr_hp.trim()) return NextResponse.json({ error: "bad request", message: "Please refresh the page and try again." }, { status: 400 });
   try {
     return NextResponse.json({ ok: true, ...(await addReview(body)) });
   } catch (e) {

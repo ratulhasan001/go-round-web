@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Megaphone, ShoppingBag, Store, UserRound, X } from "lucide-react";
-import { exploreLinks, waLink } from "@/lib/site";
+import { exploreLinks, policyLinks, waLink } from "@/lib/site";
 import { useShop } from "./StoreContext";
 import { FacebookIcon, WhatsAppIcon } from "./Icons";
 
@@ -113,6 +113,14 @@ export function Header() {
             <nav className="mt-3 flex flex-col border-t border-sea-line px-3 pt-3" aria-label="Explore">
               <span className="store-eyebrow px-3 pb-1">Explore</span>
               {exploreLinks(links).map((l) => (
+                <Link key={l.href} href={l.href} className="rounded-xl px-3 py-2.5 text-[15px] font-semibold text-sea-body hover:bg-sea-sand/60 hover:text-sea-ink">
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+            <nav className="mt-2 flex flex-col px-3" aria-label="Policies">
+              <span className="store-eyebrow px-3 pb-1">Policies</span>
+              {policyLinks(links).map((l) => (
                 <Link key={l.href} href={l.href} className="rounded-xl px-3 py-2.5 text-[15px] font-semibold text-sea-body hover:bg-sea-sand/60 hover:text-sea-ink">
                   {l.label}
                 </Link>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import { POLICIES } from "@/lib/policies";
-import { exploreLinks, prettyPhone, waLink, type Links, type PublicShop } from "@/lib/site";
+import { exploreLinks, policyLinks, prettyPhone, waLink, type Links, type PublicShop } from "@/lib/site";
 import { Grass } from "./Art";
 import { FacebookIcon, WhatsAppIcon } from "./Icons";
 
@@ -9,7 +9,7 @@ export function Footer({ shop, links }: { shop: PublicShop; links: Links }) {
   return (
     <footer className="relative mt-24 overflow-hidden border-t border-sea-line bg-sea-paper">
       <Grass blades={90} seed={21} height={110} still className="pointer-events-none absolute inset-x-0 bottom-0 h-24 w-full opacity-60" />
-      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 pb-32 pt-14 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
+      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 pb-32 pt-14 sm:px-6 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_0.9fr_1.2fr]">
         <div>
           <div className="flex items-center gap-2.5">
             {shop.logo && (
@@ -38,6 +38,18 @@ export function Footer({ shop, links }: { shop: PublicShop; links: Links }) {
                 Verify a purchase or staff member
               </Link>
             </li>
+          </ul>
+        </div>
+        <div>
+          <h2 className="store-eyebrow">Policies</h2>
+          <ul className="mt-4 grid gap-2.5 text-[14.5px] font-semibold text-sea-body">
+            {policyLinks(links).map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="transition hover:text-sea-teal">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
         <div>

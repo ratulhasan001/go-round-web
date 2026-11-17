@@ -32,6 +32,7 @@ export default function ProductsPage() {
     <>
     <ListEditor<Product>
       section="products"
+      tableFrom="xl"
       title="Products"
       subtitle="Your price list - used on receipts and on your website. Tap the photo button for the full product form: photos, description, specification, brand, category, prices, stock and weight."
       icon={<Package className="size-5" />}
@@ -84,9 +85,10 @@ export default function ProductsPage() {
       )}
       columns={[
         { key: "name", label: "Product name", placeholder: "e.g. Seachem Prime 325ml", width: "minmax(0,2fr)" },
-        { key: "unit", label: "Unit", placeholder: "e.g. pcs, bottle", width: "130px" },
-        { key: "inStock", label: "Status", type: "toggle", on: "In stock", off: "Out of stock", width: "160px" },
-        { key: "price", label: "Unit price (BDT)", type: "number", placeholder: "0.00", width: "160px", align: "right" },
+        { key: "unit", label: "Unit", placeholder: "e.g. pcs, bottle", width: "120px" },
+        { key: "inStock", label: "Status", type: "toggle", on: "In stock", off: "Out of stock", width: "150px" },
+        { key: "purchasePrice", label: "Purchase price (BDT)", type: "number", placeholder: "0.00", width: "150px", align: "right" },
+        { key: "price", label: "Unit price (BDT)", type: "number", placeholder: "0.00", width: "150px", align: "right" },
       ]}
     />
     {formFor && <ProductDetailsDialog productId={formFor} onClose={() => setFormFor(null)} />}

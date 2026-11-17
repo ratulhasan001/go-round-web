@@ -115,7 +115,6 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
       onChange={(e) => {
         const files = [...(e.target.files ?? [])];
         e.target.value = "";
-        if (files.some((f) => f.size > 10 * 1024 * 1024)) toast("Photos over 10 MB are made smaller before upload");
         void add(files, cover);
       }}
     />
@@ -297,7 +296,7 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
         <div className={section}>
           <div className="grid gap-5 sm:grid-cols-[220px_1fr]">
             <div>
-              <Label hint="380 × 380">Upload thumbnail image</Label>
+              <Label hint="any size">Upload thumbnail image</Label>
               {images[0] ? (
                 <div className="group relative aspect-square overflow-hidden rounded-xl border border-line bg-canvas">
                   {/* eslint-disable-next-line @next/next/no-img-element -- uploaded product photo */}
@@ -324,7 +323,7 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
               {fileInput(thumbRef, true)}
             </div>
             <div>
-              <Label hint="JPG, JPEG, PNG · max 10 MB">Product gallery</Label>
+              <Label hint="JPG, PNG, WebP · any size">Product gallery</Label>
               <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-amber-600">
                 <Info className="size-3.5" /> Please use original product images.
               </p>

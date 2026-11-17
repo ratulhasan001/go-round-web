@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Check, Clock, Copy, ExternalLink, HelpCircle, ImagePlus, Landmark, LayoutGrid, Loader2, Megaphone, MessageCircle, Plus, QrCode, Star, Store, Trash2, Truck, BookOpen } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Clock, Copy, ExternalLink, HelpCircle, ImagePlus, Landmark, LayoutGrid, LayoutTemplate, Loader2, Megaphone, MessageCircle, Plus, QrCode, Star, Store, Trash2, Truck, BookOpen } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { DEFAULT_ABOUT, DEFAULT_FAQ, DEFAULT_ZONES, FEATURE_CATEGORY_IDEAS, sameName, siteSettings, absolute, publicLinks } from "@/lib/site";
+import { DEFAULT_ABOUT, DEFAULT_FAQ, DEFAULT_HOME, DEFAULT_HOURS, DEFAULT_ZONES, FEATURE_CATEGORY_IDEAS, HOME_SECTIONS, sameName, siteSettings, absolute, publicLinks } from "@/lib/site";
+import { CATEGORY_ICONS, categoryIconId, iconKey } from "@/lib/categoryIcons";
 import { forget, storePhoto } from "@/lib/photos";
 import { uid } from "@/lib/calc";
-import { DELIVERY_AREAS, type DeliveryZone, type Review, type SiteSettings } from "@/lib/types";
+import { DELIVERY_AREAS, type DeliveryZone, type HomeSettings, type Review, type SiteSettings } from "@/lib/types";
 import { SectionIcon } from "@/components/nav";
 import { Button, Card, Field, Input, SectionTitle, Select, Switch, Textarea, cx, useToast } from "@/components/ui";
 
@@ -44,6 +45,23 @@ export default function WebsitePage() {
 
       <div className="grid gap-5 xl:grid-cols-2">
         <div className="flex flex-col gap-5">
+          {/* home page */}
+          <Card className="p-5 sm:p-6">
+            <SectionTitle
+              icon={<LayoutTemplate className="size-4" />}
+              title="Home page"
+              hint="The big title, search box and which sections show, in what order"
+              action={
+                JSON.stringify(s.home) !== JSON.stringify(DEFAULT_HOME) ? (
+                  <Button size="sm" variant="ghost" onClick={() => set({ home: DEFAULT_HOME })}>
+                    Reset
+                  </Button>
+                ) : undefined
+              }
+            />
+            <HomeEditor home={s.home} onChange={(home) => set({ home })} />
+          </Card>
+
           {/* status */}
           <Card className="p-5 sm:p-6">
             <SectionTitle icon={<Store className="size-4" />} title="Store" hint={`${onSiteCount} products on the website · ${withPhoto} with photos`} />
@@ -101,7 +119,7 @@ export default function WebsitePage() {
                   />
                 </div>
               </Field>
-              <p className="mt-1.5 text-[12px] text-muted">Important updates scroll along the top of every store page under a &ldquo;News&rdquo; label. One headline per line; leave empty to hide it.</p>
+              <p className="mt-1.5 text-[12px] text-muted">Important updates scroll in red along the top of every store page under a &ldquo;News&rdquo; label. One headline per line; leave empty to hide it.</p>
             </div>
           </Card>
 
@@ -116,14 +134,14 @@ export default function WebsitePage() {
                 <Input type="url" value={s.facebook} placeholder="https://facebook.com/…" onChange={(e) => set({ facebook: e.target.value })} />
               </Field>
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_170px]">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Address on the website">
                 <Input value={s.address} placeholder="e.g. Dhaka/Khulna, Bangladesh" onChange={(e) => set({ address: e.target.value })} />
               </Field>
-              <Field label="Opening hours">
+              <Field label="Opening hours (one line per row)">
                 <div className="relative">
-                  <Clock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
-                  <Input className="pl-9" value={s.openingHours} placeholder="e.g. 24/7" onChange={(e) => set({ openingHours: e.target.value })} />
+                  <Clock className="pointer-events-none absolute left-3 top-3 size-4 text-faint" />
+                  <Textarea className="pl-9" rows={2} value={s.openingHours} placeholder={DEFAULT_HOURS} onChange={(e) => set({ openingHours: e.target.value })} />
                 </div>
               </Field>
             </div>
@@ -210,8 +228,14 @@ export default function WebsitePage() {
 
           {/* featured categories */}
           <Card className="p-5 sm:p-6">
-            <SectionTitle icon={<LayoutGrid className="size-4" />} title="Featured categories" hint="Big tiles on the store's home page - pick up to 4" />
-            <FeaturedEditor value={s.featuredCategories} categories={[...new Set(products.map((p) => p.category?.trim()).filter(Boolean) as string[])]} onChange={(featuredCategories) => set({ featuredCategories })} />
+            <SectionTitle icon={<LayoutGrid className="size-4" />} title="Featured categories" hint="Medium tiles on the store's home page - pick as many as you like" />
+            <FeaturedEditor
+              value={s.featuredCategories}
+              icons={s.categoryIcons}
+              categories={[...new Set(products.map((p) => p.category?.trim()).filter(Boolean) as string[])]}
+              onChange={(featuredCategories) => set({ featuredCategories })}
+              onIcons={(categoryIcons) => set({ categoryIcons })}
+            />
           </Card>
 
           {/* reviews */}
@@ -424,12 +448,101 @@ function BkashQr({ value, cloud, onChange }: { value: string; cloud: boolean; on
   );
 }
 
-/** Pick up to four categories for the home page tiles. */
-function FeaturedEditor({ value, categories, onChange }: { value: string[]; categories: string[]; onChange: (v: string[]) => void }) {
+/** The home page: hero text, search box, and the sections in order (each can be switched off). */
+function HomeEditor({ home, onChange }: { home: HomeSettings; onChange: (h: HomeSettings) => void }) {
+  const set = (p: Partial<HomeSettings>) => onChange({ ...home, ...p });
+  const move = (i: number, d: -1 | 1) => {
+    const next = [...home.sections];
+    [next[i], next[i + d]] = [next[i + d]!, next[i]!];
+    set({ sections: next });
+  };
+  const iconBtn = "grid size-8 place-items-center rounded-lg text-faint transition hover:bg-canvas hover:text-ink disabled:pointer-events-none disabled:opacity-30";
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Small line above the title">
+          <Input value={home.eyebrow} placeholder={DEFAULT_HOME.eyebrow} onChange={(e) => set({ eyebrow: e.target.value })} />
+        </Field>
+        <Field label="Title - first line">
+          <Input value={home.title1} placeholder={DEFAULT_HOME.title1} onChange={(e) => set({ title1: e.target.value })} />
+        </Field>
+        <Field label="Title - teal italic line">
+          <Input value={home.titleHighlight} placeholder={DEFAULT_HOME.titleHighlight} onChange={(e) => set({ titleHighlight: e.target.value })} />
+        </Field>
+        <Field label="Title - last line">
+          <Input value={home.title2} placeholder={DEFAULT_HOME.title2} onChange={(e) => set({ title2: e.target.value })} />
+        </Field>
+      </div>
+      <Field label="Text under the title">
+        <Textarea rows={2} value={home.intro} placeholder={DEFAULT_HOME.intro} onChange={(e) => set({ intro: e.target.value })} />
+      </Field>
+      <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-canvas px-4 py-3">
+        <span>
+          <span className="block text-[14.5px] font-bold">Search box</span>
+          <span className="block text-[12.5px] text-muted">A search bar with a Search button under the title.</span>
+        </span>
+        <Switch checked={home.search} label="Search box on the home page" onChange={(v) => set({ search: v })} />
+      </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Shop button - heading">
+          <Input value={home.shopTitle} placeholder={DEFAULT_HOME.shopTitle} onChange={(e) => set({ shopTitle: e.target.value })} />
+        </Field>
+        <Field label="Shop button - text">
+          <Input value={home.shopText} placeholder={DEFAULT_HOME.shopText} onChange={(e) => set({ shopText: e.target.value })} />
+        </Field>
+      </div>
+      <div>
+        <p className="mb-2 text-[13.5px] font-semibold text-ink">Sections, top to bottom</p>
+        <ul className="flex flex-col gap-1.5">
+          {home.sections.map((x, i) => {
+            const meta = HOME_SECTIONS.find((m) => m.id === x.id)!;
+            return (
+              <li key={x.id} className={cx("flex items-center gap-2 rounded-xl border border-line px-3 py-2", !x.on && "bg-canvas opacity-70")}>
+                <span className="w-5 text-[12px] font-bold text-faint">{i + 1}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-bold">{meta.label}</span>
+                  <span className="block truncate text-[12px] text-muted">{meta.hint}</span>
+                </span>
+                <button type="button" className={iconBtn} disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${meta.label} up`}>
+                  <ArrowUp className="size-4" />
+                </button>
+                <button type="button" className={iconBtn} disabled={i === home.sections.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${meta.label} down`}>
+                  <ArrowDown className="size-4" />
+                </button>
+                <Switch checked={x.on} label={`Show ${meta.label}`} onChange={(on) => set({ sections: home.sections.map((y) => (y.id === x.id ? { ...y, on } : y)) })} />
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** Pick the categories for the home page tiles (as many as you like), each with its icon. */
+function FeaturedEditor({
+  value,
+  icons,
+  categories,
+  onChange,
+  onIcons,
+}: {
+  value: string[];
+  icons: Record<string, string>;
+  categories: string[];
+  onChange: (v: string[]) => void;
+  onIcons: (v: Record<string, string>) => void;
+}) {
   const [custom, setCustom] = useState("");
   const on = (c: string) => value.some((v) => sameName(v, c));
   const options = [...FEATURE_CATEGORY_IDEAS, ...categories, ...value].filter((c, i, all) => all.findIndex((x) => sameName(x, c)) === i);
-  const toggle = (c: string) => onChange(on(c) ? value.filter((v) => !sameName(v, c)) : value.length >= 4 ? value : [...value, c]);
+  const toggle = (c: string) => onChange(on(c) ? value.filter((v) => !sameName(v, c)) : [...value, c]);
+  const move = (i: number, d: -1 | 1) => {
+    const next = [...value];
+    [next[i], next[i + d]] = [next[i + d]!, next[i]!];
+    onChange(next);
+  };
+  const iconBtn = "grid size-8 place-items-center rounded-lg text-faint transition hover:bg-canvas hover:text-ink disabled:pointer-events-none disabled:opacity-30";
   return (
     <div>
       <div className="flex flex-wrap gap-2">
@@ -439,11 +552,7 @@ function FeaturedEditor({ value, categories, onChange }: { value: string[]; cate
             type="button"
             onClick={() => toggle(c)}
             aria-pressed={on(c)}
-            disabled={!on(c) && value.length >= 4}
-            className={cx(
-              "h-9 rounded-full px-3.5 text-[13px] font-bold transition disabled:opacity-40",
-              on(c) ? "bg-deep text-lime" : "border border-line bg-white text-body hover:border-ink/30",
-            )}
+            className={cx("h-9 rounded-full px-3.5 text-[13px] font-bold transition", on(c) ? "bg-deep text-lime" : "border border-line bg-white text-body hover:border-ink/30")}
           >
             {on(c) && <Check className="mr-1 inline size-3.5" />}
             {c}
@@ -455,17 +564,50 @@ function FeaturedEditor({ value, categories, onChange }: { value: string[]; cate
         className="mt-3 flex max-w-sm gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (custom.trim()) toggle(custom.trim());
+          if (custom.trim() && !on(custom.trim())) toggle(custom.trim());
           setCustom("");
         }}
       >
         <Input value={custom} placeholder="Another category" onChange={(e) => setCustom(e.target.value)} />
-        <Button size="sm" type="submit" disabled={!custom.trim() || value.length >= 4}>
+        <Button size="sm" type="submit" disabled={!custom.trim()}>
           Add
         </Button>
       </form>
+
+      {value.length > 0 && (
+        <ul className="mt-4 flex flex-col gap-1.5">
+          {value.map((c, i) => {
+            const id = categoryIconId(c, icons);
+            const Icon = CATEGORY_ICONS[id]!.icon;
+            return (
+              <li key={c} className="flex items-center gap-2 rounded-xl border border-line px-2.5 py-2">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-deep text-lime">
+                  <Icon className="size-[18px]" />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{c}</span>
+                <div className="w-36 shrink-0 sm:w-44">
+                  <Select className="!h-9 text-[13px]" value={id} aria-label={`Icon for ${c}`} onChange={(e) => onIcons({ ...icons, [iconKey(c)]: e.target.value })}>
+                    {Object.entries(CATEGORY_ICONS).map(([k, x]) => (
+                      <option key={k} value={k}>
+                        {x.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <button type="button" className={iconBtn} disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${c} up`}>
+                  <ArrowUp className="size-4" />
+                </button>
+                <button type="button" className={iconBtn} disabled={i === value.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${c} down`}>
+                  <ArrowDown className="size-4" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <p className="mt-2 text-[12px] text-muted">
-        {value.length}/4 chosen. A tile shows a photo from one of the category&apos;s products, and links to the shop filtered to it - so name your products&apos; categories the same way.
+        {value.length} chosen. Each tile shows its icon and links to the shop filtered to that category - so name your products&apos; categories the same way. A combined
+        name such as &ldquo;Filtration &amp; Filter&rdquo; shows products from both categories.
       </p>
     </div>
   );

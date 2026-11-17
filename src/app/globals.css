@@ -30,7 +30,7 @@
 
   /* customer website - the Aquascape Editorial visiting card */
   --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
-  --color-sea-cream: #f3efe6;
+  --color-sea-cream: #ffffff; /* the store background: white (was the card's cream #f3efe6) */
   --color-sea-paper: #fbf9f4;
   --color-sea-sand: #e9e3d6;
   --color-sea-line: #ddd6c6;

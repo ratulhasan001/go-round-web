@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, SearchX, X } from "lucide-react";
-import { plainText, type PublicProduct } from "@/lib/site";
+import { inCategory, plainText, type PublicProduct } from "@/lib/site";
 import { ProductCard } from "./ProductCard";
 import { cx } from "./ui";
 
@@ -37,14 +37,14 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
   // the subcategories of the chosen category, e.g. Filter › Filter media, Filter accessories
   const subcategories = useMemo(() => {
     const m = new Map<string, number>();
-    for (const p of products) if (p.subcategory && same(p.category, category)) m.set(p.subcategory, (m.get(p.subcategory) ?? 0) + 1);
+    for (const p of products) if (p.subcategory && inCategory(p.category, category)) m.set(p.subcategory, (m.get(p.subcategory) ?? 0) + 1);
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [products, category]);
 
   // one level further down, e.g. Filter › Filter media › Ceramic rings
   const subsubs = useMemo(() => {
     const m = new Map<string, number>();
-    if (subcategory) for (const p of products) if (p.subsubcategory && same(p.category, category) && same(p.subcategory, subcategory)) m.set(p.subsubcategory, (m.get(p.subsubcategory) ?? 0) + 1);
+    if (subcategory) for (const p of products) if (p.subsubcategory && inCategory(p.category, category) && same(p.subcategory, subcategory)) m.set(p.subsubcategory, (m.get(p.subsubcategory) ?? 0) + 1);
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [products, category, subcategory]);
 
@@ -70,7 +70,7 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const list = products.filter(
       (p) =>
-        (!category || same(p.category, category)) &&
+        (!category || inCategory(p.category, category)) &&
         (!subcategory || same(p.subcategory, subcategory)) &&
         (!subsub || same(p.subsubcategory, subsub)) &&
         (!brand || same(p.brand, brand)) &&

@@ -5,7 +5,7 @@ import type { Invoice, Shop } from "./types";
 import { amountInWords, bdt, computeTotals, courierName, filledItems, fmtDate, lineAmount, money, rewardNote } from "./calc";
 import { STATUS_LABEL, T, initials, logoUrl } from "./theme";
 import { AQ, TOP_H } from "./aquascape";
-import { supportEmail } from "./letter";
+import { billLines } from "./letter";
 import { PdfFishBand, PdfGrassBand } from "./pdfArt";
 import { drawSeal, drawSignature, sealFor } from "./seal";
 import { WATERMARK_OPACITY, makeWatermark } from "./watermark";
@@ -199,7 +199,7 @@ export function ReceiptDocument({
   const items = filledItems(inv);
   const payments = inv.payments.filter((p) => p.amount);
   const st = T.status[t.status];
-  const contact = [shop.address, [shop.phone, `Support: ${supportEmail(shop)}`].filter(Boolean).join("  ·  "), shop.website].filter(Boolean);
+  const contact = billLines(shop);
   const logo = logoUrl(shop.logo);
 
   return (

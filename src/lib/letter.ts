@@ -35,6 +35,9 @@ export const supportEmail = (shop: Pick<Shop, "email">) => shop.email?.trim() ||
 export const contactLines = (shop: Shop) =>
   [`Address: ${LETTERHEAD_ADDRESS}`, `Contact: ${LETTERHEAD_PHONE}`, [`Support: ${supportEmail(shop)}`, shop.website].filter(Boolean).join("  ·  ")];
 
+/** The contact block on receipts (bill copies), one line each - the same details as the letterhead. */
+export const billLines = (shop: Pick<Shop, "email">) => [`Address: ${LETTERHEAD_ADDRESS}`, `Contact: ${LETTERHEAD_PHONE}`, `Support: ${supportEmail(shop)}`];
+
 /** A one-line summary for lists. */
 export const letterTitle = (l: Letter) => l.subject.trim() || l.to.trim().split("\n")[0] || "Untitled letter";
 

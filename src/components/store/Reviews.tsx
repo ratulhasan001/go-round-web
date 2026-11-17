@@ -34,8 +34,11 @@ export function ReviewCard({ r, showProduct }: { r: PublicReview; showProduct?: 
   );
 }
 
-/** A product's reviews, and the form customers write one with. */
-export function ProductReviews({ productId, initial }: { productId: string; initial: PublicReview[] }) {
+/**
+ * A product's reviews, and the form customers write one with. With `page` (the Customer reviews page) it lists every
+ * review in the shop, says which product each is about, and the form reviews the shop itself (productId "").
+ */
+export function ProductReviews({ productId, initial, page }: { productId: string; initial: PublicReview[]; page?: boolean }) {
   const { online } = useShop();
   const [list, setList] = useState(initial);
   const [open, setOpen] = useState(false);
@@ -44,6 +47,7 @@ export function ProductReviews({ productId, initial }: { productId: string; init
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState("");
   const avg = avgRating(list);
+  const Heading = page ? "h1" : "h2";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,12 +71,13 @@ export function ProductReviews({ productId, initial }: { productId: string; init
   };
 
   return (
-    <section className="mt-20" id="reviews" aria-labelledby="reviews-h">
+    <section className={page ? "" : "mt-20"} id="reviews" aria-labelledby="reviews-h">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 id="reviews-h" className="font-serif text-[30px] sm:text-[38px]">
+          {page && <p className="store-eyebrow mb-3">Reviews</p>}
+          <Heading id="reviews-h" className={page ? "font-serif text-[38px] leading-[1.04] sm:text-[52px]" : "font-serif text-[30px] sm:text-[38px]"}>
             Customer <em className="text-sea-teal">reviews</em>
-          </h2>
+          </Heading>
           <p className="mt-2 flex items-center gap-2 text-[14px] font-semibold text-sea-body">
             {list.length ? (
               <>
@@ -109,7 +114,7 @@ export function ProductReviews({ productId, initial }: { productId: string; init
             <SeaInput id="r-name" value={f.name} onChange={(e) => setF((x) => ({ ...x, name: e.target.value }))} autoComplete="name" invalid={!!errors.name} />
           </SeaField>
           <SeaField label="Your review" error={errors.text} className="sm:col-span-2" htmlFor="r-text">
-            <SeaTextarea id="r-text" rows={4} value={f.text} onChange={(e) => setF((x) => ({ ...x, text: e.target.value }))} placeholder="How did it work in your tank?" invalid={!!errors.text} />
+            <SeaTextarea id="r-text" rows={4} value={f.text} onChange={(e) => setF((x) => ({ ...x, text: e.target.value }))} placeholder={page ? "How was your order, the products and our service?" : "How did it work in your tank?"} invalid={!!errors.text} />
           </SeaField>
           <input value={f.website} onChange={(e) => setF((x) => ({ ...x, website: e.target.value }))} tabIndex={-1} autoComplete="off" className="absolute -left-[9999px] size-px opacity-0" aria-hidden />
           {errors.form && <p className="text-[13px] font-semibold text-red-600 sm:col-span-2">{errors.form}</p>}
@@ -126,7 +131,7 @@ export function ProductReviews({ productId, initial }: { productId: string; init
       {list.length > 0 && (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((r) => (
-            <ReviewCard key={r.id} r={r} />
+            <ReviewCard key={r.id} r={r} showProduct={page} />
           ))}
         </div>
       )}

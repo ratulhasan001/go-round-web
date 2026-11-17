@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const viewport: Viewport = { themeColor: "#f3efe6" };
+export const viewport: Viewport = { themeColor: "#ffffff" };
 
 /** The customer website. Public: no shop login, and it never loads the admin panel's data. */
 export default async function StoreLayout({ children }: LayoutProps<"/store">) {

@@ -14,10 +14,9 @@ import { Button, useToast } from "./ui";
 
 const INK = "#113A2D";
 const TEAL = "#1F7FA8";
-const CREAM = "#F3EFE6";
 
 export const verifyUrl = (e: Employee) => absolute(publicLinks(window.location.host).staff(e.code), window.location.origin);
-const fileName = (e: Employee, what: string) => `${(e.name.trim() || "staff").replace(/[^\w-]+/g, "_")}-${what}.png`;
+const fileName = (e: Employee, what: string, ext = "png") => `${(e.name.trim() || "staff").replace(/[^\w-]+/g, "_")}-${what}.${ext}`;
 
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement | null>((resolve) => {
@@ -48,7 +47,7 @@ async function renderCard(e: Employee, shop: { name: string; logo: string; email
   c.width = W;
   c.height = H;
   const g = c.getContext("2d")!;
-  g.fillStyle = CREAM;
+  g.fillStyle = "#FFFFFF"; // white card, prints clean
   g.fillRect(0, 0, W, H);
   g.textAlign = "center";
 
@@ -70,9 +69,12 @@ async function renderCard(e: Employee, shop: { name: string; logo: string; email
   if (logo) g.drawImage(logo, W / 2 - 42, 38, 84, 84);
   g.fillStyle = INK;
   fitText(g, shop.name, logo ? 166 : 110, serif("600"), 40, W - 96);
-  g.font = `800 15px ${sans}`;
-  g.fillStyle = "rgba(17,58,45,0.6)";
-  g.fillText("S T A F F   I D", W / 2, 200);
+  // team heads' cards carry no "Staff ID" line
+  if (!e.head) {
+    g.font = `800 15px ${sans}`;
+    g.fillStyle = "rgba(17,58,45,0.6)";
+    g.fillText("S T A F F   I D", W / 2, 200);
+  }
   g.fillStyle = "#5E9E39";
   g.fillRect(W / 2 - 24, 214, 48, 4);
 
@@ -116,9 +118,12 @@ async function renderCard(e: Employee, shop: { name: string; logo: string; email
   const qr = await QRCode.toDataURL(verifyUrl(e), { errorCorrectionLevel: "M", margin: 1, width: 224, color: { dark: INK, light: "#FFFFFF" } });
   const img = await loadImage(qr);
   g.fillStyle = "#FFFFFF";
+  g.strokeStyle = "#DDD6C6"; // a thin frame keeps the QR box visible on the white card
+  g.lineWidth = 2;
   g.beginPath();
   g.roundRect(W / 2 - 122, 530, 244, 244, 24);
   g.fill();
+  g.stroke();
   if (img) g.drawImage(img, W / 2 - 112, 540, 224, 224);
   g.font = `800 15px ${sans}`;
   g.fillStyle = TEAL;
@@ -134,6 +139,29 @@ async function renderCard(e: Employee, shop: { name: string; logo: string; email
     g.fillText(prettyPhone(shop.phone), W / 2, 874);
   }
   return new Promise<Blob>((res) => c.toBlob((b) => res(b!), "image/png"));
+}
+
+/** The ID card as a PDF, one card-sized page (54 x 85.6 mm), ready to print. */
+async function renderCardPdf(png: Blob) {
+  const [{ pdf, Document, Page, Image }, src] = await Promise.all([
+    import("@react-pdf/renderer"),
+    new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(png);
+    }),
+  ]);
+  const mm = 72 / 25.4;
+  const size: [number, number] = [54 * mm, 85.6 * mm];
+  return pdf(
+    <Document title="Staff ID card">
+      <Page size={size} style={{ padding: 0, backgroundColor: "#FFFFFF" }}>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt */}
+        <Image src={src} style={{ width: size[0], height: size[1] }} />
+      </Page>
+    </Document>,
+  ).toBlob();
 }
 
 /** The staff member's verification QR code: preview, download (QR alone or a printable ID card) and the link it opens. */
@@ -176,8 +204,12 @@ export function StaffQrDialog({ employee, onClose }: { employee: Employee | null
             variant="dark"
             className="flex-1"
             onClick={async () => {
-              saveBlob(await renderCard(e, shop), fileName(e, "ID-card"));
-              toast("ID card downloaded - print it at card size (54 × 85.6 mm, portrait)");
+              try {
+                saveBlob(await renderCardPdf(await renderCard(e, shop)), fileName(e, "ID-card", "pdf"));
+                toast("ID card PDF downloaded - print it at actual size (54 × 85.6 mm, portrait)");
+              } catch {
+                toast("Couldn't make the ID card PDF - please try again", "err");
+              }
             }}
           >
             <IdCard className="size-4" /> ID card

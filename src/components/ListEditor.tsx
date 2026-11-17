@@ -41,6 +41,13 @@ const LAYOUT = {
     label: "md:hidden",
     lead: "md:grid",
   },
+  xl: {
+    head: "xl:grid",
+    list: "xl:gap-1.5",
+    row: "sm:grid-cols-2 xl:border-transparent xl:p-1 xl:-mx-1 xl:[grid-template-columns:var(--g)] xl:hover:bg-canvas",
+    label: "xl:hidden",
+    lead: "xl:grid",
+  },
   "2xl": {
     head: "2xl:grid",
     list: "2xl:gap-1.5",
@@ -92,7 +99,7 @@ export function ListEditor<T extends { id: string }>({
   onAdd?: (row: T) => void;
   /** Extra buttons shown in each row before Edit, e.g. Share. */
   rowActions?: (row: T) => React.ReactNode;
-  /** When rows switch from cards to a table; use "2xl" for lists with many columns. */
+  /** When rows switch from cards to a table; use "xl" or "2xl" for lists with many columns. */
   tableFrom?: keyof typeof LAYOUT;
   /** Section key (see nav.tsx): the header icon then morphs from the home tile. */
   section?: string;

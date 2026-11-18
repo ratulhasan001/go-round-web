@@ -45,7 +45,7 @@ export function proxy(request: NextRequest) {
     // old /store/… links lose the prefix; the verify pages have their own address
     if (isStorePath(pathname)) return to(HOSTS.store, pathname.slice(STORE_BASE.length) || "/");
     if (pathname === "/verify" || pathname.startsWith("/verify/")) return to(HOSTS.verify, pathname.slice("/verify".length) || "/");
-    return NextResponse.rewrite(new URL(`${STORE_BASE}${pathname === "/" ? "" : pathname}${search}`, request.url));
+    return framing(pathname, NextResponse.rewrite(new URL(`${STORE_BASE}${pathname === "/" ? "" : pathname}${search}`, request.url)));
   }
 
   if (area === "verify" && !api) {
@@ -59,7 +59,8 @@ export function proxy(request: NextRequest) {
 
   if (pathname === "/login" || pathname === "/api/login") return NextResponse.next();
   if (pathname.startsWith("/f/") || pathname.startsWith("/api/f/")) return NextResponse.next();
-  if (isStorePath(pathname) || PUBLIC_API(pathname)) return NextResponse.next();
+  if (isStorePath(pathname)) return framing(pathname.slice(STORE_BASE.length), NextResponse.next());
+  if (PUBLIC_API(pathname)) return NextResponse.next();
   // admin changes may only come from the admin's own pages: the store and verify addresses count as the "same site" to
   // the browser, so the session cookie alone wouldn't stop a script elsewhere on goroundbd.com from sending them
   if (api && request.method !== "GET" && request.method !== "HEAD") {
@@ -80,6 +81,15 @@ export function proxy(request: NextRequest) {
   const url = new URL("/login", request.url);
   if (pathname !== "/") url.searchParams.set("next", pathname + search);
   return NextResponse.redirect(url);
+}
+
+/**
+ * The home page preview (/preview) takes its settings from the admin panel that frames it, so only the admin panel may
+ * frame it - no other site can show its own text on the shop's address that way.
+ */
+function framing(storePath: string, res: NextResponse) {
+  if (storePath === "/preview" || storePath.startsWith("/preview/")) res.headers.set("Content-Security-Policy", `frame-ancestors 'self' https://${HOSTS.admin}`);
+  return res;
 }
 
 export const config = {

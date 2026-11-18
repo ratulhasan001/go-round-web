@@ -92,8 +92,8 @@ export function ProductDetail({ p, rating }: { p: PublicProduct; rating?: { avg:
             </>
           )}
         </p>
-        <p className={cx("mt-2 inline-flex items-center gap-2 text-[13.5px] font-bold", p.inStock ? "text-sea-leaf" : "text-sea-muted")}>
-          <span className={cx("size-2 rounded-full", p.inStock ? "bg-sea-leaf" : "bg-sea-muted")} />
+        <p className={cx("mt-2 flex w-fit items-center gap-2 text-[13.5px] font-bold", p.inStock ? "text-sea-leaf" : "rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-red-600")}>
+          <span className={cx("size-2 rounded-full", p.inStock ? "bg-sea-leaf" : "bg-red-600")} />
           {p.inStock ? (p.stock !== null && p.stock <= 5 ? `Only ${p.stock} left` : "In stock") : "Sold out right now"}
         </p>
 

@@ -129,7 +129,32 @@ export interface SiteSettings {
 }
 
 /** The parts of the store's home page, in the order the shop shows them. */
-export type HomeSectionId = "steps" | "shop" | "categories" | "products" | "brands" | "reviews" | "aquarium" | "about";
+export type HomeSectionId = "steps" | "shop" | "categories" | "products" | "brands" | "partners" | "experience" | "reviews" | "aquarium" | "about";
+/** A place in the home page order: a built-in section, or one of the shop's own text boxes ("block:<id>"). */
+export type HomeSectionKey = HomeSectionId | `block:${string}`;
+
+/** How a text box looks: red notice, teal announcement, festive greeting, update card or a plain box. */
+export type HomeBlockStyle = "notice" | "announcement" | "greeting" | "update" | "plain";
+
+/** A text box the shop adds to the home page (notice, announcement, greeting, update…). */
+export interface HomeBlock {
+  id: string;
+  style: HomeBlockStyle;
+  title: string;
+  text: string; // line breaks are kept
+  image?: string; // optional photo beside the text
+  button?: string; // button label ("" = no button)
+  link?: string; // where the button goes: a store path like /products, or a full https:// address
+}
+
+/** A partner, or a place the shop has worked, shown with its logo on the home page. */
+export interface LogoItem {
+  id: string;
+  name: string;
+  logo: string; // "" = no logo yet (the name is shown instead)
+  note?: string; // short line under the name, e.g. "Aquascape setup · 2024"
+  link?: string; // their website (optional)
+}
 
 /** The store home page, edited on the admin "Website" page. */
 export interface HomeSettings {
@@ -141,7 +166,12 @@ export interface HomeSettings {
   search: boolean; // search box in the hero
   shopTitle: string; // the Shop button block
   shopText: string;
-  sections: { id: HomeSectionId; on: boolean }[];
+  blocks: HomeBlock[]; // text boxes; each has a "block:<id>" entry in sections
+  partnersTitle: string;
+  partners: LogoItem[];
+  experienceTitle: string;
+  experience: LogoItem[];
+  sections: { id: HomeSectionKey; on: boolean }[];
 }
 
 export type OrderStatus = "placed" | "confirmed" | "shipped" | "delivered" | "cancelled";

@@ -1,5 +1,5 @@
 // Shared by the customer website, its API routes and the admin panel. Nothing here touches the browser or the server.
-import { DELIVERY_AREAS, type DeliveryArea, type DeliveryZone, type Faq, type HomeSectionId, type HomeSettings, type Order, type OrderStatus, type Product, type Shop, type SiteSettings } from "./types";
+import { DELIVERY_AREAS, type DeliveryArea, type DeliveryZone, type Faq, type HomeBlockStyle, type HomeSectionId, type HomeSectionKey, type HomeSettings, type Order, type OrderStatus, type Product, type Shop, type SiteSettings } from "./types";
 
 // ---------- where everything lives ----------
 //
@@ -177,10 +177,27 @@ export const HOME_SECTIONS: { id: HomeSectionId; label: string; hint: string }[]
   { id: "categories", label: "Featured categories", hint: "Category tiles with their icons" },
   { id: "products", label: "Hand-picked products", hint: "Featured and newest products" },
   { id: "brands", label: "Brands", hint: "The brands of your products" },
+  { id: "partners", label: "Our partners", hint: "Partner logos" },
+  { id: "experience", label: "Work experience", hint: "Logos of places you have worked" },
   { id: "reviews", label: "Customer reviews", hint: "The newest approved reviews" },
   { id: "aquarium", label: "Our little aquarium", hint: "The illustrated planted tank" },
   { id: "about", label: "About us teaser", hint: "Dark box linking to About us" },
 ];
+
+/** The looks a home page text box can take. */
+export const HOME_BLOCK_STYLES: { id: HomeBlockStyle; label: string; hint: string }[] = [
+  { id: "notice", label: "Notice", hint: "Red box for something customers must not miss" },
+  { id: "announcement", label: "Announcement", hint: "Teal box for news and offers" },
+  { id: "greeting", label: "Greeting", hint: "Dark festive box, e.g. Eid Mubarak" },
+  { id: "update", label: "Update", hint: "Light card for shop updates" },
+  { id: "plain", label: "Text box", hint: "A simple box of text" },
+];
+
+/** Messages between the admin panel's Website page and the home page preview it frames (/preview). */
+export const PREVIEW_READY = "gr-home-preview-ready";
+export const PREVIEW_SITE = "gr-home-preview-site";
+
+export const blockKey = (id: string): HomeSectionKey => `block:${id}`;
 
 export const DEFAULT_HOME: HomeSettings = {
   eyebrow: "Aquarium plants & accessories · Bangladesh",
@@ -191,15 +208,47 @@ export const DEFAULT_HOME: HomeSettings = {
   search: true,
   shopTitle: "Everything for your planted tank",
   shopText: "Plants, soil, fertilizer, lights, CO2 and filtration - all in one shop.",
+  blocks: [],
+  partnersTitle: "Our partners",
+  partners: [],
+  experienceTitle: "Where we have worked",
+  experience: [],
   sections: HOME_SECTIONS.map((x) => ({ id: x.id, on: true })),
 };
 
-/** Saved home settings with anything missing filled in; sections added later join the end of the list. */
+/** The hero texts (what the Home page card's Reset puts back - it never touches text boxes or logos). */
+export const HERO_KEYS = ["eyebrow", "title1", "titleHighlight", "title2", "intro", "search", "shopTitle", "shopText"] as const;
+
+/**
+ * Saved home settings with anything missing filled in. A built-in section added later goes in after the section it
+ * follows by default; every text box has exactly one place in the order (new ones at the top).
+ */
 function homeSettings(h?: Partial<HomeSettings>): HomeSettings {
-  const known = new Set(HOME_SECTIONS.map((x) => x.id));
-  const saved = (h?.sections ?? []).filter((x, i, all) => known.has(x.id) && all.findIndex((y) => y.id === x.id) === i);
-  const missing = DEFAULT_HOME.sections.filter((x) => !saved.some((y) => y.id === x.id));
-  return { ...DEFAULT_HOME, ...h, sections: [...saved, ...missing] };
+  const blocks = (h?.blocks ?? []).filter((b) => b && typeof b.id === "string");
+  const known = new Set<string>([...HOME_SECTIONS.map((x) => x.id), ...blocks.map((b) => blockKey(b.id))]);
+  const sections = (h?.sections ?? []).filter((x, i, all) => known.has(x.id) && all.findIndex((y) => y.id === x.id) === i);
+  const order = DEFAULT_HOME.sections.map((x) => x.id);
+  order.forEach((id, i) => {
+    if (sections.some((y) => y.id === id)) return;
+    const prev = order.slice(0, i).reverse().find((p) => sections.some((y) => y.id === p));
+    sections.splice(prev ? sections.findIndex((y) => y.id === prev) + 1 : 0, 0, { id, on: true });
+  });
+  for (const b of blocks) if (!sections.some((y) => y.id === blockKey(b.id))) sections.unshift({ id: blockKey(b.id), on: true });
+  return { ...DEFAULT_HOME, ...h, blocks, partners: h?.partners ?? [], experience: h?.experience ?? [], sections };
+}
+
+/**
+ * Where a home page button may go: a store page ("/products?category=Light"), a web address, a phone number or an
+ * email address. Anything else ("javascript:…") gives "" and the button is left out.
+ */
+export function safeLink(link: string | undefined, links: Links): string {
+  const l = (link ?? "").trim();
+  if (!l) return "";
+  if (/^https?:\/\/[^\s]+$/i.test(l)) return l;
+  if (/^(tel|mailto):[^\s]+$/i.test(l)) return l;
+  if (l.startsWith("/") && !l.startsWith("//")) return links.store(l);
+  if (/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(l)) return `https://${l}`;
+  return "";
 }
 
 

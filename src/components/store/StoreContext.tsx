@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { linksFor, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
+import type { SiteSettings } from "@/lib/types";
 
 export interface CartLine {
   id: string;
@@ -30,12 +31,16 @@ interface Ctx {
   /** The little "added" sheet. */
   added: { name: string; at: number } | null;
   dismissAdded: () => void;
+  /** The admin panel's live preview shows its own (unsaved) settings instead of the saved ones. */
+  setPreviewSite: (site: SiteSettings | null) => void;
 }
 
 const C = createContext<Ctx | null>(null);
 const KEY = "go-round-cart:v1";
 
-export function StoreProvider({ shop, online, host, children }: { shop: PublicShop; online: boolean; host: string; children: React.ReactNode }) {
+export function StoreProvider({ shop: saved, online, host, children }: { shop: PublicShop; online: boolean; host: string; children: React.ReactNode }) {
+  const [previewSite, setPreviewSite] = useState<SiteSettings | null>(null);
+  const shop = useMemo(() => (previewSite ? { ...saved, site: previewSite } : saved), [saved, previewSite]);
   const links = useMemo(() => linksFor(host), [host]);
   const [lines, setLines] = useState<CartLine[]>([]);
   const [ready, setReady] = useState(false);
@@ -113,6 +118,7 @@ export function StoreProvider({ shop, online, host, children }: { shop: PublicSh
       refresh,
       added,
       dismissAdded: () => setAdded(null),
+      setPreviewSite,
     }),
     [shop, links, online, lines, ready, add, refresh, added],
   );

@@ -232,7 +232,7 @@ export function CheckoutView() {
                 Create an account for faster checkout next time
               </label>
               {makeAccount && (
-                <SeaField label="Choose a password" hint="at least 6 characters" error={errors.password} className="mt-3" htmlFor="c-pw">
+                <SeaField label="Choose a password" hint="at least 8 characters" error={errors.password} className="mt-3" htmlFor="c-pw">
                   <SeaInput id="c-pw" name="password" type="password" autoComplete="new-password" value={f.password} onChange={set("password")} invalid={!!errors.password} />
                 </SeaField>
               )}

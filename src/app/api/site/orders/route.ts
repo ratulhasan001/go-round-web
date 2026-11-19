@@ -3,6 +3,8 @@ import { currentAccount, startSession, hashPassword, newAccountId } from "@/lib/
 import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 import { OrderError, orderView, placeOrder } from "@/lib/server/orders";
 import { phoneKey } from "@/lib/phone";
+import { clientIp } from "@/lib/server/auth";
+import { record, reached, tooMany } from "@/lib/server/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,13 @@ export async function POST(req: Request) {
   // bots fill the hidden trap field (gr_hp). The old trap was called "website", which browsers autofilled, so that name is no longer checked
   if (typeof body.gr_hp === "string" && body.gr_hp.trim()) return NextResponse.json({ error: "bad request", message: "Please refresh the page and try again." }, { status: 400 });
 
+  // at most 5 orders an hour for one phone number, and 20 from one internet address (shared by many mobile users);
+  // only orders that go through count, so a form sent back for a missing field doesn't use one up
+  const ip = clientIp(req);
+  const phone = phoneKey(String(body.phone ?? "")) || "none";
+  if ((await reached(`order:ip:${ip}`, 20, 60)) || (await reached(`order:phone:${phone}`, 5, 60)))
+    return tooMany("You've placed several orders in the last hour. Please wait a little, or message us on WhatsApp.");
+
   try {
     await ensureSchema();
     const account = await currentAccount();
@@ -30,6 +39,8 @@ export async function POST(req: Request) {
       if (taken) throw new OrderError(422, { error: "invalid", fields: { password: "This number already has an account - log in instead, or untick “Create an account”." } });
     }
     const order = await placeOrder(body, account?.id ?? null);
+    await record(`order:ip:${ip}`);
+    await record(`order:phone:${phoneKey(order.customer.phone) || phone}`);
     if (!account && password) {
       // the order is already saved: if making the account fails, still tell the customer their order is in
       try {

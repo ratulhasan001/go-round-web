@@ -22,7 +22,7 @@ const PUBLIC_API = (p: string) => p.startsWith("/api/site/") || p.startsWith("/a
  * submit endpoint and the shop logo it shows), which is protected by its own one-time, 30-minute token, and the
  * customer website (/store…, its /api/site/… endpoints and product photos).
  */
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "";
   const area = areaOf(host);
@@ -57,7 +57,7 @@ export function proxy(request: NextRequest) {
 
   if (area === "admin" && isStorePath(pathname)) return to(HOSTS.store, pathname.slice(STORE_BASE.length) || "/");
 
-  if (pathname === "/login" || pathname === "/api/login") return NextResponse.next();
+  if (pathname === "/login" || pathname.startsWith("/login/") || pathname === "/api/login" || pathname.startsWith("/api/login/") || pathname === "/api/logout") return NextResponse.next();
   if (pathname.startsWith("/f/") || pathname.startsWith("/api/f/")) return NextResponse.next();
   if (isStorePath(pathname)) return framing(pathname.slice(STORE_BASE.length), NextResponse.next());
   if (PUBLIC_API(pathname)) return NextResponse.next();
@@ -75,7 +75,7 @@ export function proxy(request: NextRequest) {
       if (from !== host.toLowerCase()) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
   }
-  if (isAuthed(request.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
+  if (await isAuthed(request.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
 
   if (api) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const url = new URL("/login", request.url);

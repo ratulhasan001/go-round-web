@@ -1,13 +1,12 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, authEnabled, isAuthed } from "@/lib/server/auth";
+import { authEnabled, adminAuthed } from "@/lib/server/auth";
 import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 
 export const dynamic = "force-dynamic";
 
 /** All shop data in one go: settings, products, customers, coupons, receipts, letters and website orders. */
 export async function GET() {
-  if (!isAuthed((await cookies()).get(SESSION_COOKIE)?.value)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await adminAuthed())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!dbEnabled()) return NextResponse.json({ db: false, auth: authEnabled() });
   try {
     await ensureSchema();

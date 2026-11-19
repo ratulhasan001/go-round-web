@@ -90,6 +90,21 @@ export function ensureSchema() {
           at timestamptz not null default now()
         )`,
     )
+    // admin logins, one row per logged-in device; only a hash of each device's token is kept
+    .then(
+      () => db()`
+        create table if not exists gr_admin_sessions (
+          token_hash text primary key,
+          id text not null unique,
+          device text not null default '',
+          ip text not null default '',
+          ua text not null default '',
+          how text not null default '',
+          created_at timestamptz not null default now(),
+          last_seen timestamptz not null default now(),
+          expires_at timestamptz not null
+        )`,
+    )
     .catch((e) => {
       g.__grSchema = undefined; // retry on the next request
       throw e;

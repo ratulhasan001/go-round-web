@@ -1,12 +1,11 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, isAuthed } from "@/lib/server/auth";
+import { adminAuthed } from "@/lib/server/auth";
 import { hashPassword, tempPassword } from "@/lib/server/accounts";
 import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 
 export const dynamic = "force-dynamic";
 
-const authed = async () => isAuthed((await cookies()).get(SESSION_COOKIE)?.value);
+const authed = adminAuthed;
 
 /** Admin: customer accounts on the website (never their passwords). */
 export async function GET() {

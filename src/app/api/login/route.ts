@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, SESSION_MAX_AGE, authEnabled, checkPassword, pinLength, sessionToken } from "@/lib/server/auth";
+import { authEnabled, checkPassword, clientIp, isAuthed, pinLength, SESSION_COOKIE, startSession } from "@/lib/server/auth";
+import { cookies } from "next/headers";
 import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +12,9 @@ const PER_IP_MIN = 15;
 const ALL = 30;
 const ALL_MIN = 60;
 
-const clientIp = (req: Request) => req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-
-/** How many digits the keypad shows. */
+/** How many digits the keypad shows, and whether this device is already logged in (the login page then moves on). */
 export async function GET() {
-  return NextResponse.json({ length: pinLength() });
+  return NextResponse.json({ length: pinLength(), authed: authEnabled() ? await isAuthed((await cookies()).get(SESSION_COOKIE)?.value) : true });
 }
 
 export async function POST(req: Request) {
@@ -43,6 +42,7 @@ export async function POST(req: Request) {
     }
   }
 
+  if (authEnabled() && !dbEnabled()) return NextResponse.json({ error: "nodb", message: "The login needs the database (DATABASE_URL)." }, { status: 503 });
   if (!checkPassword(password)) {
     await new Promise((r) => setTimeout(r, 600)); // slow down guessing
     return NextResponse.json({ error: "Wrong password" }, { status: 401 });
@@ -50,14 +50,6 @@ export async function POST(req: Request) {
   // right PIN: this device's attempts are forgiven, and old entries are tidied away
   if (limited) await db()`delete from gr_login_fails where ip = ${ip} or at < now() - interval '1 day'`.catch(() => null);
 
-  const res = NextResponse.json({ ok: true });
-  if (authEnabled())
-    res.cookies.set(SESSION_COOKIE, sessionToken(), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: SESSION_MAX_AGE,
-    });
-  return res;
+  if (authEnabled()) await startSession(req, "password");
+  return NextResponse.json({ ok: true });
 }

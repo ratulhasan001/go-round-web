@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Fingerprint, Loader2, LockKeyhole, LockKeyholeOpen, Smartphone } from "lucide-react";
-import { WAVE_BACK, WAVE_FRONT } from "@/lib/theme";
+import { LoginShell, loginButton, loginField, loginInput, loginLabel, loginLink } from "@/components/LoginShell";
 import { Turnstile } from "@/components/Turnstile";
 import { useClientValue } from "@/components/ui";
 
@@ -22,10 +22,9 @@ function safeNext(next: string | null) {
 
 const goNext = () => safeNext(new URLSearchParams(window.location.search).get("next"));
 
-const field =
-  "flex items-center rounded-2xl border-2 bg-black/20 transition-colors focus-within:border-[#8cc556]";
-const inputCls = "h-14 min-w-0 flex-1 bg-transparent px-4 text-[17px] font-semibold tracking-wide text-white outline-none placeholder:text-white/25";
-const linkBtn = "text-[13px] font-semibold text-[#b9d8c9]/70 underline-offset-4 transition hover:text-white hover:underline";
+const field = loginField;
+const inputCls = loginInput;
+const linkBtn = loginLink;
 
 interface Answer {
   ok?: boolean;
@@ -51,6 +50,9 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [recovery, setRecovery] = useState(false);
   const codeInput = useRef<HTMLInputElement>(null);
+  // "Forgot password?": a reset link sent to the owner's Telegram / email
+  const [forgot, setForgot] = useState(false);
+  const [sent, setSent] = useState("");
   const passkeys = useClientValue(() => browserSupportsWebAuthn(), false); // this browser can use passkeys
 
   useEffect(() => {
@@ -127,6 +129,36 @@ export default function LoginPage() {
     fail(b?.message ?? (res ? "That code isn't right." : "Can't connect. Check your internet."));
   };
 
+  const showForgot = (on: boolean) => {
+    setForgot(on);
+    setSent("");
+    setError("");
+    setHuman(""); // the other form has its own human check
+    setStatus("idle");
+  };
+
+  const sendReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    if (siteKey && !human) return fail("Please tick “Verify you are human” first.");
+    setStatus("checking");
+    setError("");
+    const res = await fetch("/api/login/forgot", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ turnstile: human }) }).catch(() => null);
+    const b = res ? ((await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string; to?: string }) : null;
+    if (siteKey) setResetHuman((n) => n + 1);
+    if (b?.ok) {
+      setStatus("idle");
+      return setSent(`A reset link was sent to your ${b.to}. It works for 20 minutes.`);
+    }
+    if (b?.error === "nochannel") {
+      setStatus("idle");
+      return setSent(
+        "No reset channel (Telegram or email) is set up yet, so a link can't be sent. Whoever manages the website can change APP_PASSWORD in Vercel - the login then goes back to that password.",
+      );
+    }
+    fail(b?.message ?? (res ? "Something went wrong. Try again." : "Can't connect. Check your internet."));
+  };
+
   /** Logs in with a passkey: the device asks for a fingerprint, face or screen lock. */
   const passkeyLogin = async () => {
     if (busy) return;
@@ -151,7 +183,7 @@ export default function LoginPage() {
   };
 
   const Lock = status === "success" ? LockKeyholeOpen : status === "idle" && ticket ? Smartphone : LockKeyhole;
-  const title = status === "success" ? "Welcome back!" : ticket ? (recovery ? "Recovery code" : "Enter your code") : "Admin login";
+  const title = status === "success" ? "Welcome back!" : ticket ? (recovery ? "Recovery code" : "Enter your code") : forgot ? "Forgot password?" : "Admin login";
   const hint =
     status === "success"
       ? "Unlocking…"
@@ -159,23 +191,12 @@ export default function LoginPage() {
         ? recovery
           ? "Type one of the recovery codes you saved"
           : "Open your authenticator app and type the 6-digit code"
-        : "Enter your password to continue";
+        : forgot
+          ? "We'll send a reset link to the shop owner's Telegram or email"
+          : "Enter your password to continue";
 
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#0e2a23] px-5 py-10 text-white">
-      {/* soft background light */}
-      <div className="animate-drift pointer-events-none absolute -left-32 -top-32 size-[420px] rounded-full bg-aqua/20 blur-3xl" />
-      <div className="animate-drift-slow pointer-events-none absolute -bottom-40 -right-24 size-[460px] rounded-full bg-[#8cc556]/15 blur-3xl" />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.05]"
-        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "22px 22px" }}
-      />
-      <svg viewBox="0 0 595 40" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full" aria-hidden>
-        <path d={WAVE_BACK} className="fill-aqua/15" />
-        <path d={WAVE_FRONT} className="fill-[#8cc556]/20" />
-      </svg>
-
-      <section className="animate-fade-up relative w-full max-w-[380px] rounded-[32px] border border-white/10 bg-white/[0.06] px-6 pb-7 pt-8 shadow-2xl shadow-black/40 backdrop-blur-xl sm:px-8">
+    <LoginShell>
         {/* lock badge */}
         <div className="relative mx-auto mb-5 grid size-16 place-items-center">
           <span
@@ -196,7 +217,7 @@ export default function LoginPage() {
 
         {ticket ? (
           <form onSubmit={submitCode} className="mt-7">
-            <label htmlFor="code" className="mb-1.5 block text-[12px] font-bold uppercase tracking-[0.14em] text-white/55">
+            <label htmlFor="code" className={loginLabel}>
               {recovery ? "Recovery code" : "6-digit code"}
             </label>
             <div className={`${field} ${status === "error" ? "animate-pin-shake border-red-400" : "border-white/15"}`}>
@@ -244,9 +265,35 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
+        ) : forgot ? (
+          <form onSubmit={sendReset} className="mt-7">
+            {sent ? (
+              <p className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3.5 text-[14px] leading-relaxed text-[#d7ebe1]">{sent}</p>
+            ) : (
+              <>
+                <p className="text-[13.5px] leading-relaxed text-[#b9d8c9]/80">
+                  The link only goes to the owner&apos;s own Telegram or email set up in the website settings - never to an address typed here.
+                </p>
+                <div className="min-h-7 pt-2.5 text-center text-[13px] font-semibold text-red-300" role="alert">
+                  {error}
+                </div>
+                {siteKey && (
+                  <div className="mb-3">
+                    <Turnstile siteKey={siteKey} action="admin-forgot" onToken={setHuman} reset={resetHuman} />
+                  </div>
+                )}
+                <SubmitButton status={status} disabled={busy || (!!siteKey && !human)} label="Send reset link" />
+              </>
+            )}
+            <div className="mt-4 text-center">
+              <button type="button" className={`${linkBtn} inline-flex items-center gap-1`} onClick={() => showForgot(false)}>
+                <ArrowLeft className="size-3.5" /> Back to login
+              </button>
+            </div>
+          </form>
         ) : (
           <form onSubmit={submitPassword} className="mt-7">
-            <label htmlFor="password" className="mb-1.5 block text-[12px] font-bold uppercase tracking-[0.14em] text-white/55">
+            <label htmlFor="password" className={loginLabel}>
               Password
             </label>
             <div className={`${field} ${status === "error" ? "animate-pin-shake border-red-400" : "border-white/15"}`}>
@@ -277,8 +324,13 @@ export default function LoginPage() {
               </button>
             </div>
 
-            <div className="min-h-7 pt-2.5 text-center text-[13px] font-semibold text-red-300" role="alert">
-              {error}
+            <div className="flex min-h-7 items-start justify-between gap-3 pt-2.5">
+              <p className="text-[13px] font-semibold text-red-300" role="alert">
+                {error}
+              </p>
+              <button type="button" className={`${linkBtn} shrink-0`} onClick={() => showForgot(true)}>
+                Forgot password?
+              </button>
             </div>
 
             {siteKey && (
@@ -306,18 +358,13 @@ export default function LoginPage() {
             )}
           </form>
         )}
-      </section>
-    </main>
+    </LoginShell>
   );
 }
 
 function SubmitButton({ status, disabled, label }: { status: Status; disabled: boolean; label: string }) {
   return (
-    <button
-      type="submit"
-      disabled={disabled}
-      className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8cc556] to-aqua py-3.5 text-[16px] font-extrabold text-[#0e2a23] shadow-lg shadow-[#8cc556]/20 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-    >
+    <button type="submit" disabled={disabled} className={loginButton}>
       {status === "checking" ? <Loader2 className="size-5 animate-spin" /> : null}
       {status === "checking" ? "Checking…" : label}
       {status === "idle" || status === "error" ? <ArrowRight className="size-5" /> : null}

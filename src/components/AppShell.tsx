@@ -96,7 +96,7 @@ function NavBar({ path }: { path: string }) {
       className={cx("sticky top-0 z-40 border-b text-ink transition-[background-color,border-color,box-shadow] duration-300", scrolled ? "border-line bg-canvas/90 shadow-[0_6px_24px_-18px_rgba(17,58,45,0.5)] backdrop-blur-md" : "border-transparent bg-canvas")}
     >
       <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-4 gap-y-2 px-4 pt-3 sm:px-6 lg:flex-nowrap lg:px-10 lg:py-3">
-        <Link href="/" transitionTypes={["nav-back"]} className="group flex min-w-0 items-center gap-2.5 rounded-2xl py-1 pr-2" title="Home">
+        <Link href="/" transitionTypes={["nav-back"]} className="group flex min-w-0 items-center gap-2.5 rounded-2xl py-1 pr-2 lg:shrink-0" title="Home">
           <span className="relative">
             <Mark className="size-9 text-[13px] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-105" />
             <span className="absolute -bottom-1 -right-1 grid size-4.5 scale-0 place-items-center rounded-full bg-lime text-deep opacity-0 shadow transition-all duration-300 group-hover:scale-100 group-hover:opacity-100">
@@ -109,11 +109,11 @@ function NavBar({ path }: { path: string }) {
           </span>
         </Link>
 
-        <div className="ml-auto flex items-center gap-1.5 lg:order-last lg:ml-0">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:order-last lg:ml-0">
           <VisitStore compact tone="light" />
           <span className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[12px] font-semibold text-body ring-1 ring-line" title={syncLabel(mode, sync)}>
             <SyncDot mode={mode} sync={sync} />
-            <span className="hidden sm:inline lg:hidden min-[1680px]:inline">{syncLabel(mode, sync, true)}</span>
+            <span className="hidden sm:inline lg:hidden">{syncLabel(mode, sync, true)}</span>
           </span>
           {authEnabled && (
             <button
@@ -127,13 +127,13 @@ function NavBar({ path }: { path: string }) {
           )}
         </div>
 
-        <nav className="order-last -mx-4 w-[calc(100%+2rem)] sm:-mx-6 sm:w-[calc(100%+3rem)] lg:order-none lg:mx-auto lg:w-auto" aria-label="Sections">
-          <div ref={track} className="relative flex gap-1 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:px-6 lg:overflow-visible lg:p-0 [&::-webkit-scrollbar]:hidden">
+        <nav className="order-last -mx-4 w-[calc(100%+2rem)] sm:-mx-6 sm:w-[calc(100%+3rem)] lg:order-none lg:mx-auto lg:w-auto lg:min-w-0" aria-label="Sections">
+          <div ref={track} className="relative flex gap-1 overflow-x-auto lg:gap-0.5 px-4 pb-3 [scrollbar-width:none] sm:px-6 lg:p-1 [&::-webkit-scrollbar]:hidden">
             {pill && (
               <span
                 aria-hidden
                 className={cx(
-                  "absolute left-0 top-0 h-10 rounded-xl bg-white shadow-sm ring-1 ring-line",
+                  "absolute left-0 top-0 h-10 rounded-xl bg-white shadow-sm ring-1 ring-line lg:top-1",
                   pill.ready && "transition-[transform,width] duration-500 ease-[cubic-bezier(0.34,1.3,0.64,1)]",
                 )}
                 style={{ transform: `translateX(${pill.x}px)`, width: pill.w }}
@@ -153,14 +153,14 @@ function NavBar({ path }: { path: string }) {
                   href={s.href}
                   transitionTypes={lateral(current, i)}
                   aria-current={on ? "page" : undefined}
+                  title={s.label}
                   className={cx(
-                    "group relative flex h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 text-[13.5px] font-semibold transition-colors duration-300",
+                    "group relative flex h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 text-[13.5px] lg:px-2.5 font-semibold transition-colors duration-300",
                     on ? "text-ink" : "text-body hover:bg-sea-sand/60 hover:text-ink",
                   )}
                 >
                   <Icon className={cx("size-[17px] transition-all duration-300", on ? "scale-110 text-sea-teal" : "group-hover:-translate-y-0.5 group-hover:text-sea-teal")} />
-                  <span className="xl:hidden">{s.short}</span>
-                  <span className="hidden xl:inline">{s.label}</span>
+                  <span className={cx(!on && "lg:max-[1359px]:hidden")}>{s.short}</span>
                   {s.key === "orders" && fresh > 0 && (
                     <span
                       className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-sea-teal px-1 text-[11px] font-extrabold tabular-nums text-white"

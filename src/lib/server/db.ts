@@ -115,6 +115,19 @@ export function ensureSchema() {
           updated_at timestamptz not null default now()
         )`,
     )
+    // the admin login history (see adminEvents.ts)
+    .then(
+      () => db()`
+        create table if not exists gr_admin_events (
+          id bigserial primary key,
+          at timestamptz not null default now(),
+          kind text not null,
+          ip text not null default '',
+          device text not null default '',
+          device_id text not null default '',
+          detail text not null default ''
+        )`,
+    )
     .catch((e) => {
       g.__grSchema = undefined; // retry on the next request
       throw e;

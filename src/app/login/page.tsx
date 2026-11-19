@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, LockKeyholeOpen } from "lucide-react";
 import { WAVE_BACK, WAVE_FRONT } from "@/lib/theme";
+import { Turnstile } from "@/components/Turnstile";
 
 type Status = "idle" | "checking" | "error" | "success";
 
@@ -25,12 +26,18 @@ export default function LoginPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  const [siteKey, setSiteKey] = useState(""); // Cloudflare's human check, when it is set up
+  const [human, setHuman] = useState("");
+  const [resetHuman, setResetHuman] = useState(0);
 
   useEffect(() => {
     // already logged in on this device (a link from another site arrives without the login cookie): carry on
     fetch("/api/login", { cache: "no-store" })
       .then((r) => r.json())
-      .then((b: { authed?: boolean }) => b.authed && window.location.replace(goNext()))
+      .then((b: { authed?: boolean; turnstile?: string | null }) => {
+        if (b.authed) window.location.replace(goNext());
+        else if (b.turnstile) setSiteKey(b.turnstile);
+      })
       .catch(() => null);
   }, []);
 
@@ -52,11 +59,13 @@ export default function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy || !password) return;
+    if (siteKey && !human) return fail("Please tick “Verify you are human” first.");
     setStatus("checking");
     setError("");
-    const res = await fetch("/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) }).catch(() => null);
+    const res = await fetch("/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password, turnstile: human }) }).catch(() => null);
     const b = res ? ((await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }) : null;
     if (res?.ok && b?.ok) return finish();
+    if (siteKey) setResetHuman((n) => n + 1); // each pass works once
     setPassword("");
     input.current?.focus();
     fail(b?.message ?? (res ? "Wrong password. Try again." : "Can't connect. Check your internet."));
@@ -137,9 +146,15 @@ export default function LoginPage() {
             {error}
           </div>
 
+          {siteKey && (
+            <div className="mb-3">
+              <Turnstile siteKey={siteKey} action="admin-login" onToken={setHuman} reset={resetHuman} />
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={busy || !password}
+            disabled={busy || !password || (!!siteKey && !human)}
             className="mt-1 flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8cc556] to-aqua py-3.5 text-[16px] font-extrabold text-[#0e2a23] shadow-lg shadow-[#8cc556]/20 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
           >
             {status === "checking" ? <Loader2 className="size-5 animate-spin" /> : null}

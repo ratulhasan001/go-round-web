@@ -20,6 +20,6 @@ export async function GET() {
     passkey: db && (await hasPasskeys()),
     sessionSecret: secretReady(),
     turnstile: !!turnstileSiteKey(),
-    alerts: a.telegram || a.email,
+    alerts: a.email,
   });
 }

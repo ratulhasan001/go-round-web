@@ -165,7 +165,6 @@ export async function sendEmailCode(why: string): Promise<EmailCode | null> {
   const sent = await sendAlert(
     `Login code ${code}`,
     [`Your Go Round admin code is: ${code}`, "", `It works for ${EMAIL_CODE_MINUTES} minutes, once. ${why}`, "", "If this wasn't you, someone knows your password: change it now."],
-    { emailOnly: true },
   );
   return sent ? { hash: emailHash(code), at: Date.now() } : null;
 }

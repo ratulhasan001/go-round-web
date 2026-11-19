@@ -61,7 +61,7 @@ export default function LoginPage() {
   const [newPw, setNewPw] = useState("");
   const [newPw2, setNewPw2] = useState("");
   const codeInput = useRef<HTMLInputElement>(null);
-  // "Forgot password?": a reset link sent to the owner's Telegram / email
+  // "Forgot password?": a reset link sent to the owner's email
   const [forgot, setForgot] = useState(false);
   const [sent, setSent] = useState("");
   const passkeys = useClientValue(() => browserSupportsWebAuthn(), false); // this browser can use passkeys
@@ -413,7 +413,7 @@ export default function LoginPage() {
             ) : (
               <>
                 <p className="text-[13.5px] leading-relaxed text-[#b9d8c9]/80">
-                  The link only goes to the owner&apos;s own Telegram or email set up in the website settings - never to an address typed here.
+                  The link only goes to the owner&apos;s own email set up in the website settings - never to an address typed here.
                 </p>
                 <div className="min-h-7 pt-2.5 text-center text-[13px] font-semibold text-red-300" role="alert">
                   {error}

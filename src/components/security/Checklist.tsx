@@ -13,7 +13,7 @@ const ITEMS: { key: keyof Status; title: string; todo: string; vercel?: boolean 
   { key: "twoFactor", title: "Two-step login", todo: "Turn it on below, with an authenticator app on your phone." },
   { key: "passkey", title: "A passkey", todo: "Add one for each phone or computer you log in from." },
   { key: "turnstile", title: "Cloudflare “Verify you are human”", todo: "In Cloudflare → Turnstile, add a widget for admin.goroundbd.com, then add TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY in Vercel.", vercel: true },
-  { key: "alerts", title: "Security alerts", todo: "Add Telegram or email keys in Vercel (see “Security alerts”). Also needed for “Forgot password”.", vercel: true },
+  { key: "alerts", title: "Security alerts", todo: "Add RESEND_API_KEY and ALERT_EMAIL in Vercel. Also needed for “Forgot password” and email login codes.", vercel: true },
 ];
 
 /** What's set up, and what's left, at a glance. */

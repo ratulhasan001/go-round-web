@@ -1,29 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Copy, Download, ShieldCheck, Smartphone, TriangleAlert } from "lucide-react";
+import { Check, Copy, Download, Mail, ShieldCheck, Smartphone, TriangleAlert } from "lucide-react";
 import { Button, Card, Field, Input, SectionTitle, useToast } from "@/components/ui";
 import { api, when } from "./shared";
 
 interface Status {
   on: boolean;
   since: string | null;
+  email: boolean;
+  emailSince: string | null;
+  emailReady: boolean;
+  emailTo: string;
   recoveryLeft: number;
   secretReady: boolean;
   secretWorks: boolean;
   db?: boolean;
 }
 
-type Mode = { k: "idle" } | { k: "start" } | { k: "scan"; qr: string; secret: string } | { k: "codes"; codes: string[] } | { k: "recovery" } | { k: "off" };
+type Mode =
+  | { k: "idle" }
+  | { k: "start" }
+  | { k: "scan"; qr: string; secret: string }
+  | { k: "codes"; codes: string[] }
+  | { k: "recovery" }
+  | { k: "off" }
+  | { k: "email-on" }
+  | { k: "email-off" };
 
 /** Shows recovery codes once, with copy and download. */
 function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
   const toast = useToast();
-  const text = `Go Round admin - recovery codes\nEach code works once, in place of the code from your app.\n\n${codes.join("\n")}\n`;
+  const text = `Go Round admin - recovery codes\nEach code works once, in place of the login code from your app or email.\n\n${codes.join("\n")}\n`;
   return (
     <div className="grid gap-3">
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-[13px] leading-relaxed text-amber-900">
-        <b>Save these recovery codes now</b> - they are shown only once. If you lose your phone, each code logs you in one time instead of the app code. Keep them
+        <b>Save these recovery codes now</b> - they are shown only once. If you lose your phone or can&apos;t get into your email, each code logs you in one time instead of the login code. Keep them
         somewhere safe, away from this computer (printed, or in a password manager).
       </p>
       <ol className="grid grid-cols-2 gap-x-6 gap-y-1.5 rounded-xl border border-line bg-white px-4 py-3 font-mono text-[14.5px] font-semibold tracking-wider text-ink sm:max-w-md">
@@ -77,7 +89,26 @@ export function SecretSteps() {
   );
 }
 
-/** Turns two-step login (a code from an authenticator app) on or off, and makes new recovery codes. */
+/** One way of getting the second-step code, with its on/off state and buttons. */
+function Method({ icon, title, detail, on, children }: { icon: React.ReactNode; title: string; detail: string; on: boolean; children: React.ReactNode }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-3 rounded-xl border px-3.5 py-3 ${on ? "border-brand/20 bg-soft" : "border-line bg-white"}`}>
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-brand ring-1 ring-line">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] font-bold text-ink">
+          {title} <span className={`ml-1.5 rounded-full px-2 py-0.5 text-[11px] font-bold ${on ? "bg-lime/40 text-deep" : "bg-canvas text-muted"}`}>{on ? "On" : "Off"}</span>
+        </p>
+        <p className="text-[12.5px] text-muted">{detail}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Two-step login: a code from an authenticator app, a code by email, or both (then either works at login). Turns each
+ * on or off, and makes new recovery codes.
+ */
 export function TwoFactor() {
   const toast = useToast();
   const [s, setS] = useState<Status | null>(null);
@@ -85,6 +116,7 @@ export function TwoFactor() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => api<Status>("2fa").then((b) => !b.error && setS(b)), []);
@@ -97,18 +129,32 @@ export function TwoFactor() {
     setPassword("");
     setCode("");
     setError("");
+    setNote("");
   };
 
   const send = async (body: Record<string, string>) => {
     setBusy(true);
     setError("");
-    const b = await api<{ qr?: string; secret?: string; codes?: string[] }>("2fa", "POST", body);
+    const b = await api<{ qr?: string; secret?: string; codes?: string[] | null }>("2fa", "POST", body);
     setBusy(false);
     if (!b.ok) {
       setError(b.message ?? "Something went wrong. Try again.");
       return null;
     }
     return b;
+  };
+
+  /** Emails a code to confirm the change being made. */
+  const emailMe = async () => {
+    const b = await send({ action: "email-send" });
+    if (b) setNote(`Code sent to ${s?.emailTo || "your email"}. It works for 10 minutes.`);
+  };
+
+  const done = (message: string, codes?: string[] | null) => {
+    if (codes?.length) go({ k: "codes", codes });
+    else go({ k: "idle" });
+    toast(message);
+    void load();
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -118,24 +164,16 @@ export function TwoFactor() {
       if (b?.qr) go({ k: "scan", qr: b.qr, secret: b.secret ?? "" });
     } else if (mode.k === "scan") {
       const b = await send({ action: "confirm", code });
-      if (b?.codes) {
-        go({ k: "codes", codes: b.codes });
-        toast("Two-step login is on");
-        void load();
-      }
+      if (b) done("Authenticator app is on", b.codes);
+    } else if (mode.k === "email-on") {
+      const b = await send({ action: "email-on", password, code });
+      if (b) done("Email codes are on", b.codes);
     } else if (mode.k === "recovery") {
       const b = await send({ action: "recovery", password, code });
-      if (b?.codes) {
-        go({ k: "codes", codes: b.codes });
-        void load();
-      }
-    } else if (mode.k === "off") {
-      const b = await send({ action: "off", password, code });
-      if (b) {
-        go({ k: "idle" });
-        toast("Two-step login is off");
-        void load();
-      }
+      if (b) done("New recovery codes made", b.codes);
+    } else if (mode.k === "off" || mode.k === "email-off") {
+      const b = await send({ action: mode.k, password, code });
+      if (b) done(mode.k === "off" ? "Authenticator app is off" : "Email codes are off");
     }
   };
 
@@ -144,75 +182,102 @@ export function TwoFactor() {
       <Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
     </Field>
   );
-  const codeField = (label: string) => (
+  const codeField = (label: string, placeholder: string) => (
     <Field label={label}>
       <Input
-        inputMode={mode.k === "scan" ? "numeric" : "text"}
+        inputMode={mode.k === "scan" || mode.k === "email-on" ? "numeric" : "text"}
         autoComplete="one-time-code"
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        placeholder={mode.k === "scan" ? "123 456" : "123456 or a recovery code"}
+        placeholder={placeholder}
         required
         maxLength={20}
         className="font-mono tracking-widest"
       />
     </Field>
   );
+  const emailLink = (label: string) => (
+    <button type="button" onClick={emailMe} disabled={busy} className="inline-flex items-center gap-1.5 justify-self-start text-[13px] font-semibold text-brand hover:underline disabled:opacity-50">
+      <Mail className="size-4" /> {label}
+    </button>
+  );
+
+  const any = !!s && (s.on || s.email);
+  const confirmHint = s?.on && s.email ? "a code from your app or email, or a recovery code" : s?.on ? "a code from your app, or a recovery code" : "a code by email, or a recovery code";
 
   return (
     <Card className="p-5 sm:p-6">
       <SectionTitle
-        icon={<Smartphone className="size-4" />}
+        icon={<ShieldCheck className="size-4" />}
         title="Two-step login"
-        hint="After the password, a 6-digit code from an app on your phone - so a stolen password alone isn't enough"
+        hint="After the password, a 6-digit code - from an app on your phone, by email, or either - so a stolen password alone isn't enough"
       />
       {!s ? (
         <p className="text-sm text-muted">Loading…</p>
       ) : mode.k === "codes" ? (
         <RecoveryCodes codes={mode.codes} onDone={() => go({ k: "idle" })} />
       ) : (
-        <div className="grid gap-4">
-          {s.on ? (
-            <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-brand/20 bg-soft px-3.5 py-3 text-[13.5px] text-ink">
-              <ShieldCheck className="size-5 text-brand" />
-              <span>
-                <b>On</b>
-                {s.since && <> since {when(s.since)}</>} · {s.recoveryLeft} recovery {s.recoveryLeft === 1 ? "code" : "codes"} left
-              </span>
-            </div>
-          ) : (
-            !s.secretReady && <SecretSteps />
-          )}
+        <div className="grid gap-3">
+          <Method
+            icon={<Smartphone className="size-4" />}
+            title="Authenticator app"
+            detail={s.on && s.since ? `Google Authenticator, Authy… · on since ${when(s.since)}` : "Google Authenticator, Microsoft Authenticator, Authy… Works without internet."}
+            on={s.on}
+          >
+            {mode.k === "idle" &&
+              (s.on ? (
+                <Button size="sm" variant="danger" onClick={() => go({ k: "off" })}>
+                  Turn off
+                </Button>
+              ) : (
+                <Button size="sm" variant="dark" disabled={!s.secretReady || s.db === false} onClick={() => go({ k: "start" })}>
+                  Turn on
+                </Button>
+              ))}
+          </Method>
+          <Method
+            icon={<Mail className="size-4" />}
+            title="Code by email"
+            detail={s.emailReady ? `Sent to ${s.emailTo}${s.email && s.emailSince ? ` · on since ${when(s.emailSince)}` : ""}` : "Needs RESEND_API_KEY and ALERT_EMAIL in Vercel"}
+            on={s.email}
+          >
+            {mode.k === "idle" &&
+              (s.email ? (
+                <Button size="sm" variant="danger" onClick={() => go({ k: "email-off" })}>
+                  Turn off
+                </Button>
+              ) : (
+                <Button size="sm" variant="dark" disabled={!s.emailReady || s.db === false} onClick={() => go({ k: "email-on" })}>
+                  Turn on
+                </Button>
+              ))}
+          </Method>
+
+          {!s.on && !s.secretReady && <SecretSteps />}
           {s.on && !s.secretWorks && (
             <p className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-[13px] text-red-800">
-              SESSION_SECRET in Vercel has changed, so codes from your app can&apos;t be checked. Put the old value back, or log in with a recovery code, turn two-step
-              login off and on again.
+              SESSION_SECRET in Vercel has changed, so codes from your app can&apos;t be checked. Put the old value back, or log in with an email or recovery code,
+              then turn the app off and on again.
             </p>
           )}
-          {s.on && s.recoveryLeft <= 3 && <p className="text-[13px] font-semibold text-amber-700">Only {s.recoveryLeft} recovery codes left - make new ones.</p>}
-
-          {mode.k === "idle" ? (
-            <div className="flex flex-wrap gap-2">
-              {s.on ? (
-                <>
-                  <Button onClick={() => go({ k: "recovery" })}>New recovery codes</Button>
-                  <Button variant="danger" onClick={() => go({ k: "off" })}>
-                    Turn off
-                  </Button>
-                </>
-              ) : (
-                <Button variant="dark" disabled={!s.secretReady || s.db === false} onClick={() => go({ k: "start" })}>
-                  <ShieldCheck className="size-4" /> Turn on two-step login
+          {any && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-body">
+              <span className={s.recoveryLeft <= 3 ? "font-semibold text-amber-700" : ""}>
+                {s.recoveryLeft} recovery {s.recoveryLeft === 1 ? "code" : "codes"} left{s.recoveryLeft <= 3 ? " - make new ones" : ""}
+              </span>
+              {mode.k === "idle" && (
+                <Button size="sm" onClick={() => go({ k: "recovery" })}>
+                  New recovery codes
                 </Button>
               )}
             </div>
-          ) : (
-            <form onSubmit={submit} className="grid gap-3.5 sm:max-w-md">
+          )}
+
+          {mode.k !== "idle" && (
+            <form onSubmit={submit} className="mt-1 grid gap-3.5 border-t border-line pt-4 sm:max-w-md">
               {mode.k === "start" && (
                 <>
-                  <p className="text-[13px] text-body">
-                    You&apos;ll need an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator or Authy. First, type your password.
-                  </p>
+                  <p className="text-[13px] text-body">You&apos;ll need an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator or Authy. First, type your password.</p>
                   {passwordField}
                 </>
               )}
@@ -228,23 +293,36 @@ export function TwoFactor() {
                   <p className="text-[12.5px] text-muted">
                     Setup key: <span className="select-all font-mono font-semibold tracking-wider text-ink">{mode.secret}</span>
                   </p>
-                  {codeField("Code from the app")}
+                  {codeField("Code from the app", "123 456")}
                 </>
               )}
-              {(mode.k === "recovery" || mode.k === "off") && (
+              {mode.k === "email-on" && (
                 <>
                   <p className="text-[13px] text-body">
-                    {mode.k === "off" ? "Turning it off means the password alone logs in." : "Your old recovery codes will stop working."} Confirm with your password and
-                    a code from your app.
+                    Each login will email a 6-digit code to <b>{s.emailTo}</b>. Keep that email account safe with its own two-step verification. First, send a test
+                    code:
                   </p>
                   {passwordField}
-                  {codeField("Code from the app (or a recovery code)")}
+                  {emailLink(note ? "Send it again" : "Email me a code")}
+                  {codeField("Code from the email", "123456")}
                 </>
               )}
+              {(mode.k === "recovery" || mode.k === "off" || mode.k === "email-off") && (
+                <>
+                  <p className="text-[13px] text-body">
+                    {mode.k === "recovery" ? "Your old recovery codes will stop working." : mode.k === "off" ? "The app will no longer be asked for." : "Codes will no longer be emailed."}{" "}
+                    Confirm with your password and {confirmHint}.
+                  </p>
+                  {passwordField}
+                  {codeField("Code", "123456 or a recovery code")}
+                  {s.email && emailLink(note ? "Send the email code again" : "Email me a code")}
+                </>
+              )}
+              {note && <p className="text-[13px] font-semibold text-brand">{note}</p>}
               {error && <p className="text-[13px] font-semibold text-red-600">{error}</p>}
               <div className="flex flex-wrap gap-2">
-                <Button type="submit" variant={mode.k === "off" ? "danger" : "dark"} loading={busy}>
-                  {mode.k === "start" ? "Continue" : mode.k === "scan" ? "Turn on" : mode.k === "off" ? "Turn off two-step login" : "Make new codes"}
+                <Button type="submit" variant={mode.k === "off" || mode.k === "email-off" ? "danger" : "dark"} loading={busy}>
+                  {mode.k === "start" ? "Continue" : mode.k === "scan" || mode.k === "email-on" ? "Turn on" : mode.k === "recovery" ? "Make new codes" : "Turn off"}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => go({ k: "idle" })}>
                   Cancel

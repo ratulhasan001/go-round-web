@@ -15,7 +15,7 @@ interface Session {
   expires_at: string;
 }
 
-const HOW: Record<string, string> = { password: "Password", "password+2fa": "Password + code", "password+recovery": "Password + recovery code", passkey: "Passkey", reset: "Password reset" };
+const HOW: Record<string, string> = { password: "Password", "password+2fa": "Password + code", "password+email": "Password + email code", "password+recovery": "Password + recovery code", passkey: "Passkey", reset: "Password reset" };
 
 /** The devices logged in to the admin panel, each with a button to log it out. */
 export function Devices() {

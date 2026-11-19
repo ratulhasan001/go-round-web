@@ -139,6 +139,19 @@ export function ensureSchema() {
           expires_at timestamptz not null
         )`,
     )
+    // the admin's passkeys: only public keys (see passkeys.ts)
+    .then(
+      () => db()`
+        create table if not exists gr_admin_passkeys (
+          id text primary key,
+          public_key bytea not null,
+          counter bigint not null default 0,
+          transports jsonb,
+          name text not null default 'Passkey',
+          created_at timestamptz not null default now(),
+          last_used timestamptz
+        )`,
+    )
     .catch((e) => {
       g.__grSchema = undefined; // retry on the next request
       throw e;

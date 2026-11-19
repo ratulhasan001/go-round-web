@@ -153,6 +153,16 @@ export function ensureSchema() {
           last_used timestamptz
         )`,
     )
+    // uses of the store's public forms, for their limits (see rateLimit.ts)
+    .then(
+      () => db()`
+        create table if not exists gr_rate_hits (
+          id bigserial primary key,
+          key text not null,
+          at timestamptz not null default now()
+        )`,
+    )
+    .then(() => db()`create index if not exists gr_rate_hits_key_at on gr_rate_hits (key, at)`)
     .catch((e) => {
       g.__grSchema = undefined; // retry on the next request
       throw e;

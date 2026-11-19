@@ -4,18 +4,24 @@ import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 import { accountOrders, readContact } from "@/lib/server/orders";
 import { findCustomer, upsertCustomer } from "@/lib/server/customers";
 import { phoneKey } from "@/lib/phone";
+import { clientIp } from "@/lib/server/auth";
+import { humanCheck, startAttempt, triesLeft, turnstileSiteKey, wrongMessage } from "@/lib/server/loginGuard";
 
 export const dynamic = "force-dynamic";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const bad = (fields: Record<string, string>) => NextResponse.json({ error: "invalid", fields }, { status: 422 });
+const refuse = (message: string, status = 400) => NextResponse.json({ error: "refused", message }, { status });
+/** New customer passwords; older accounts with shorter ones can still log in. */
+const PASSWORD_MIN = 8;
+const host = (req: Request) => req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
 
 /** Public: the logged-in customer and their orders (or { account: null }). */
 export async function GET() {
   if (!dbEnabled()) return NextResponse.json({ account: null, offline: true });
   try {
     const account = await currentAccount();
-    if (!account) return NextResponse.json({ account: null });
+    if (!account) return NextResponse.json({ account: null, turnstile: turnstileSiteKey() || null }); // the login form's human check
     return NextResponse.json({ account, orders: await accountOrders(account.id, account.phone) });
   } catch (e) {
     console.error("GET /api/site/account failed", e);
@@ -29,6 +35,10 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "bad request" }, { status: 400 });
   const password = typeof body.password === "string" ? body.password : "";
+  const ip = clientIp(req);
+  // logging in and creating an account need Cloudflare's "Verify you are human" (once it is set up in Vercel)
+  if ((body.action === "login" || body.action === "register") && !(await humanCheck(body.turnstile, ip, host(req), `store-${body.action}`)))
+    return refuse("Please tick “Verify you are human” first.");
 
   try {
     await ensureSchema();
@@ -36,7 +46,7 @@ export async function POST(req: Request) {
       case "register": {
         const contact = readContact(body);
         const { name, phone, errors } = contact;
-        if (password.length < 6) errors.password = "Use at least 6 characters.";
+        if (password.length < PASSWORD_MIN) errors.password = `Use at least ${PASSWORD_MIN} characters.`;
         if (Object.keys(errors).length) return bad(errors);
         const pass = await hashPassword(password);
         const id = newAccountId();
@@ -58,12 +68,17 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
       case "login": {
+        // wrong passwords lock this device out for longer each time (5 free tries, then 15 min, 30 min…)
+        const attempt = await startAttempt(ip, "customer");
+        if (!attempt.ok) return refuse(attempt.message, attempt.status);
         const key = phoneKey(String(body.phone ?? ""));
         const [a] = await db()<{ id: string; pass_hash: string }[]>`select id, pass_hash from gr_accounts where phone_key = ${key}`;
         if (!a || !(await checkPassword(password, a.pass_hash))) {
+          const lockedFor = await attempt.failed();
           await wait(600); // slow down guessing
-          return bad({ password: "Wrong phone number or password." });
+          return bad({ password: wrongMessage("Wrong phone number or password.", lockedFor, await triesLeft(ip, "customer")) });
         }
+        await attempt.passed();
         await startSession(a.id);
         return NextResponse.json({ ok: true });
       }
@@ -87,9 +102,15 @@ export async function POST(req: Request) {
         const me = await currentAccount();
         if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
         const next = typeof body.next === "string" ? body.next : "";
+        const attempt = await startAttempt(ip, "customer");
+        if (!attempt.ok) return refuse(attempt.message, attempt.status);
         const [a] = await db()<{ pass_hash: string }[]>`select pass_hash from gr_accounts where id = ${me.id}`;
-        if (!a || !(await checkPassword(password, a.pass_hash))) return bad({ password: "Your current password is wrong." });
-        if (next.length < 6) return bad({ next: "Use at least 6 characters." });
+        if (!a || !(await checkPassword(password, a.pass_hash))) {
+          const lockedFor = await attempt.failed();
+          return bad({ password: wrongMessage("Your current password is wrong.", lockedFor) });
+        }
+        await attempt.passed();
+        if (next.length < PASSWORD_MIN) return bad({ next: `Use at least ${PASSWORD_MIN} characters.` });
         await db()`update gr_accounts set pass_hash = ${await hashPassword(next)} where id = ${me.id}`;
         await endOtherSessions(me.id); // a new password signs out every other device
         return NextResponse.json({ ok: true });

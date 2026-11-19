@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Devices } from "@/components/security/Devices";
 import { Password } from "@/components/security/Password";
+import { Alerts, History } from "@/components/security/History";
 
 export default function SecurityPage() {
   return (
@@ -24,6 +25,8 @@ export default function SecurityPage() {
       <div className="grid gap-5">
         <Password />
         <Devices />
+        <Alerts />
+        <History />
       </div>
     </div>
   );

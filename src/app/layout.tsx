@@ -4,6 +4,7 @@ import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { ToastProvider } from "@/components/ui";
 import AppShell from "@/components/AppShell";
+import { AnimationPauser } from "@/components/AnimationPauser";
 import { areaOf } from "@/lib/site";
 import { requestHost } from "@/lib/server/links";
 
@@ -35,6 +36,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
       </head>
       <body>
+        <AnimationPauser />
         <StoreProvider area={area}>
           <ToastProvider>
             <AppShell area={area}>{children}</AppShell>

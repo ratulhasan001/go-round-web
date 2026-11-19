@@ -1,14 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { DatabaseBackup, ImagePlus, Percent, RotateCcw, Store, Upload, FileCog, X } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, DatabaseBackup, ImagePlus, Percent, RotateCcw, ShieldCheck, Store, Upload, FileCog, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { SectionIcon } from "@/components/nav";
 import { DEFAULT_LOGO } from "@/lib/theme";
 import { todayISO } from "@/lib/calc";
 import type { Shop } from "@/lib/types";
 import { COURIERS, PAYMENT_METHODS } from "@/lib/types";
-import { Button, Card, Field, Input, Label, SectionTitle, Textarea, useToast } from "@/components/ui";
+import { Button, buttonClass, Card, Field, Input, Label, SectionTitle, Textarea, useToast } from "@/components/ui";
 
 /** Shrinks the uploaded logo so it stays small in browser storage and in files. */
 function resizeImage(file: File, max = 320): Promise<string> {
@@ -222,6 +223,13 @@ export default function SettingsPage() {
                 }}
               />
             </div>
+          </Card>
+
+          <Card className="p-5 sm:p-6">
+            <SectionTitle icon={<ShieldCheck className="size-4" />} title="Login & security" hint="Password, two-step login, passkeys, logged-in devices and login history" />
+            <Link href="/settings/security" className={buttonClass("dark")}>
+              Open security settings <ChevronRight className="size-4" />
+            </Link>
           </Card>
         </div>
       </div>

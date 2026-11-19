@@ -114,7 +114,7 @@ export function Alerts() {
       {c && (
         <ul className="grid gap-2">
           <Channel on={c.telegram} name="Telegram" how={"TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID"} />
-          <Channel on={c.email} name="Email" how={"RESEND_API_KEY and ALERT_EMAIL (from resend.com)"} />
+          <Channel on={c.email} name="Email" how={"RESEND_API_KEY and ALERT_EMAIL (from resend.com; several addresses can be separated by commas)"} />
         </ul>
       )}
     </Card>

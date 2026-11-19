@@ -23,19 +23,6 @@ export const authEnabled = () => !!process.env.APP_PASSWORD || PROD;
 export const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 export const sameText = (a: string, b: string) => timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
 
-/** The shop password (APP_PASSWORD). */
-export function checkPassword(input: string) {
-  if (!authEnabled()) return true;
-  const want = process.env.APP_PASSWORD ?? "";
-  return !!want && sameText(input, want);
-}
-
-/** How many digits the login keypad asks for: the PIN's own length when it is all digits. */
-export const pinLength = () => {
-  const p = process.env.APP_PASSWORD ?? "";
-  return /^\d{4,12}$/.test(p) ? p.length : 4;
-};
-
 export const clientIp = (req: Request) => req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 
 /** "Chrome on Mac", "Safari on iPhone"… for the devices list and login history. */

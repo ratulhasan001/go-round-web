@@ -97,14 +97,14 @@ export function VisitStore({ tone = "dark", className, compact = false }: { tone
       aria-label="Visit store (opens in a new tab)"
       className={cx(
         "group inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-2.5 text-[12.5px] font-bold transition active:scale-95 sm:px-3.5",
-        compact && "lg:px-2.5 min-[1680px]:px-3.5",
+        compact && "lg:px-2.5",
         tone === "dark" ? "bg-lime text-deep hover:bg-white" : "bg-deep text-white hover:bg-ink",
         className,
       )}
     >
       <Store className="size-4" />
-      <span className={cx("hidden sm:inline", compact && "lg:hidden min-[1680px]:inline")}>Visit store</span>
-      <ExternalLink className={cx("hidden size-3.5 opacity-70 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 sm:block", compact && "lg:hidden min-[1680px]:block")} />
+      <span className={cx("hidden sm:inline", compact && "lg:hidden")}>Visit store</span>
+      <ExternalLink className={cx("hidden size-3.5 opacity-70 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 sm:block", compact && "lg:hidden")} />
     </a>
   );
 }

@@ -30,7 +30,7 @@ interface Answer {
   ok?: boolean;
   error?: string;
   message?: string;
-  next?: "code";
+  next?: "code" | "new-password";
   ticket?: string;
   appWorks?: boolean;
   recoveryLeft?: number;
@@ -56,6 +56,10 @@ export default function LoginPage() {
   const [recovery, setRecovery] = useState(false);
   const [methods, setMethods] = useState({ app: false, email: false, emailTo: "" }); // which second steps are on
   const [viaEmail, setViaEmail] = useState(false); // typing the code that was emailed
+  // the first login with the old PIN: a real password is chosen before getting in
+  const [setpw, setSetpw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [newPw2, setNewPw2] = useState("");
   const codeInput = useRef<HTMLInputElement>(null);
   // "Forgot password?": a reset link sent to the owner's Telegram / email
   const [forgot, setForgot] = useState(false);
@@ -101,6 +105,9 @@ export default function LoginPage() {
     setCode("");
     setRecovery(false);
     setViaEmail(false);
+    setSetpw("");
+    setNewPw("");
+    setNewPw2("");
     setPassword("");
     if (siteKey) setResetHuman((n) => n + 1);
     if (message) fail(message);
@@ -114,18 +121,40 @@ export default function LoginPage() {
     const { res, b } = await post({ password, turnstile: human });
     if (siteKey) setResetHuman((n) => n + 1); // each pass works once
     if (res?.ok && b?.ok) return finish();
-    if (res?.ok && b?.next === "code" && b.ticket) {
-      setTicket(b.ticket);
-      setMethods({ app: !!b.app, email: !!b.email, emailTo: b.emailTo ?? "" });
-      setViaEmail(!!b.emailSent);
-      setRecovery(!b.app && !b.emailSent);
+    if (res?.ok && b?.next === "new-password" && b.ticket) {
+      setSetpw(b.ticket);
       setStatus("idle");
-      setTimeout(() => codeInput.current?.focus(), 50);
       return;
     }
+    if (res?.ok && toCodeStep(b)) return;
     setPassword("");
     input.current?.focus();
     fail(b?.message ?? (res ? "Wrong password. Try again." : "Can't connect. Check your internet."));
+  };
+
+  /** Moves on to the two-step code, when that's what the server asked for. */
+  const toCodeStep = (b: Answer | null) => {
+    if (b?.next !== "code" || !b.ticket) return false;
+    setSetpw("");
+    setTicket(b.ticket);
+    setMethods({ app: !!b.app, email: !!b.email, emailTo: b.emailTo ?? "" });
+    setViaEmail(!!b.emailSent);
+    setRecovery(!b.app && !b.emailSent);
+    setStatus("idle");
+    setTimeout(() => codeInput.current?.focus(), 50);
+    return true;
+  };
+
+  const submitNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    if (newPw.length < 12) return fail("Use at least 12 characters.");
+    if (newPw !== newPw2) return fail("The two passwords don't match.");
+    const { res, b } = await post({ ticket: setpw, newPassword: newPw });
+    if (res?.ok && b?.ok) return finish();
+    if (res?.ok && toCodeStep(b)) return;
+    if (b?.error === "expired") return backToPassword(b.message ?? "Please log in again.");
+    fail(b?.message ?? (res ? "Something went wrong. Try again." : "Can't connect. Check your internet."));
   };
 
   const submitCode = async (e: React.FormEvent) => {
@@ -163,7 +192,7 @@ export default function LoginPage() {
     if (b?.error === "nochannel") {
       setStatus("idle");
       return setSent(
-        "No reset channel (Telegram or email) is set up yet, so a link can't be sent. Whoever manages the website can change APP_PASSWORD in Vercel - the login then goes back to that password.",
+        "No reset email is set up yet, so a link can't be sent. Whoever manages the website can change APP_PASSWORD in Vercel: log in with that once, then choose a new password.",
       );
     }
     fail(b?.message ?? (res ? "Something went wrong. Try again." : "Can't connect. Check your internet."));
@@ -218,7 +247,19 @@ export default function LoginPage() {
 
   const Lock = status === "success" ? LockKeyholeOpen : status === "idle" && ticket ? (viaEmail ? Mail : Smartphone) : LockKeyhole;
   const title =
-    status === "success" ? "Welcome back!" : ticket ? (recovery ? "Recovery code" : viaEmail ? "Check your email" : "Enter your code") : forgot ? "Forgot password?" : "Admin login";
+    status === "success"
+      ? "Welcome back!"
+      : ticket
+        ? recovery
+          ? "Recovery code"
+          : viaEmail
+            ? "Check your email"
+            : "Enter your code"
+        : setpw
+          ? "New password"
+          : forgot
+            ? "Forgot password?"
+            : "Admin login";
   const hint =
     status === "success"
       ? "Unlocking…"
@@ -228,8 +269,10 @@ export default function LoginPage() {
           : viaEmail
             ? `We emailed a 6-digit code to ${methods.emailTo || "your email"}. It works for 10 minutes.`
           : "Open your authenticator app and type the 6-digit code"
-        : forgot
-          ? "We'll send a reset link to the shop owner's Telegram or email"
+        : setpw
+          ? "The PIN is retired. Choose a password to log in with from now on."
+          : forgot
+          ? "We'll send a reset link to the shop owner's email"
           : "Enter your password to continue";
 
   return (
@@ -306,6 +349,62 @@ export default function LoginPage() {
                 )}
               </div>
             </div>
+          </form>
+        ) : setpw ? (
+          <form onSubmit={submitNewPassword} className="mt-6 grid gap-4">
+            <p className="text-center text-[13px] leading-relaxed text-[#b9d8c9]/75">At least 12 characters. A short sentence of 4 or 5 words is easy to remember and very hard to guess.</p>
+            <div>
+              <label htmlFor="new-password" className={loginLabel}>
+                New password
+              </label>
+              <div className={`${field} ${status === "error" ? "animate-pin-shake border-red-400" : "border-white/15"}`}>
+                <input
+                  id="new-password"
+                  type={show ? "text" : "password"}
+                  autoComplete="new-password"
+                  autoFocus
+                  required
+                  value={newPw}
+                  disabled={busy}
+                  onChange={(e) => {
+                    setNewPw(e.target.value);
+                    setError("");
+                  }}
+                  className={inputCls}
+                />
+                <button type="button" onClick={() => setShow((v) => !v)} className="grid h-14 w-12 shrink-0 place-items-center text-white/50 transition hover:text-white" aria-label={show ? "Hide password" : "Show password"}>
+                  {show ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                </button>
+              </div>
+              <p className={`mt-1.5 text-right text-[12px] font-semibold ${newPw.length >= 12 ? "text-[#8cc556]" : "text-white/40"}`}>{newPw.length}/12</p>
+            </div>
+            <div>
+              <label htmlFor="new-password-2" className={loginLabel}>
+                Again
+              </label>
+              <div className={`${field} border-white/15`}>
+                <input
+                  id="new-password-2"
+                  type={show ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  value={newPw2}
+                  disabled={busy}
+                  onChange={(e) => {
+                    setNewPw2(e.target.value);
+                    setError("");
+                  }}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+            <div className="min-h-5 text-center text-[13px] font-semibold text-red-300" role="alert">
+              {error}
+            </div>
+            <SubmitButton status={status} disabled={busy || newPw.length < 12 || !newPw2} label="Save and log in" />
+            <button type="button" className={`${linkBtn} inline-flex items-center justify-center gap-1`} onClick={() => backToPassword()}>
+              <ArrowLeft className="size-3.5" /> Back
+            </button>
           </form>
         ) : forgot ? (
           <form onSubmit={sendReset} className="mt-7">

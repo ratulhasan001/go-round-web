@@ -5,6 +5,7 @@ import { accountOrders, readContact } from "@/lib/server/orders";
 import { findCustomer, upsertCustomer } from "@/lib/server/customers";
 import { phoneKey } from "@/lib/phone";
 import { clientIp } from "@/lib/server/auth";
+import { allow, tooMany } from "@/lib/server/rateLimit";
 import { humanCheck, startAttempt, triesLeft, turnstileSiteKey, wrongMessage } from "@/lib/server/loginGuard";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
     await ensureSchema();
     switch (body.action) {
       case "register": {
+        if (!(await allow(`register:${ip}`, 10, 60))) return tooMany();
         const contact = readContact(body);
         const { name, phone, errors } = contact;
         if (password.length < PASSWORD_MIN) errors.password = `Use at least ${PASSWORD_MIN} characters.`;

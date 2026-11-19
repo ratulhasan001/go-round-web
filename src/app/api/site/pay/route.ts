@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { clientIp } from "@/lib/server/auth";
+import { allow, tooMany } from "@/lib/server/rateLimit";
 import { dbEnabled, ensureSchema } from "@/lib/server/db";
 import { OrderError, addPayment, findOrder, orderView } from "@/lib/server/orders";
 
@@ -6,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 /** Public: the customer adds (or corrects) the bKash / bank transfer details of an order they already placed. */
 export async function POST(req: Request) {
+  if (!(await allow(`pay:${clientIp(req)}`, 20, 60))) return tooMany();
   if (!dbEnabled()) return NextResponse.json({ error: "offline" }, { status: 503 });
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "bad request" }, { status: 400 });

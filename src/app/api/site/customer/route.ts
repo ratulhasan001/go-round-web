@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { clientIp } from "@/lib/server/auth";
+import { allow, tooMany } from "@/lib/server/rateLimit";
 import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 import { lookupContact } from "@/lib/server/customers";
 
@@ -11,6 +13,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * (checkout and "Create account"). A number with a website account only answers { account: true }.
  */
 export async function POST(req: Request) {
+  if (!(await allow(`lookup:${clientIp(req)}`, 60, 10))) return tooMany();
   if (!dbEnabled()) return NextResponse.json({ error: "offline" }, { status: 503 });
   const body = await req.json().catch(() => null);
   try {

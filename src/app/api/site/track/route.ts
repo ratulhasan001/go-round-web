@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { clientIp } from "@/lib/server/auth";
+import { allow, tooMany } from "@/lib/server/rateLimit";
 import { dbEnabled, ensureSchema } from "@/lib/server/db";
 import { findOrder, findOrderByTrx, findOrdersByPhone, orderView } from "@/lib/server/orders";
 
@@ -13,6 +15,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
  *   { trxId }        → { order }: the order paid with that transaction id (older links)
  */
 export async function POST(req: Request) {
+  if (!(await allow(`track:${clientIp(req)}`, 60, 10))) return tooMany();
   if (!dbEnabled()) return NextResponse.json({ error: "offline" }, { status: 503 });
   const body = await req.json().catch(() => null);
   try {

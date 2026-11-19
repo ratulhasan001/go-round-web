@@ -1,21 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Delete, LockKeyhole, LockKeyholeOpen } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, LockKeyholeOpen } from "lucide-react";
 import { WAVE_BACK, WAVE_FRONT } from "@/lib/theme";
-
-const DEFAULT_PIN_LENGTH = 4;
-const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
-
-/** Keypad layout: 10 digits in random order, with Clear and Delete in the bottom corners. */
-const shuffledKeys = () => {
-  const d = [...DIGITS];
-  for (let i = d.length - 1; i > 0; i--) {
-    const j = crypto.getRandomValues(new Uint32Array(1))[0]! % (i + 1);
-    [d[i], d[j]] = [d[j]!, d[i]!];
-  }
-  return [...d.slice(0, 9), "", d[9]!, "del"];
-};
 
 type Status = "idle" | "checking" | "error" | "success";
 
@@ -30,109 +17,55 @@ function safeNext(next: string | null) {
   }
 }
 
+const goNext = () => safeNext(new URLSearchParams(window.location.search).get("next"));
+
 export default function LoginPage() {
-  const [PIN_LENGTH, setPinLength] = useState(DEFAULT_PIN_LENGTH);
-  useEffect(() => {
-    // the PIN can be longer than 4 digits (set in APP_PASSWORD)
-    fetch("/api/login")
-      .then((r) => r.json())
-      .then((b: { length?: number; authed?: boolean }) => {
-        // already logged in on this device (a link from another site arrives without the login cookie): carry on
-        if (b.authed) window.location.replace(safeNext(new URLSearchParams(window.location.search).get("next")));
-        else if (b.length) setPinLength(b.length);
-      })
-      .catch(() => null);
-  }, []);
-  const [pin, setPin] = useState("");
+  const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
-  const [peek, setPeek] = useState(-1); // index of the digit briefly shown before it turns into a dot
-  const [pressed, setPressed] = useState<string | null>(null);
-  const [keys, setKeys] = useState<string[] | null>(null); // shuffled on the client only, so SSR and hydration agree
-  const peekTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const input = useRef<HTMLInputElement>(null);
 
-  const locked = status === "checking" || status === "success";
-
-  const submit = useCallback(async (value: string) => {
-    setStatus("checking");
-    setError("");
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ password: value }),
-    }).catch(() => null);
-    if (res?.ok) {
-      setStatus("success");
-      navigator.vibrate?.(30);
-      const next = new URLSearchParams(window.location.search).get("next");
-      setTimeout(() => {
-        window.location.href = safeNext(next);
-      }, 650);
-      return;
-    }
-    setStatus("error");
-    navigator.vibrate?.([60, 40, 60]);
-    const b = res && res.status === 429 ? ((await res.json().catch(() => ({}))) as { message?: string }) : null;
-    setError(b?.message ?? (res ? "Wrong PIN. Try again." : "Can't connect. Check your internet."));
-    setTimeout(() => {
-      setPin("");
-      setStatus("idle");
-    }, 550);
+  useEffect(() => {
+    // already logged in on this device (a link from another site arrives without the login cookie): carry on
+    fetch("/api/login", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((b: { authed?: boolean }) => b.authed && window.location.replace(goNext()))
+      .catch(() => null);
   }, []);
 
-  const press = useCallback(
-    (key: string) => {
-      if (locked || status === "error") return;
-      setPressed(key);
-      setTimeout(() => setPressed((p) => (p === key ? null : p)), 140);
-      if (key === "del") {
-        setPin(pin.slice(0, -1));
-        setPeek(-1);
-        return;
-      }
-      if (key === "clear") {
-        setPin("");
-        setPeek(-1);
-        return;
-      }
-      if (pin.length >= PIN_LENGTH) return;
-      const next = pin + key;
-      setError("");
-      setPin(next);
-      setPeek(pin.length);
-      clearTimeout(peekTimer.current);
-      peekTimer.current = setTimeout(() => setPeek(-1), 450);
-      if (next.length === PIN_LENGTH) {
-        setStatus("checking");
-        setTimeout(() => submit(next), 180);
-      }
-    },
-    [locked, status, pin, submit, PIN_LENGTH],
-  );
+  const busy = status === "checking" || status === "success";
 
-  // physical keyboard support
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (/^\d$/.test(e.key)) press(e.key);
-      else if (e.key === "Backspace") press("del");
-      else if (e.key === "Escape") press("clear");
-      else return;
-      e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [press]);
+  const finish = () => {
+    setStatus("success");
+    navigator.vibrate?.(30);
+    setTimeout(() => window.location.replace(goNext()), 650);
+  };
 
-  useEffect(() => () => clearTimeout(peekTimer.current), []);
+  const fail = (message: string) => {
+    setStatus("error");
+    setError(message);
+    navigator.vibrate?.([60, 40, 60]);
+    setTimeout(() => setStatus((s) => (s === "error" ? "idle" : s)), 550);
+  };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- random layout must be created after hydration
-  useEffect(() => setKeys(shuffledKeys()), []);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy || !password) return;
+    setStatus("checking");
+    setError("");
+    const res = await fetch("/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) }).catch(() => null);
+    const b = res ? ((await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }) : null;
+    if (res?.ok && b?.ok) return finish();
+    setPassword("");
+    input.current?.focus();
+    fail(b?.message ?? (res ? "Wrong password. Try again." : "Can't connect. Check your internet."));
+  };
 
   const Lock = status === "success" ? LockKeyholeOpen : LockKeyhole;
 
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#0e2a23] px-5 py-10 text-white select-none">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#0e2a23] px-5 py-10 text-white">
       {/* soft background light */}
       <div className="animate-drift pointer-events-none absolute -left-32 -top-32 size-[420px] rounded-full bg-aqua/20 blur-3xl" />
       <div className="animate-drift-slow pointer-events-none absolute -bottom-40 -right-24 size-[460px] rounded-full bg-[#8cc556]/15 blur-3xl" />
@@ -145,7 +78,7 @@ export default function LoginPage() {
         <path d={WAVE_FRONT} className="fill-[#8cc556]/20" />
       </svg>
 
-      <section className="animate-fade-up relative w-full max-w-[360px] rounded-[32px] border border-white/10 bg-white/[0.06] px-6 pb-7 pt-8 shadow-2xl shadow-black/40 backdrop-blur-xl sm:px-8">
+      <section className="animate-fade-up relative w-full max-w-[380px] rounded-[32px] border border-white/10 bg-white/[0.06] px-6 pb-7 pt-8 shadow-2xl shadow-black/40 backdrop-blur-xl sm:px-8">
         {/* lock badge */}
         <div className="relative mx-auto mb-5 grid size-16 place-items-center">
           <span
@@ -153,9 +86,7 @@ export default function LoginPage() {
           />
           <span
             className={`relative grid size-16 place-items-center rounded-2xl text-[#0e2a23] shadow-lg transition-all duration-300 ${
-              status === "error"
-                ? "bg-gradient-to-br from-red-300 to-red-400 shadow-red-400/25"
-                : "bg-gradient-to-br from-[#8cc556] to-aqua shadow-[#8cc556]/20"
+              status === "error" ? "bg-gradient-to-br from-red-300 to-red-400 shadow-red-400/25" : "bg-gradient-to-br from-[#8cc556] to-aqua shadow-[#8cc556]/20"
             } ${status === "success" ? "animate-pin-unlock" : ""} ${status === "error" ? "animate-pin-wobble" : ""}`}
           >
             <Lock className="size-7" strokeWidth={2.2} />
@@ -163,86 +94,59 @@ export default function LoginPage() {
         </div>
 
         <div className="mb-1 text-center text-[11px] font-bold uppercase tracking-[0.28em] text-[#8cc556]">Restricted access</div>
-        <h1 className="text-center font-[family-name:var(--font-bricolage)] tracking-[-0.02em] text-3xl font-extrabold">
-          {status === "success" ? "Welcome back!" : "Enter your PIN"}
-        </h1>
-        <p className="mt-1.5 text-center text-[14px] text-[#b9d8c9]/75">
-          {status === "checking" ? "Checking…" : status === "success" ? "Unlocking…" : `Type your ${PIN_LENGTH}-digit PIN`}
-        </p>
+        <h1 className="text-center font-[family-name:var(--font-bricolage)] text-3xl font-extrabold tracking-[-0.02em]">{status === "success" ? "Welcome back!" : "Admin login"}</h1>
+        <p className="mt-1.5 text-center text-[14px] text-[#b9d8c9]/75">{status === "success" ? "Unlocking…" : "Enter your password to continue"}</p>
 
-        {/* PIN slots */}
-        <div
-          className={`mt-7 flex justify-center gap-4 ${status === "error" ? "animate-pin-shake" : ""}`}
-          role="status"
-          aria-live="polite"
-          aria-label={`${pin.length} of ${PIN_LENGTH} digits entered`}
-        >
-          {Array.from({ length: PIN_LENGTH }, (_, i) => {
-            const filled = i < pin.length;
-            const tone =
-              status === "error" ? "border-red-400 bg-red-400/15" : status === "success" ? "border-[#8cc556] bg-[#8cc556]/20" : filled ? "border-[#8cc556] bg-[#8cc556]/10" : "border-white/20 bg-black/20";
-            return (
-              <div
-                key={i}
-                className={`relative grid size-14 place-items-center rounded-2xl border-2 transition-colors duration-200 ${tone} ${
-                  status === "checking" ? "animate-pin-wave" : ""
-                } ${status === "success" ? "animate-pin-hop" : ""} ${i === pin.length && status === "idle" ? "ring-4 ring-[#8cc556]/10" : ""}`}
-                style={status === "checking" || status === "success" ? { animationDelay: `${i * 90}ms` } : undefined}
-              >
-                {filled &&
-                  (peek === i ? (
-                    <span key="digit" className="animate-pin-pop font-[family-name:var(--font-bricolage)] tracking-[-0.02em] text-2xl font-extrabold text-[#8cc556]">
-                      {pin[i]}
-                    </span>
-                  ) : (
-                    <span key="dot" className={`animate-pin-pop size-3.5 rounded-full ${status === "error" ? "bg-red-400" : "bg-[#8cc556]"}`} />
-                  ))}
-                {filled && peek === i && <span className="animate-pin-ripple pointer-events-none absolute inset-0 rounded-2xl border-2 border-[#8cc556]" />}
-                {!filled && i === pin.length && status === "idle" && (
-                  <span className="animate-pin-caret absolute bottom-2.5 h-0.5 w-4 rounded-full bg-[#8cc556]/70" />
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <form onSubmit={submit} className="mt-7">
+          <label htmlFor="password" className="mb-1.5 block text-[12px] font-bold uppercase tracking-[0.14em] text-white/55">
+            Password
+          </label>
+          <div
+            className={`flex items-center rounded-2xl border-2 bg-black/20 transition-colors focus-within:border-[#8cc556] ${
+              status === "error" ? "animate-pin-shake border-red-400" : "border-white/15"
+            }`}
+          >
+            <input
+              ref={input}
+              id="password"
+              name="password"
+              type={show ? "text" : "password"}
+              autoComplete="current-password"
+              autoFocus
+              required
+              value={password}
+              disabled={busy}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
+              className="h-14 min-w-0 flex-1 bg-transparent px-4 text-[17px] font-semibold tracking-wide text-white outline-none placeholder:text-white/25"
+              placeholder="••••••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShow((s) => !s)}
+              className="grid h-14 w-12 shrink-0 place-items-center text-white/50 transition hover:text-white"
+              aria-label={show ? "Hide password" : "Show password"}
+            >
+              {show ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+            </button>
+          </div>
 
-        <div className="min-h-7 pt-3 text-center text-[13px] font-semibold text-red-300" role="alert">
-          {error}
-        </div>
+          <div className="min-h-7 pt-2.5 text-center text-[13px] font-semibold text-red-300" role="alert">
+            {error}
+          </div>
 
-        {/* keypad */}
-        <div className="mt-1 grid grid-cols-3 gap-3">
-          {!keys && Array.from({ length: 12 }, (_, i) => <div key={i} className="h-14" />)}
-          {keys?.map((key, i) =>
-            key === "" ? (
-              <button
-                key={i}
-                type="button"
-                onClick={() => press("clear")}
-                disabled={locked || !pin}
-                className="animate-key-in h-14 rounded-2xl text-[12px] font-bold uppercase tracking-widest text-white/45 transition hover:text-white disabled:opacity-0"
-              >
-                Clear
-              </button>
-            ) : (
-              <button
-                key={i}
-                type="button"
-                onClick={() => press(key)}
-                disabled={locked}
-                aria-label={key === "del" ? "Delete last digit" : key}
-                style={{ animationDelay: `${i * 35}ms` }}
-                className={`animate-key-in relative grid h-14 place-items-center overflow-hidden rounded-2xl font-[family-name:var(--font-bricolage)] tracking-[-0.02em] text-2xl font-bold transition duration-150 active:scale-90 disabled:opacity-40 ${
-                  key === "del"
-                    ? "text-white/60 hover:text-white"
-                    : "border border-white/10 bg-white/[0.07] hover:border-[#8cc556]/40 hover:bg-white/[0.12]"
-                } ${pressed === key ? "scale-90 bg-[#8cc556]/25 text-[#8cc556]" : ""}`}
-              >
-                {key === "del" ? <Delete className="size-6" /> : key}
-              </button>
-            ),
-          )}
-        </div>
+          <button
+            type="submit"
+            disabled={busy || !password}
+            className="mt-1 flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8cc556] to-aqua py-3.5 text-[16px] font-extrabold text-[#0e2a23] shadow-lg shadow-[#8cc556]/20 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+          >
+            {status === "checking" ? <Loader2 className="size-5 animate-spin" /> : null}
+            {status === "checking" ? "Checking…" : "Log in"}
+            {status === "idle" || status === "error" ? <ArrowRight className="size-5" /> : null}
+          </button>
+        </form>
       </section>
     </main>
   );

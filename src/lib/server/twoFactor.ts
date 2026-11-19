@@ -1,12 +1,14 @@
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomInt } from "node:crypto";
 import QRCode from "qrcode";
 import { sameText, sha } from "./auth";
 import { deleteSetting, getSetting, setSetting } from "./adminPassword";
+import { alertChannels, maskedEmail, sendAlert } from "./adminEvents";
 import { db, ensureSchema } from "./db";
 
 /**
- * Two-step login: after the password, a 6-digit code from an authenticator app (Google Authenticator, Microsoft
- * Authenticator, Authy, 1Password…), the standard TOTP of RFC 6238 (30-second codes, SHA-1).
+ * Two-step login: after the password, a 6-digit code - from an authenticator app (Google Authenticator, Microsoft
+ * Authenticator, Authy, 1Password…; the standard TOTP of RFC 6238, 30-second codes, SHA-1), or sent by email to the
+ * alert address (ALERT_EMAIL). Either or both can be on; with both, the admin picks one at each login.
  *
  * The app's secret is stored encrypted (AES-256-GCM) with a key made from SESSION_SECRET, which lives only in Vercel:
  * a copy of the database alone doesn't give the codes away. Ten one-time recovery codes (only their hashes are kept)
@@ -88,11 +90,27 @@ const newRecoveryCodes = () =>
 
 export async function twoFactorStatus() {
   const t = await getSetting<Stored>("totp");
+  const e = await getSetting<{ on: string }>("email2fa");
   const r = await getSetting<{ hashes: string[] }>("recovery");
-  return { on: !!t, since: t?.on ?? null, recoveryLeft: r?.hashes.length ?? 0, secretReady: secretReady(), secretWorks: t ? !!open(t.sealed) : true };
+  return {
+    on: !!t,
+    since: t?.on ?? null,
+    email: !!e,
+    emailSince: e?.on ?? null,
+    emailReady: alertChannels().email,
+    emailTo: maskedEmail(),
+    recoveryLeft: r?.hashes.length ?? 0,
+    secretReady: secretReady(),
+    secretWorks: t ? !!open(t.sealed) : true,
+  };
 }
 
+/** The authenticator app is set up. */
 export const twoFactorOn = async () => !!(await getSetting<Stored>("totp"));
+/** Email codes are on. */
+export const emailCodeOn = async () => !!(await getSetting<{ on: string }>("email2fa"));
+/** Logging in needs a second step (an app code or an email code). */
+export const secondStepOn = async () => (await twoFactorOn()) || (await emailCodeOn());
 
 /** Starts turning it on: a new secret, shown as a QR code for the app (and as text, to type in by hand). */
 export async function startSetup() {
@@ -122,10 +140,63 @@ export async function makeRecoveryCodes() {
   return codes;
 }
 
+/** Turns the authenticator app off (the recovery codes stay while email codes are still on). */
 export async function turnOff() {
   await deleteSetting("totp");
-  await deleteSetting("recovery");
   await deleteSetting("totp-pending");
+  if (!(await emailCodeOn())) await deleteSetting("recovery");
+}
+
+// ---------- email codes ----------
+
+const EMAIL_CODE_MINUTES = 10;
+
+/** A sent email code: only its hash is kept, with when it was sent. */
+export interface EmailCode {
+  hash: string;
+  at: number;
+}
+
+const emailHash = (code: string) => sha(`gr-email-code:${code.replace(/\s/g, "")}`);
+
+/** Emails a fresh 6-digit code to the alert address. Returns what to keep to check it, or null if it couldn't be sent. */
+export async function sendEmailCode(why: string): Promise<EmailCode | null> {
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const sent = await sendAlert(
+    `Login code ${code}`,
+    [`Your Go Round admin code is: ${code}`, "", `It works for ${EMAIL_CODE_MINUTES} minutes, once. ${why}`, "", "If this wasn't you, someone knows your password: change it now."],
+    { emailOnly: true },
+  );
+  return sent ? { hash: emailHash(code), at: Date.now() } : null;
+}
+
+export const emailCodeMatches = (sent: EmailCode | null | undefined, code: string) =>
+  !!sent && Date.now() - sent.at < EMAIL_CODE_MINUTES * 60_000 && /^\d{6}$/.test(code.replace(/\s/g, "")) && sameText(sent.hash, emailHash(code));
+
+/** Email codes on. Returns new recovery codes when there weren't any yet (shown once), else null. */
+export async function turnOnEmail(): Promise<string[] | null> {
+  await setSetting("email2fa", { on: new Date().toISOString() });
+  const r = await getSetting<{ hashes: string[] }>("recovery");
+  return r?.hashes.length ? null : makeRecoveryCodes();
+}
+
+/** Email codes off (the recovery codes stay while the app is still on). */
+export async function turnOffEmail() {
+  await deleteSetting("email2fa");
+  if (!(await twoFactorOn())) await deleteSetting("recovery");
+}
+
+/**
+ * For the security settings: a code from the app, a recovery code, or the email code sent for this change (kept in
+ * the settings as "email2fa-pending", used once).
+ */
+export async function checkSettingsCode(code: string): Promise<boolean> {
+  const pending = await getSetting<EmailCode>("email2fa-pending");
+  if (emailCodeMatches(pending, code)) {
+    await deleteSetting("email2fa-pending");
+    return true;
+  }
+  return !!(await checkCode(code));
 }
 
 /**

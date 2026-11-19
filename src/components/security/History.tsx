@@ -30,7 +30,7 @@ const LABEL: Record<string, { text: string; tone: "ok" | "bad" | "info" }> = {
   "reset-requested": { text: "Password reset asked for", tone: "info" },
   "password-reset": { text: "Password reset", tone: "info" },
 };
-const HOW: Record<string, string> = { password: "with password", "password+2fa": "with password + code", "password+recovery": "with a recovery code", passkey: "with a passkey", reset: "after a reset" };
+const HOW: Record<string, string> = { password: "with password", "password+2fa": "with password + code", "password+email": "with password + email code", "password+recovery": "with a recovery code", passkey: "with a passkey", reset: "after a reset" };
 const DOT = { ok: "bg-brand", bad: "bg-red-500", info: "bg-faint" };
 
 /** The latest logins, wrong passwords, lockouts and security changes. */

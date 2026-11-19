@@ -6,7 +6,7 @@ import { db, ensureSchema } from "./db";
  * Short-lived, one-time admin tokens (gr_admin_tokens): the step between a right password and the two-step code,
  * password-reset links, passkey challenges. Only a hash of each token is stored.
  */
-export type TokenKind = "mfa" | "reset" | "passkey-login" | "passkey-add";
+export type TokenKind = "mfa" | "setpw" | "reset" | "passkey-login" | "passkey-add";
 
 export async function issueToken(kind: TokenKind, minutes: number, data: Record<string, unknown> = {}) {
   const token = randomBytes(32).toString("base64url");

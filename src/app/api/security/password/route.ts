@@ -26,6 +26,7 @@ export async function POST(req: Request) {
   }
   const problem = passwordProblem(next);
   if (problem) return NextResponse.json({ error: "weak", message: problem }, { status: 400 });
+  if (next === (process.env.APP_PASSWORD ?? "")) return NextResponse.json({ error: "same", message: "Choose a new password, not the old PIN." }, { status: 400 });
   if (next === current) return NextResponse.json({ error: "same", message: "That's the password you have now. Choose a new one." }, { status: 400 });
   await setAdminPassword(next);
   await endSessions({ except: (await currentSessionId()) ?? "-" });

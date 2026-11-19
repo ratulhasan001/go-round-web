@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { clientIp } from "@/lib/server/auth";
+import { allow, tooMany } from "@/lib/server/rateLimit";
 import { dbEnabled } from "@/lib/server/db";
 import { ReviewError, addReview, loadReviews } from "@/lib/server/reviews";
 
@@ -12,6 +14,7 @@ export async function GET(req: Request) {
 
 /** Public: a customer writes a review. */
 export async function POST(req: Request) {
+  if (!(await allow(`review:${clientIp(req)}`, 10, 60))) return tooMany("You've sent several reviews already. Please try again later.");
   if (!dbEnabled()) return NextResponse.json({ error: "offline", message: "Reviews aren't switched on yet." }, { status: 503 });
   let body: Record<string, unknown>;
   try {

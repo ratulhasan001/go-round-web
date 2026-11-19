@@ -128,6 +128,17 @@ export function ensureSchema() {
           detail text not null default ''
         )`,
     )
+    // short-lived one-time admin tokens: two-step login tickets, reset links, passkey challenges (see adminTokens.ts)
+    .then(
+      () => db()`
+        create table if not exists gr_admin_tokens (
+          token_hash text primary key,
+          kind text not null,
+          data jsonb not null default '{}',
+          created_at timestamptz not null default now(),
+          expires_at timestamptz not null
+        )`,
+    )
     .catch((e) => {
       g.__grSchema = undefined; // retry on the next request
       throw e;

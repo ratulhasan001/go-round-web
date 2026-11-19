@@ -26,7 +26,7 @@ function PageTransition({ path, children }: { path: string; children: React.Reac
 export default function AppShell({ area, children }: { area: Area; children: React.ReactNode }) {
   const path = usePathname();
 
-  if (area === "store" || area === "verify" || path === "/login" || path.startsWith("/f/") || isStorePath(path)) return <>{children}</>;
+  if (area === "store" || area === "verify" || path === "/login" || path.startsWith("/login/") || path.startsWith("/f/") || isStorePath(path)) return <>{children}</>;
   if (path === "/") return <PageTransition path={path}>{children}</PageTransition>;
 
   return (

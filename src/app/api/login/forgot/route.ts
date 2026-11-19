@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const RESET_MINUTES = 20;
 
 /**
- * "Forgot password": sends a one-time reset link (20 minutes) to the owner's own Telegram / email - the alert
+ * "Forgot password": sends a one-time reset link (20 minutes) to the owner's own email - the alert
  * channels set in Vercel - never to an address typed on the page. At most one every 2 minutes and 5 a day.
  */
 export async function POST(req: Request) {
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "human", message: "Please tick “Verify you are human” first." }, { status: 400 });
 
   const c = alertChannels();
-  if (!c.telegram && !c.email) return NextResponse.json({ ok: false, error: "nochannel" }, { status: 400 });
+  if (!c.email) return NextResponse.json({ ok: false, error: "nochannel" }, { status: 400 });
 
   await ensureSchema();
   const [{ recent, today }] = await db()<{ recent: number; today: number }[]>`
@@ -43,5 +43,5 @@ export async function POST(req: Request) {
     "If this wasn't you, ignore this message - your password stays the same.",
   ]);
   if (!sent) return NextResponse.json({ error: "failed", message: "The reset link couldn't be sent. Try again later." }, { status: 502 });
-  return NextResponse.json({ ok: true, to: [c.telegram && "Telegram", c.email && "email"].filter(Boolean).join(" and ") });
+  return NextResponse.json({ ok: true, to: "email" });
 }

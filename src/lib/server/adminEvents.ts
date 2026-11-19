@@ -9,9 +9,8 @@ import { HOSTS } from "@/lib/site";
  * The admin login history (gr_admin_events), and alerts sent to the owner when something important happens - a login
  * from a device that never logged in before, a lockout, a password change.
  *
- * Alerts go to Telegram (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID) and/or email through Resend (RESEND_API_KEY +
- * ALERT_EMAIL, optionally ALERT_FROM), whichever is set in Vercel. ALERT_EMAIL may list several addresses, separated by
- * commas - each one also gets the "Forgot password" reset links.
+ * Alerts go by email through Resend (RESEND_API_KEY + ALERT_EMAIL, optionally ALERT_FROM, set in Vercel). ALERT_EMAIL
+ * may list several addresses, separated by commas - each one also gets the "Forgot password" reset links.
  */
 const PROD = process.env.NODE_ENV === "production";
 const DEVICE_COOKIE = PROD ? "__Host-gr_device" : "gr_device";
@@ -89,45 +88,32 @@ export const maskedEmail = () => {
 };
 
 export const alertChannels = () => ({
-  telegram: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
   email: !!(process.env.RESEND_API_KEY && alertEmails().length),
 });
 
 const dhaka = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 
-/** Sends an alert to every channel that is set up. Returns whether at least one took it. */
-export async function sendAlert(title: string, lines: string[], opts: { emailOnly?: boolean } = {}): Promise<boolean> {
-  const { email } = alertChannels();
-  const telegram = alertChannels().telegram && !opts.emailOnly;
+/** Emails an alert to the alert address(es). Returns whether it was sent. */
+export async function sendAlert(title: string, lines: string[]): Promise<boolean> {
+  if (!alertChannels().email) return false;
   const text = [`🔐 ${title}`, "", ...lines, "", `Time: ${dhaka.format(new Date())} (Dhaka)`].join("\n");
   // while developing, DEV_PRINT_ALERTS=1 prints alerts in the terminal instead of sending them (never on the live site)
   if (process.env.NODE_ENV !== "production" && process.env.DEV_PRINT_ALERTS === "1") {
-    console.log(`\n[alert${opts.emailOnly ? ", email only" : ""}]\n${text}\n`);
+    console.log(`\n[alert]\n${text}\n`);
     return true;
   }
-  const jobs: Promise<boolean>[] = [];
-  if (telegram)
-    jobs.push(
-      fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }),
-        signal: AbortSignal.timeout(8000),
-      }).then((r) => r.ok),
-    );
-  if (email)
-    jobs.push(
-      fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-        body: JSON.stringify({ from: process.env.ALERT_FROM || "Go Round admin <onboarding@resend.dev>", to: alertEmails(), subject: `Go Round admin: ${title}`, text }),
-        signal: AbortSignal.timeout(8000),
-      }).then((r) => r.ok),
-    );
-  const results = await Promise.allSettled(jobs);
-  results.forEach((r) => r.status === "rejected" && console.error("alert failed", r.reason));
-  const sent = results.some((r) => r.status === "fulfilled" && r.value);
-  if (jobs.length && !sent) console.error(`alert "${title}" wasn't delivered - check the alert keys`);
+  const sent = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+    body: JSON.stringify({ from: process.env.ALERT_FROM || "Go Round Alerts <onboarding@resend.dev>", to: alertEmails(), subject: `Go Round admin: ${title}`, text }),
+    signal: AbortSignal.timeout(8000),
+  })
+    .then((r) => r.ok)
+    .catch((e) => {
+      console.error("alert failed", e);
+      return false;
+    });
+  if (!sent) console.error(`alert "${title}" wasn't delivered - check RESEND_API_KEY, ALERT_EMAIL and the domain in Resend`);
   return sent;
 }
 

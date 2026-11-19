@@ -86,10 +86,10 @@ function Channel({ on, name, how }: { on: boolean; name: string; how: string }) 
 /** Where security alerts go (set up in Vercel), with a button to send a test. */
 export function Alerts() {
   const toast = useToast();
-  const [c, setC] = useState<{ telegram: boolean; email: boolean } | null>(null);
+  const [c, setC] = useState<{ email: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    void api<{ telegram: boolean; email: boolean }>("alerts").then((b) => !b.error && setC(b));
+    void api<{ email: boolean }>("alerts").then((b) => !b.error && setC(b));
   }, []);
   const test = async () => {
     setBusy(true);
@@ -104,7 +104,7 @@ export function Alerts() {
         title="Security alerts"
         hint="A message when a new device logs in, after a lockout, or when the password or login settings change. “Forgot password” reset links are sent here too."
         action={
-          c && (c.telegram || c.email) ? (
+          c?.email ? (
             <Button size="sm" loading={busy} onClick={test}>
               <Send className="size-4" /> Send a test
             </Button>
@@ -113,7 +113,6 @@ export function Alerts() {
       />
       {c && (
         <ul className="grid gap-2">
-          <Channel on={c.telegram} name="Telegram" how={"TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID"} />
           <Channel on={c.email} name="Email" how={"RESEND_API_KEY and ALERT_EMAIL (from resend.com; several addresses can be separated by commas)"} />
         </ul>
       )}

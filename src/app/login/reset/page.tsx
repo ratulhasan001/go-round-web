@@ -8,7 +8,7 @@ import { LoginShell, loginButton, loginField, loginInput, loginLabel, loginLink 
 const MIN = 12;
 
 /**
- * Opened from a reset link (/login/reset#<token>, sent to the owner's Telegram / email). The token is after the "#",
+ * Opened from a reset link (/login/reset#<token>, sent to the owner's email). The token is after the "#",
  * so it never reaches server logs or other sites. Sets a new password, then logs this device in.
  */
 export default function ResetPage() {

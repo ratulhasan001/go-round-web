@@ -14,7 +14,7 @@ export async function GET() {
 export async function POST(req: Request) {
   if (!(await adminAuthed())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const c = alertChannels();
-  if (!c.telegram && !c.email) return NextResponse.json({ error: "none", message: "No alert channel is set up yet." }, { status: 400 });
+  if (!c.email) return NextResponse.json({ error: "none", message: "Email alerts aren't set up yet." }, { status: 400 });
   const ok = await sendAlert("Test alert", ["Security alerts from your admin panel will arrive here.", whoLine(req)]);
   return ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "failed", message: "The alert couldn't be sent. Check the keys in Vercel." }, { status: 502 });
 }

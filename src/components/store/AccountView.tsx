@@ -10,6 +10,7 @@ import { useShop } from "./StoreContext";
 import { OrderCard } from "./TrackView";
 import { Panel, SeaField, SeaInput, SeaTextarea, btn, cx } from "./ui";
 import { useSavedContact } from "./useSavedContact";
+import { Turnstile } from "@/components/Turnstile";
 
 interface Account {
   id: string;
@@ -27,12 +28,12 @@ async function post(body: Record<string, unknown>) {
 
 export function AccountView() {
   const { online } = useShop();
-  const [data, setData] = useState<{ account: Account | null; orders: OrderView[] } | null>(null);
+  const [data, setData] = useState<{ account: Account | null; orders: OrderView[]; turnstile?: string | null } | null>(null);
   const load = useCallback(async () => {
     const b = await fetch("/api/site/account", { cache: "no-store" })
       .then((r) => r.json())
       .catch(() => null);
-    setData({ account: b?.account ?? null, orders: b?.orders ?? [] });
+    setData({ account: b?.account ?? null, orders: b?.orders ?? [], turnstile: b?.turnstile ?? null });
   }, []);
   useEffect(() => {
     void load(); // eslint-disable-line react-hooks/set-state-in-effect -- load the account once
@@ -40,11 +41,11 @@ export function AccountView() {
 
   if (!data) return <div className="mx-auto h-80 max-w-lg animate-pulse rounded-[28px] bg-sea-sand/50" />;
   if (!online) return <Panel className="mx-auto max-w-lg text-center text-[15px] text-sea-body">Accounts are coming soon. You can still order as a guest.</Panel>;
-  if (!data.account) return <SignIn onDone={load} />;
+  if (!data.account) return <SignIn onDone={load} siteKey={data.turnstile ?? ""} />;
   return <Dashboard account={data.account} orders={data.orders} reload={load} />;
 }
 
-function SignIn({ onDone }: { onDone: () => void }) {
+function SignIn({ onDone, siteKey }: { onDone: () => void; siteKey: string }) {
   const { links } = useShop();
   const params = useSearchParams();
   const router = useRouter();
@@ -53,6 +54,9 @@ function SignIn({ onDone }: { onDone: () => void }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  // Cloudflare's "Verify you are human", when it is set up; each pass works once
+  const [human, setHuman] = useState("");
+  const [resetHuman, setResetHuman] = useState(0);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
   // ordered before as a guest? the account starts with the details we already have for this number
   const saved = useSavedContact(f.phone, tab === "register", (c) => {
@@ -61,11 +65,13 @@ function SignIn({ onDone }: { onDone: () => void }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (siteKey && !human) return setMsg("Please tick “Verify you are human” first.");
     setBusy(true);
     setErrors({});
     setMsg("");
-    const r = await post({ action: tab, ...f });
+    const r = await post({ action: tab, ...f, turnstile: human });
     setBusy(false);
+    if (siteKey) setResetHuman((n) => n + 1);
     if (!r.ok) {
       setErrors(r.fields);
       setMsg(r.message);
@@ -124,11 +130,12 @@ function SignIn({ onDone }: { onDone: () => void }) {
             </SeaField>
           </>
         )}
-        <SeaField label="Password" hint={tab === "register" ? "at least 6 characters" : undefined} error={errors.password} htmlFor="a-pw">
+        <SeaField label="Password" hint={tab === "register" ? "at least 8 characters" : undefined} error={errors.password} htmlFor="a-pw">
           <SeaInput id="a-pw" type="password" autoComplete={tab === "login" ? "current-password" : "new-password"} value={f.password} onChange={set("password")} invalid={!!errors.password} />
         </SeaField>
+        {siteKey && <Turnstile siteKey={siteKey} action={`store-${tab}`} theme="light" onToken={setHuman} reset={resetHuman} />}
         {msg && <p className="text-[13.5px] font-semibold text-red-600">{msg}</p>}
-        <button type="submit" disabled={busy} className={btn("primary", "lg", "w-full")}>
+        <button type="submit" disabled={busy || (!!siteKey && !human)} className={btn("primary", "lg", "w-full")}>
           {busy && <Loader2 className="size-4 animate-spin" />} {tab === "login" ? "Log in" : "Create account"}
         </button>
         {tab === "login" && <p className="text-center text-[13px] text-sea-muted">Forgot your password? Message us on WhatsApp and we&apos;ll send you a new one.</p>}
@@ -294,7 +301,7 @@ function Details({ account, reload }: { account: Account; reload: () => void }) 
           <SeaField label="Current password" error={errors.password}>
             <SeaInput type="password" autoComplete="current-password" value={pw.password} onChange={(e) => setPw((x) => ({ ...x, password: e.target.value }))} invalid={!!errors.password} />
           </SeaField>
-          <SeaField label="New password" hint="at least 6 characters" error={errors.next}>
+          <SeaField label="New password" hint="at least 8 characters" error={errors.next}>
             <SeaInput type="password" autoComplete="new-password" value={pw.next} onChange={(e) => setPw((x) => ({ ...x, next: e.target.value }))} invalid={!!errors.next} />
           </SeaField>
           <button disabled={!!busy} className={btn("outline", "md", "justify-self-start")}>{busy === "password" ? "Updating…" : "Update password"}</button>

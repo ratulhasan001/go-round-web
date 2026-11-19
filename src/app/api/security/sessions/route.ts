@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminAuthed, currentSessionId, endSessions, listSessions } from "@/lib/server/auth";
 import { dbEnabled, ensureSchema } from "@/lib/server/db";
+import { logEvent } from "@/lib/server/adminEvents";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,12 @@ export async function DELETE(req: Request) {
   if (!dbEnabled()) return NextResponse.json({ error: "no database" }, { status: 400 });
   const body = (await req.json().catch(() => null)) as { id?: unknown; others?: unknown } | null;
   const current = await currentSessionId();
-  if (body?.others === true) await endSessions({ except: current ?? "-" });
-  else if (typeof body?.id === "string" && body.id && body.id !== current) await endSessions({ id: body.id });
-  else return NextResponse.json({ error: "bad request" }, { status: 400 });
+  if (body?.others === true) {
+    await endSessions({ except: current ?? "-" });
+    await logEvent(req, "device-logged-out", "every other device");
+  } else if (typeof body?.id === "string" && body.id && body.id !== current) {
+    await endSessions({ id: body.id });
+    await logEvent(req, "device-logged-out");
+  } else return NextResponse.json({ error: "bad request" }, { status: 400 });
   return NextResponse.json({ ok: true });
 }

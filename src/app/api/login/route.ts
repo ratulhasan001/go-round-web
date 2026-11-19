@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { authEnabled, clientIp, isAuthed, SESSION_COOKIE, startSession } from "@/lib/server/auth";
+import { authEnabled, clientIp, isAuthed, SESSION_COOKIE } from "@/lib/server/auth";
+import { alertLater, logEvent, loggedIn, securityLink, whoLine } from "@/lib/server/adminEvents";
 import { verifyAdminPassword } from "@/lib/server/adminPassword";
 import { humanCheck, startAttempt, triesLeft, turnstileSiteKey, wrongMessage } from "@/lib/server/loginGuard";
 import { dbEnabled } from "@/lib/server/db";
@@ -32,10 +33,15 @@ export async function POST(req: Request) {
 
   if (!(await verifyAdminPassword(password))) {
     const lockedFor = await attempt.failed();
+    await logEvent(req, "wrong-password");
+    if (lockedFor > 0) {
+      await logEvent(req, "locked", `${lockedFor} min`);
+      alertLater("Login locked after wrong passwords", [whoLine(req), `Locked for ${lockedFor} minutes.`, "If this wasn't you, someone is trying to guess your password.", securityLink()]);
+    }
     await new Promise((r) => setTimeout(r, 600)); // slow down guessing
     return NextResponse.json({ error: "wrong", message: wrongMessage("Wrong password.", lockedFor, await triesLeft(ip)) }, { status: 401 });
   }
   await attempt.passed();
-  await startSession(req, "password");
+  await loggedIn(req, "password");
   return NextResponse.json({ ok: true });
 }

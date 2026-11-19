@@ -1334,6 +1334,13 @@ input[type="number"] {
 .pt-flip {
   transform-box: fill-box;
 }
+/* phones and tablets: the plants and light rays hold still (the fish and bubbles, on their own layer, keep moving) */
+@media (pointer: coarse), (max-width: 767px) {
+  .pt-scene .pt-sway,
+  .pt-scene .pt-ray {
+    animation: none;
+  }
+}
 @keyframes pt-sway {
   0%,
   100% {

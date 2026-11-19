@@ -275,7 +275,7 @@ export function PlantedTank({ className, dark = false, caption }: { className?: 
           dark ? "border-[#cfe6e2]/70 border-t-[#0b261d] shadow-[0_30px_70px_-30px_rgba(0,0,0,0.65)]" : "border-[#d3e5e2] border-t-[#113A2D] shadow-[0_30px_60px_-34px_rgba(17,58,45,0.55)]",
         )}
       >
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" className="absolute inset-0 size-full" role="img" aria-label="A planted aquarium with rocks, driftwood, green plants and a school of neon tetras">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" className="pt-scene anim-zone absolute inset-0 size-full" role="img" aria-label="A planted aquarium with rocks, driftwood, green plants and a school of neon tetras">
           <defs>
             <linearGradient id={`${id}-water`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#f4fbfa" />
@@ -383,7 +383,11 @@ export function PlantedTank({ className, dark = false, caption }: { className?: 
           <path d={SOIL_TOP} stroke="#4a4f4f" strokeWidth="5" fill="none" opacity="0.8" />
           <Tufts xs={[460, 560, 700, 820, 960, 1060, 1240, 1400]} seed={21} />
           <Carpet seed={23} />
+        </svg>
 
+        {/* the fish, bubbles and glass on a layer of their own: on phones the planted scene underneath holds still
+            (redrawing its thousands of leaves every frame made phones stutter), while these few shapes keep moving */}
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" className="pt-fx anim-zone pointer-events-none absolute inset-0 size-full" aria-hidden>
           {/* neon tetras */}
           {SCHOOL.map((f, i) => (
             <g key={i} transform={`translate(${f.x} ${f.y}) scale(${f.s})`}>

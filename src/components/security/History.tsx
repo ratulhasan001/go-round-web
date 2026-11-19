@@ -102,7 +102,7 @@ export function Alerts() {
       <SectionTitle
         icon={<BellRing className="size-4" />}
         title="Security alerts"
-        hint="A message when a new device logs in, after a lockout, or when the password or login settings change"
+        hint="A message when a new device logs in, after a lockout, or when the password or login settings change. “Forgot password” reset links are sent here too."
         action={
           c && (c.telegram || c.email) ? (
             <Button size="sm" loading={busy} onClick={test}>

@@ -206,7 +206,7 @@ const loginAgain = () => `/login?next=${encodeURIComponent(window.location.pathn
 export function StoreProvider({ area, children }: { area: Area; children: React.ReactNode }) {
   const path = usePathname();
   // the login page, the public customer form (/f/…) and the customer website never load the shop's data
-  const offApp = area === "store" || area === "verify" || path === "/login" || path.startsWith("/f/") || isStorePath(path);
+  const offApp = area === "store" || area === "verify" || path === "/login" || path.startsWith("/login/") || path.startsWith("/f/") || isStorePath(path);
   const [data, setData] = useState<Data>(seed);
   const [ready, setReady] = useState(false);
   const [mode, setMode] = useState<Mode>("loading");

@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const account = await currentAccount();
     const password = typeof body.password === "string" ? body.password : "";
     if (!account && password) {
-      if (password.length < 6) throw new OrderError(422, { error: "invalid", fields: { password: "Use at least 6 characters." } });
+      if (password.length < 8) throw new OrderError(422, { error: "invalid", fields: { password: "Use at least 8 characters." } });
       const key = phoneKey(String(body.phone ?? ""));
       const [taken] = await db()`select 1 from gr_accounts where phone_key = ${key}`;
       if (taken) throw new OrderError(422, { error: "invalid", fields: { password: "This number already has an account - log in instead, or untick “Create an account”." } });

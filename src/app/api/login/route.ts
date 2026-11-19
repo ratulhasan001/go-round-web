@@ -1,56 +1,41 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authEnabled, clientIp, isAuthed, SESSION_COOKIE, startSession } from "@/lib/server/auth";
 import { verifyAdminPassword } from "@/lib/server/adminPassword";
-import { cookies } from "next/headers";
-import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
+import { humanCheck, startAttempt, triesLeft, turnstileSiteKey, wrongMessage } from "@/lib/server/loginGuard";
+import { dbEnabled } from "@/lib/server/db";
 
 export const dynamic = "force-dynamic";
 
-// Guessing limits: a device gets 5 wrong passwords per 15 minutes, and everyone together 30 per hour (an old short PIN has few
-// combinations, so many devices guessing at once must be stopped too).
-const PER_IP = 5;
-const PER_IP_MIN = 15;
-const ALL = 30;
-const ALL_MIN = 60;
+const host = (req: Request) => req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
 
-/** Whether this device is already logged in (the login page then moves on). */
+/** What the login page needs: whether this device is already logged in, and the human check's site key. */
 export async function GET() {
-  return NextResponse.json({ authed: authEnabled() ? await isAuthed((await cookies()).get(SESSION_COOKIE)?.value) : true });
+  return NextResponse.json({
+    authed: authEnabled() ? await isAuthed((await cookies()).get(SESSION_COOKIE)?.value) : true,
+    turnstile: turnstileSiteKey() || null,
+  });
 }
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => null)) as { password?: unknown } | null;
-  const password = String(body && typeof body === "object" ? (body.password ?? "") : "");
+  const body = (await req.json().catch(() => null)) as { password?: unknown; turnstile?: unknown } | null;
+  const password = typeof body?.password === "string" ? body.password : "";
   const ip = clientIp(req);
-  const limited = authEnabled() && dbEnabled();
 
-  if (limited) {
-    try {
-      await ensureSchema();
-      // the attempt is written down before it is checked, so many guesses sent at once can't all slip under the limit
-      await db()`insert into gr_login_fails (ip) values (${ip})`;
-      const [{ mine, total }] = await db()<{ mine: number; total: number }[]>`
-        select count(*) filter (where ip = ${ip} and at > now() - make_interval(mins => ${PER_IP_MIN}))::int as mine,
-               count(*) filter (where at > now() - make_interval(mins => ${ALL_MIN}))::int as total
-        from gr_login_fails`;
-      if (mine > PER_IP || total > ALL)
-        return NextResponse.json(
-          { error: "locked", message: mine > PER_IP ? `Too many wrong passwords. Try again in ${PER_IP_MIN} minutes.` : "Login is paused for a while after many wrong passwords. Try again later." },
-          { status: 429 },
-        );
-    } catch (e) {
-      console.error("login limit check failed", e); // never lock the owner out because the database blinked
-    }
-  }
+  if (!authEnabled()) return NextResponse.json({ ok: true });
+  if (!dbEnabled()) return NextResponse.json({ error: "nodb", message: "The login needs the database (DATABASE_URL)." }, { status: 503 });
+  if (!(await humanCheck(body?.turnstile, ip, host(req), "admin-login")))
+    return NextResponse.json({ error: "human", message: "Please tick “Verify you are human” first." }, { status: 400 });
 
-  if (authEnabled() && !dbEnabled()) return NextResponse.json({ error: "nodb", message: "The login needs the database (DATABASE_URL)." }, { status: 503 });
-  if (authEnabled() && !(await verifyAdminPassword(password))) {
+  const attempt = await startAttempt(ip);
+  if (!attempt.ok) return NextResponse.json({ error: "locked", message: attempt.message }, { status: attempt.status });
+
+  if (!(await verifyAdminPassword(password))) {
+    const lockedFor = await attempt.failed();
     await new Promise((r) => setTimeout(r, 600)); // slow down guessing
-    return NextResponse.json({ error: "Wrong password" }, { status: 401 });
+    return NextResponse.json({ error: "wrong", message: wrongMessage("Wrong password.", lockedFor, await triesLeft(ip)) }, { status: 401 });
   }
-  // right PIN: this device's attempts are forgiven, and old entries are tidied away
-  if (limited) await db()`delete from gr_login_fails where ip = ${ip} or at < now() - interval '1 day'`.catch(() => null);
-
-  if (authEnabled()) await startSession(req, "password");
+  await attempt.passed();
+  await startSession(req, "password");
   return NextResponse.json({ ok: true });
 }

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authEnabled, clientIp, isAuthed, SESSION_COOKIE } from "@/lib/server/auth";
 import { alertLater, logEvent, loggedIn, securityLink, whoLine } from "@/lib/server/adminEvents";
-import { verifyAdminPassword } from "@/lib/server/adminPassword";
+import { passwordProblem, passwordStatus, setAdminPassword, verifyAdminPassword } from "@/lib/server/adminPassword";
 import { issueToken, peekToken, updateToken, spendToken } from "@/lib/server/adminTokens";
 import { humanCheck, startAttempt, triesLeft, turnstileSiteKey, wrongMessage } from "@/lib/server/loginGuard";
 import { checkCode, emailCodeMatches, emailCodeOn, secondStepOn, sendEmailCode, twoFactorStatus, type EmailCode } from "@/lib/server/twoFactor";
@@ -33,17 +33,23 @@ export async function GET() {
 }
 
 /**
- * Step 1: { password, turnstile }. Logs in, or - with two-step login on - answers { next: "code", ticket }.
+ * Step 1: { password, turnstile }. Logs in, or answers what comes next:
+ *         { next: "new-password", ticket } while the login is still the old PIN from Vercel (APP_PASSWORD): the admin
+ *         chooses a real password ({ ticket, newPassword }) before getting in, and the PIN stops working;
+ *         { next: "code", ticket } with two-step login on.
  * Step 2: { ticket, code }: the code from the authenticator app, the code emailed for this login, or a recovery code.
  *         { ticket, send: "email" }: emails a code (the first one goes out by itself when the app isn't set up).
  */
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => null)) as { password?: unknown; turnstile?: unknown; ticket?: unknown; code?: unknown; send?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { password?: unknown; turnstile?: unknown; ticket?: unknown; code?: unknown; send?: unknown; newPassword?: unknown } | null;
   const ip = clientIp(req);
 
   if (!authEnabled()) return NextResponse.json({ ok: true });
   if (!dbEnabled()) return NextResponse.json({ error: "nodb", message: "The login needs the database (DATABASE_URL)." }, { status: 503 });
-  if (body?.ticket !== undefined) return body.send === "email" ? sendCode(body.ticket) : codeStep(req, ip, body.ticket, body.code);
+  if (body?.ticket !== undefined) {
+    if (body.newPassword !== undefined) return newPasswordStep(req, body.ticket, body.newPassword);
+    return body.send === "email" ? sendCode(body.ticket) : codeStep(req, ip, body.ticket, body.code);
+  }
 
   const password = typeof body?.password === "string" ? body.password : "";
   if (!(await humanCheck(body?.turnstile, ip, host(req), "admin-login")))
@@ -63,26 +69,52 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "wrong", message: wrongMessage("Wrong password.", lockedFor, await triesLeft(ip)) }, { status: 401 });
   }
 
+  if (!(await passwordStatus()).custom) {
+    // still the PIN: a real password must be chosen first (the PIN was right, but it alone doesn't clear wrong tries)
+    await attempt.cancel();
+    return NextResponse.json({ next: "new-password", ticket: await issueToken("setpw", 15) });
+  }
   if (await secondStepOn()) {
     // the password alone doesn't clear this device's wrong tries: wrong codes keep counting towards a lockout
     await attempt.cancel();
-    const s = await twoFactorStatus();
-    const app = s.on && s.secretWorks;
-    // without the app, the email code is the way in: send it straight away
-    const email = s.email && !app ? await sendEmailCode(emailWhy) : null;
-    const t: Ticket = { tries: 0, sends: email ? 1 : 0, ...(email ? { email } : {}) };
-    return NextResponse.json({
-      next: "code",
-      ticket: await issueToken("mfa", TICKET_MINUTES, t as unknown as Record<string, unknown>),
-      app,
-      email: s.email,
-      emailTo: s.email ? maskedEmail() : "",
-      emailSent: !!email,
-      appWorks: s.secretWorks,
-      recoveryLeft: s.recoveryLeft,
-    });
+    return NextResponse.json(await codeTicket());
   }
   await attempt.passed();
+  await loggedIn(req, "password");
+  return NextResponse.json({ ok: true });
+}
+
+/** Starts the two-step code: a ticket for it, and which ways of getting the code are on. */
+async function codeTicket() {
+  const s = await twoFactorStatus();
+  const app = s.on && s.secretWorks;
+  // without the app, the email code is the way in: send it straight away
+  const email = s.email && !app ? await sendEmailCode(emailWhy) : null;
+  const t: Ticket = { tries: 0, sends: email ? 1 : 0, ...(email ? { email } : {}) };
+  return {
+    next: "code",
+    ticket: await issueToken("mfa", TICKET_MINUTES, t as unknown as Record<string, unknown>),
+    app,
+    email: s.email,
+    emailTo: s.email ? maskedEmail() : "",
+    emailSent: !!email,
+    appWorks: s.secretWorks,
+    recoveryLeft: s.recoveryLeft,
+  };
+}
+
+/** The first login after the PIN: the admin's own password replaces it, then the login carries on. */
+async function newPasswordStep(req: Request, ticket: unknown, raw: unknown) {
+  const pw = typeof raw === "string" ? raw : "";
+  if (!(await peekToken("setpw", ticket))) return NextResponse.json({ error: "expired", message: "That took too long. Please log in again." }, { status: 400 });
+  const problem = passwordProblem(pw);
+  if (problem) return NextResponse.json({ error: "weak", message: problem }, { status: 400 });
+  if (pw === (process.env.APP_PASSWORD ?? "")) return NextResponse.json({ error: "weak", message: "Choose a new password, not the old PIN." }, { status: 400 });
+  if (!(await spendToken("setpw", ticket))) return NextResponse.json({ error: "expired", message: "That took too long. Please log in again." }, { status: 400 });
+  await setAdminPassword(pw);
+  await logEvent(req, "password-changed", "replaced the PIN");
+  alertLater("Admin password set", [whoLine(req), "The old PIN no longer works.", "If this wasn't you, change APP_PASSWORD in Vercel to get back in.", securityLink()]);
+  if (await secondStepOn()) return NextResponse.json(await codeTicket());
   await loggedIn(req, "password");
   return NextResponse.json({ ok: true });
 }

@@ -1128,20 +1128,35 @@ input[type="number"] {
   color: color-mix(in srgb, var(--color-sea-ink) 62%, transparent);
 }
 
-/* grass blades sway from their roots */
+/* grass (Art.tsx): three stacked layers of blades, each swaying from the ground as a whole - a transform the
+   graphics card applies, so nothing is redrawn while it moves */
+.sea-grass {
+  overflow: hidden;
+}
+.sea-grass-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-origin: 50% 100%;
+  will-change: transform;
+  animation: sea-sway var(--dur, 7s) ease-in-out var(--delay, 0s) infinite;
+}
 @keyframes sea-sway {
   0%,
   100% {
-    transform: rotate(calc(var(--amp, 2deg) * -1));
+    transform: skewX(calc(var(--amp, 2deg) * -1));
   }
   50% {
-    transform: rotate(var(--amp, 2deg));
+    transform: skewX(var(--amp, 2deg));
   }
 }
-.sea-blade {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: sea-sway var(--dur, 6s) ease-in-out var(--delay, 0s) infinite;
+
+/* decorations that keep moving pause while they are off screen (components/AnimationPauser.tsx) */
+.anim-zone[data-off],
+.anim-zone[data-off] * {
+  animation-play-state: paused !important;
 }
 
 @keyframes sea-swim {
@@ -1258,7 +1273,7 @@ input[type="number"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sea-blade,
+  .sea-grass-layer,
   .sea-fish,
   .sea-bob,
   .sea-bubble {

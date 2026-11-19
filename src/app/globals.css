@@ -1153,6 +1153,18 @@ input[type="number"] {
   }
 }
 
+/* phones and tablets: no frosted-glass blur on bars that stay put while the page scrolls, or behind pop-ups -
+   the blur is redone on every scroll frame, which stutters on phones. Those bars are ~90% solid anyway. */
+@media (pointer: coarse) {
+  .sticky[class*="backdrop-blur"],
+  .fixed[class*="backdrop-blur"],
+  header[class*="backdrop-blur"],
+  .absolute.inset-0[class*="backdrop-blur"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
 /* decorations that keep moving pause while they are off screen (components/AnimationPauser.tsx) */
 .anim-zone[data-off],
 .anim-zone[data-off] * {

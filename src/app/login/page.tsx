@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, LockKeyholeOpen } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, LockKeyholeOpen, Smartphone } from "lucide-react";
 import { WAVE_BACK, WAVE_FRONT } from "@/lib/theme";
 import { Turnstile } from "@/components/Turnstile";
 
@@ -20,6 +20,21 @@ function safeNext(next: string | null) {
 
 const goNext = () => safeNext(new URLSearchParams(window.location.search).get("next"));
 
+const field =
+  "flex items-center rounded-2xl border-2 bg-black/20 transition-colors focus-within:border-[#8cc556]";
+const inputCls = "h-14 min-w-0 flex-1 bg-transparent px-4 text-[17px] font-semibold tracking-wide text-white outline-none placeholder:text-white/25";
+const linkBtn = "text-[13px] font-semibold text-[#b9d8c9]/70 underline-offset-4 transition hover:text-white hover:underline";
+
+interface Answer {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  next?: "code";
+  ticket?: string;
+  appWorks?: boolean;
+  recoveryLeft?: number;
+}
+
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -29,6 +44,11 @@ export default function LoginPage() {
   const [siteKey, setSiteKey] = useState(""); // Cloudflare's human check, when it is set up
   const [human, setHuman] = useState("");
   const [resetHuman, setResetHuman] = useState(0);
+  // two-step login: after a right password, the code from the app (or a recovery code)
+  const [ticket, setTicket] = useState("");
+  const [code, setCode] = useState("");
+  const [recovery, setRecovery] = useState(false);
+  const codeInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // already logged in on this device (a link from another site arrives without the login cookie): carry on
@@ -56,22 +76,64 @@ export default function LoginPage() {
     setTimeout(() => setStatus((s) => (s === "error" ? "idle" : s)), 550);
   };
 
-  const submit = async (e: React.FormEvent) => {
+  const post = async (body: Record<string, unknown>) => {
+    setStatus("checking");
+    setError("");
+    const res = await fetch("/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
+    const b = res ? ((await res.json().catch(() => ({}))) as Answer) : null;
+    return { res, b };
+  };
+
+  const backToPassword = (message = "") => {
+    setTicket("");
+    setCode("");
+    setRecovery(false);
+    setPassword("");
+    if (siteKey) setResetHuman((n) => n + 1);
+    if (message) fail(message);
+    else setStatus("idle");
+  };
+
+  const submitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy || !password) return;
     if (siteKey && !human) return fail("Please tick “Verify you are human” first.");
-    setStatus("checking");
-    setError("");
-    const res = await fetch("/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password, turnstile: human }) }).catch(() => null);
-    const b = res ? ((await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }) : null;
-    if (res?.ok && b?.ok) return finish();
+    const { res, b } = await post({ password, turnstile: human });
     if (siteKey) setResetHuman((n) => n + 1); // each pass works once
+    if (res?.ok && b?.ok) return finish();
+    if (res?.ok && b?.next === "code" && b.ticket) {
+      setTicket(b.ticket);
+      setRecovery(b.appWorks === false);
+      setStatus("idle");
+      setTimeout(() => codeInput.current?.focus(), 50);
+      return;
+    }
     setPassword("");
     input.current?.focus();
     fail(b?.message ?? (res ? "Wrong password. Try again." : "Can't connect. Check your internet."));
   };
 
-  const Lock = status === "success" ? LockKeyholeOpen : LockKeyhole;
+  const submitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy || !code.trim()) return;
+    const { res, b } = await post({ ticket, code });
+    if (res?.ok && b?.ok) return finish();
+    if (b?.error === "expired") return backToPassword(b.message ?? "Please log in again.");
+    setCode("");
+    codeInput.current?.focus();
+    fail(b?.message ?? (res ? "That code isn't right." : "Can't connect. Check your internet."));
+  };
+
+  const Lock = status === "success" ? LockKeyholeOpen : status === "idle" && ticket ? Smartphone : LockKeyhole;
+  const title = status === "success" ? "Welcome back!" : ticket ? (recovery ? "Recovery code" : "Enter your code") : "Admin login";
+  const hint =
+    status === "success"
+      ? "Unlocking…"
+      : ticket
+        ? recovery
+          ? "Type one of the recovery codes you saved"
+          : "Open your authenticator app and type the 6-digit code"
+        : "Enter your password to continue";
 
   return (
     <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#0e2a23] px-5 py-10 text-white">
@@ -102,67 +164,121 @@ export default function LoginPage() {
           </span>
         </div>
 
-        <div className="mb-1 text-center text-[11px] font-bold uppercase tracking-[0.28em] text-[#8cc556]">Restricted access</div>
-        <h1 className="text-center font-[family-name:var(--font-bricolage)] text-3xl font-extrabold tracking-[-0.02em]">{status === "success" ? "Welcome back!" : "Admin login"}</h1>
-        <p className="mt-1.5 text-center text-[14px] text-[#b9d8c9]/75">{status === "success" ? "Unlocking…" : "Enter your password to continue"}</p>
+        <div className="mb-1 text-center text-[11px] font-bold uppercase tracking-[0.28em] text-[#8cc556]">{ticket ? "Step 2 of 2" : "Restricted access"}</div>
+        <h1 className="text-center font-[family-name:var(--font-bricolage)] text-3xl font-extrabold tracking-[-0.02em]">{title}</h1>
+        <p className="mt-1.5 text-center text-[14px] text-[#b9d8c9]/75">{hint}</p>
 
-        <form onSubmit={submit} className="mt-7">
-          <label htmlFor="password" className="mb-1.5 block text-[12px] font-bold uppercase tracking-[0.14em] text-white/55">
-            Password
-          </label>
-          <div
-            className={`flex items-center rounded-2xl border-2 bg-black/20 transition-colors focus-within:border-[#8cc556] ${
-              status === "error" ? "animate-pin-shake border-red-400" : "border-white/15"
-            }`}
-          >
-            <input
-              ref={input}
-              id="password"
-              name="password"
-              type={show ? "text" : "password"}
-              autoComplete="current-password"
-              autoFocus
-              required
-              value={password}
-              disabled={busy}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              className="h-14 min-w-0 flex-1 bg-transparent px-4 text-[17px] font-semibold tracking-wide text-white outline-none placeholder:text-white/25"
-              placeholder="••••••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShow((s) => !s)}
-              className="grid h-14 w-12 shrink-0 place-items-center text-white/50 transition hover:text-white"
-              aria-label={show ? "Hide password" : "Show password"}
-            >
-              {show ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
-            </button>
-          </div>
-
-          <div className="min-h-7 pt-2.5 text-center text-[13px] font-semibold text-red-300" role="alert">
-            {error}
-          </div>
-
-          {siteKey && (
-            <div className="mb-3">
-              <Turnstile siteKey={siteKey} action="admin-login" onToken={setHuman} reset={resetHuman} />
+        {ticket ? (
+          <form onSubmit={submitCode} className="mt-7">
+            <label htmlFor="code" className="mb-1.5 block text-[12px] font-bold uppercase tracking-[0.14em] text-white/55">
+              {recovery ? "Recovery code" : "6-digit code"}
+            </label>
+            <div className={`${field} ${status === "error" ? "animate-pin-shake border-red-400" : "border-white/15"}`}>
+              <input
+                ref={codeInput}
+                id="code"
+                name="code"
+                key={recovery ? "recovery" : "app"}
+                inputMode={recovery ? "text" : "numeric"}
+                autoComplete="one-time-code"
+                autoCapitalize="none"
+                spellCheck={false}
+                autoFocus
+                required
+                maxLength={recovery ? 20 : 7}
+                value={code}
+                disabled={busy}
+                onChange={(e) => {
+                  setCode(recovery ? e.target.value : e.target.value.replace(/\D/g, ""));
+                  setError("");
+                }}
+                className={`${inputCls} text-center font-mono text-[22px] tracking-[0.3em]`}
+                placeholder={recovery ? "xxxxx-xxxxx" : "000000"}
+              />
             </div>
-          )}
+            <div className="min-h-7 pt-2.5 text-center text-[13px] font-semibold text-red-300" role="alert">
+              {error}
+            </div>
+            <SubmitButton status={status} disabled={busy || !code.trim()} label="Verify" />
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button type="button" className={`${linkBtn} inline-flex items-center gap-1`} onClick={() => backToPassword()}>
+                <ArrowLeft className="size-3.5" /> Back
+              </button>
+              <button
+                type="button"
+                className={linkBtn}
+                onClick={() => {
+                  setRecovery((r) => !r);
+                  setCode("");
+                  setError("");
+                  setTimeout(() => codeInput.current?.focus(), 30);
+                }}
+              >
+                {recovery ? "Use the app code" : "Lost your phone? Use a recovery code"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={submitPassword} className="mt-7">
+            <label htmlFor="password" className="mb-1.5 block text-[12px] font-bold uppercase tracking-[0.14em] text-white/55">
+              Password
+            </label>
+            <div className={`${field} ${status === "error" ? "animate-pin-shake border-red-400" : "border-white/15"}`}>
+              <input
+                ref={input}
+                id="password"
+                name="password"
+                type={show ? "text" : "password"}
+                autoComplete="current-password"
+                autoFocus
+                required
+                value={password}
+                disabled={busy}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
+                className={inputCls}
+                placeholder="••••••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShow((s) => !s)}
+                className="grid h-14 w-12 shrink-0 place-items-center text-white/50 transition hover:text-white"
+                aria-label={show ? "Hide password" : "Show password"}
+              >
+                {show ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+              </button>
+            </div>
 
-          <button
-            type="submit"
-            disabled={busy || !password || (!!siteKey && !human)}
-            className="mt-1 flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8cc556] to-aqua py-3.5 text-[16px] font-extrabold text-[#0e2a23] shadow-lg shadow-[#8cc556]/20 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-          >
-            {status === "checking" ? <Loader2 className="size-5 animate-spin" /> : null}
-            {status === "checking" ? "Checking…" : "Log in"}
-            {status === "idle" || status === "error" ? <ArrowRight className="size-5" /> : null}
-          </button>
-        </form>
+            <div className="min-h-7 pt-2.5 text-center text-[13px] font-semibold text-red-300" role="alert">
+              {error}
+            </div>
+
+            {siteKey && (
+              <div className="mb-3">
+                <Turnstile siteKey={siteKey} action="admin-login" onToken={setHuman} reset={resetHuman} />
+              </div>
+            )}
+
+            <SubmitButton status={status} disabled={busy || !password || (!!siteKey && !human)} label="Log in" />
+          </form>
+        )}
       </section>
     </main>
+  );
+}
+
+function SubmitButton({ status, disabled, label }: { status: Status; disabled: boolean; label: string }) {
+  return (
+    <button
+      type="submit"
+      disabled={disabled}
+      className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#8cc556] to-aqua py-3.5 text-[16px] font-extrabold text-[#0e2a23] shadow-lg shadow-[#8cc556]/20 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+    >
+      {status === "checking" ? <Loader2 className="size-5 animate-spin" /> : null}
+      {status === "checking" ? "Checking…" : label}
+      {status === "idle" || status === "error" ? <ArrowRight className="size-5" /> : null}
+    </button>
   );
 }

@@ -81,6 +81,13 @@ const alertEmails = () =>
     .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))
     .slice(0, 10);
 
+/** "f•••••@gmail.com", to say where an email code went without showing the whole address. */
+export const maskedEmail = () => {
+  const e = alertEmails()[0] ?? "";
+  const [name = "", domain = ""] = e.split("@");
+  return e ? `${name.slice(0, 1)}${"•".repeat(Math.max(3, Math.min(8, name.length - 1)))}@${domain}` : "";
+};
+
 export const alertChannels = () => ({
   telegram: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
   email: !!(process.env.RESEND_API_KEY && alertEmails().length),
@@ -89,9 +96,15 @@ export const alertChannels = () => ({
 const dhaka = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 /** Sends an alert to every channel that is set up. Returns whether at least one took it. */
-export async function sendAlert(title: string, lines: string[]): Promise<boolean> {
-  const { telegram, email } = alertChannels();
+export async function sendAlert(title: string, lines: string[], opts: { emailOnly?: boolean } = {}): Promise<boolean> {
+  const { email } = alertChannels();
+  const telegram = alertChannels().telegram && !opts.emailOnly;
   const text = [`🔐 ${title}`, "", ...lines, "", `Time: ${dhaka.format(new Date())} (Dhaka)`].join("\n");
+  // while developing, DEV_PRINT_ALERTS=1 prints alerts in the terminal instead of sending them (never on the live site)
+  if (process.env.NODE_ENV !== "production" && process.env.DEV_PRINT_ALERTS === "1") {
+    console.log(`\n[alert${opts.emailOnly ? ", email only" : ""}]\n${text}\n`);
+    return true;
+  }
   const jobs: Promise<boolean>[] = [];
   if (telegram)
     jobs.push(

@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, isAuthed } from "@/lib/server/auth";
+import { adminAuthed } from "@/lib/server/auth";
 import { dbEnabled } from "@/lib/server/db";
 import { createForm, formStatus, listForms, revokeById, revokeForm, validLinkId, validToken } from "@/lib/server/forms";
 
@@ -8,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 /** Owner-only: every call here needs the shop session (the proxy checks too). */
 async function guard() {
-  if (!isAuthed((await cookies()).get(SESSION_COOKIE)?.value)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await adminAuthed())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!dbEnabled()) return NextResponse.json({ error: "no database" }, { status: 503 });
   return null;
 }

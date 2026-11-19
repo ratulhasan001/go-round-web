@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
-import { ArrowLeft, ArrowRight, Eye, EyeOff, Fingerprint, Loader2, LockKeyhole, LockKeyholeOpen, Smartphone } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Fingerprint, Loader2, LockKeyhole, LockKeyholeOpen, Mail, Smartphone } from "lucide-react";
 import { LoginShell, loginButton, loginField, loginInput, loginLabel, loginLink } from "@/components/LoginShell";
 import { Turnstile } from "@/components/Turnstile";
 import { useClientValue } from "@/components/ui";
@@ -34,6 +34,11 @@ interface Answer {
   ticket?: string;
   appWorks?: boolean;
   recoveryLeft?: number;
+  app?: boolean;
+  email?: boolean;
+  emailTo?: string;
+  emailSent?: boolean;
+  sent?: boolean;
 }
 
 export default function LoginPage() {
@@ -49,6 +54,8 @@ export default function LoginPage() {
   const [ticket, setTicket] = useState("");
   const [code, setCode] = useState("");
   const [recovery, setRecovery] = useState(false);
+  const [methods, setMethods] = useState({ app: false, email: false, emailTo: "" }); // which second steps are on
+  const [viaEmail, setViaEmail] = useState(false); // typing the code that was emailed
   const codeInput = useRef<HTMLInputElement>(null);
   // "Forgot password?": a reset link sent to the owner's Telegram / email
   const [forgot, setForgot] = useState(false);
@@ -93,6 +100,7 @@ export default function LoginPage() {
     setTicket("");
     setCode("");
     setRecovery(false);
+    setViaEmail(false);
     setPassword("");
     if (siteKey) setResetHuman((n) => n + 1);
     if (message) fail(message);
@@ -108,7 +116,9 @@ export default function LoginPage() {
     if (res?.ok && b?.ok) return finish();
     if (res?.ok && b?.next === "code" && b.ticket) {
       setTicket(b.ticket);
-      setRecovery(b.appWorks === false);
+      setMethods({ app: !!b.app, email: !!b.email, emailTo: b.emailTo ?? "" });
+      setViaEmail(!!b.emailSent);
+      setRecovery(!b.app && !b.emailSent);
       setStatus("idle");
       setTimeout(() => codeInput.current?.focus(), 50);
       return;
@@ -159,6 +169,30 @@ export default function LoginPage() {
     fail(b?.message ?? (res ? "Something went wrong. Try again." : "Can't connect. Check your internet."));
   };
 
+  /** Emails a login code (instead of the app's, or again). */
+  const emailCode = async () => {
+    if (busy) return;
+    const { res, b } = await post({ ticket, send: "email" });
+    if (b?.sent) {
+      setViaEmail(true);
+      setRecovery(false);
+      setCode("");
+      setStatus("idle");
+      setTimeout(() => codeInput.current?.focus(), 30);
+      return;
+    }
+    if (b?.error === "expired") return backToPassword(b.message ?? "Please log in again.");
+    fail(b?.message ?? (res ? "The email couldn't be sent." : "Can't connect. Check your internet."));
+  };
+
+  const switchWay = (way: "app" | "recovery") => {
+    setRecovery(way === "recovery");
+    setViaEmail(false);
+    setCode("");
+    setError("");
+    setTimeout(() => codeInput.current?.focus(), 30);
+  };
+
   /** Logs in with a passkey: the device asks for a fingerprint, face or screen lock. */
   const passkeyLogin = async () => {
     if (busy) return;
@@ -182,14 +216,17 @@ export default function LoginPage() {
     fail(v?.message ?? "That passkey didn't work. Try again or use your password.");
   };
 
-  const Lock = status === "success" ? LockKeyholeOpen : status === "idle" && ticket ? Smartphone : LockKeyhole;
-  const title = status === "success" ? "Welcome back!" : ticket ? (recovery ? "Recovery code" : "Enter your code") : forgot ? "Forgot password?" : "Admin login";
+  const Lock = status === "success" ? LockKeyholeOpen : status === "idle" && ticket ? (viaEmail ? Mail : Smartphone) : LockKeyhole;
+  const title =
+    status === "success" ? "Welcome back!" : ticket ? (recovery ? "Recovery code" : viaEmail ? "Check your email" : "Enter your code") : forgot ? "Forgot password?" : "Admin login";
   const hint =
     status === "success"
       ? "Unlocking…"
       : ticket
         ? recovery
           ? "Type one of the recovery codes you saved"
+          : viaEmail
+            ? `We emailed a 6-digit code to ${methods.emailTo || "your email"}. It works for 10 minutes.`
           : "Open your authenticator app and type the 6-digit code"
         : forgot
           ? "We'll send a reset link to the shop owner's Telegram or email"
@@ -247,22 +284,27 @@ export default function LoginPage() {
               {error}
             </div>
             <SubmitButton status={status} disabled={busy || !code.trim()} label="Verify" />
-            <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="mt-4 flex items-start justify-between gap-3">
               <button type="button" className={`${linkBtn} inline-flex items-center gap-1`} onClick={() => backToPassword()}>
                 <ArrowLeft className="size-3.5" /> Back
               </button>
-              <button
-                type="button"
-                className={linkBtn}
-                onClick={() => {
-                  setRecovery((r) => !r);
-                  setCode("");
-                  setError("");
-                  setTimeout(() => codeInput.current?.focus(), 30);
-                }}
-              >
-                {recovery ? "Use the app code" : "Lost your phone? Use a recovery code"}
-              </button>
+              <div className="flex flex-col items-end gap-1.5 text-right">
+                {methods.email && (
+                  <button type="button" className={`${linkBtn} inline-flex items-center gap-1.5`} onClick={emailCode} disabled={busy}>
+                    <Mail className="size-3.5" /> {viaEmail ? "Send the code again" : "Email me a code"}
+                  </button>
+                )}
+                {methods.app && (viaEmail || recovery) && (
+                  <button type="button" className={linkBtn} onClick={() => switchWay("app")}>
+                    Use the app code
+                  </button>
+                )}
+                {!recovery && (
+                  <button type="button" className={linkBtn} onClick={() => switchWay("recovery")}>
+                    Use a recovery code
+                  </button>
+                )}
+              </div>
             </div>
           </form>
         ) : forgot ? (

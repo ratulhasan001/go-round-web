@@ -147,7 +147,7 @@ export function TwoFactor() {
   /** Emails a code to confirm the change being made. */
   const emailMe = async () => {
     const b = await send({ action: "email-send" });
-    if (b) setNote(`Code sent to ${s?.emailTo || "your email"}. It works for 10 minutes.`);
+    if (b) setNote(`Code sent to ${s?.emailTo || "your email"}. It works for 3 minutes.`);
   };
 
   const done = (message: string, codes?: string[] | null) => {

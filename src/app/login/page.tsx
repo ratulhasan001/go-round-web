@@ -267,7 +267,7 @@ export default function LoginPage() {
         ? recovery
           ? "Type one of the recovery codes you saved"
           : viaEmail
-            ? `We emailed a 6-digit code to ${methods.emailTo || "your email"}. It works for 10 minutes.`
+            ? `We emailed a 6-digit code to ${methods.emailTo || "your email"}. It works for 3 minutes.`
           : "Open your authenticator app and type the 6-digit code"
         : setpw
           ? "The PIN is retired. Choose a password to log in with from now on."

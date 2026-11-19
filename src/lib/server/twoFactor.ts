@@ -149,7 +149,7 @@ export async function turnOff() {
 
 // ---------- email codes ----------
 
-const EMAIL_CODE_MINUTES = 10;
+const EMAIL_CODE_MINUTES = 3;
 
 /** A sent email code: only its hash is kept, with when it was sent. */
 export interface EmailCode {

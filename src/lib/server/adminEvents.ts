@@ -10,7 +10,8 @@ import { HOSTS } from "@/lib/site";
  * from a device that never logged in before, a lockout, a password change.
  *
  * Alerts go to Telegram (TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID) and/or email through Resend (RESEND_API_KEY +
- * ALERT_EMAIL, optionally ALERT_FROM), whichever is set in Vercel.
+ * ALERT_EMAIL, optionally ALERT_FROM), whichever is set in Vercel. ALERT_EMAIL may list several addresses, separated by
+ * commas - each one also gets the "Forgot password" reset links.
  */
 const PROD = process.env.NODE_ENV === "production";
 const DEVICE_COOKIE = PROD ? "__Host-gr_device" : "gr_device";
@@ -72,9 +73,17 @@ export async function listEvents(limit = 60): Promise<AdminEvent[]> {
 
 // ---------- alerts ----------
 
+/** The addresses in ALERT_EMAIL ("a@x.com, b@y.com"). */
+const alertEmails = () =>
+  (process.env.ALERT_EMAIL ?? "")
+    .split(/[,;\s]+/)
+    .map((e) => e.trim())
+    .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))
+    .slice(0, 10);
+
 export const alertChannels = () => ({
   telegram: !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
-  email: !!(process.env.RESEND_API_KEY && process.env.ALERT_EMAIL),
+  email: !!(process.env.RESEND_API_KEY && alertEmails().length),
 });
 
 const dhaka = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Dhaka", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
@@ -98,7 +107,7 @@ export async function sendAlert(title: string, lines: string[]): Promise<boolean
       fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-        body: JSON.stringify({ from: process.env.ALERT_FROM || "Go Round admin <onboarding@resend.dev>", to: [process.env.ALERT_EMAIL], subject: `Go Round admin: ${title}`, text }),
+        body: JSON.stringify({ from: process.env.ALERT_FROM || "Go Round admin <onboarding@resend.dev>", to: alertEmails(), subject: `Go Round admin: ${title}`, text }),
         signal: AbortSignal.timeout(8000),
       }).then((r) => r.ok),
     );

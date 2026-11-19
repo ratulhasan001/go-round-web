@@ -1,7 +1,7 @@
 import { db, dbEnabled, ensureSchema } from "./db";
 
 /**
- * Stops password guessing at the admin login.
+ * Stops password guessing at the admin login (and at the store's customer login, counted separately).
  *
  * - Cloudflare Turnstile ("Verify you are human") on every login attempt, once TURNSTILE_SITE_KEY and
  *   TURNSTILE_SECRET_KEY are set in Vercel.
@@ -12,7 +12,14 @@ import { db, dbEnabled, ensureSchema } from "./db";
 const FREE_TRIES = 5;
 const FIRST_LOCK_MIN = 15;
 const MAX_LOCK_MIN = 24 * 60;
-const ALL_PER_HOUR = 30;
+
+/**
+ * "admin" counts wrong admin passwords and codes, "customer" wrong passwords on the store's customer login - kept
+ * apart, so shoppers getting their own password wrong never lock out the admin. Everyone together gets 30 wrong admin
+ * tries an hour, and 300 customer ones.
+ */
+export type GuardScope = "admin" | "customer";
+const ALL_PER_HOUR: Record<GuardScope, number> = { admin: 30, customer: 300 };
 
 export const turnstileSiteKey = () => (process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY ? process.env.TURNSTILE_SITE_KEY : "");
 
@@ -56,31 +63,31 @@ export type Attempt =
  * Call before checking a password or code. The try is written down first (as if wrong), so many guesses sent at once
  * can't all slip under the limit; `passed` or `cancel` take it back.
  */
-export async function startAttempt(ip: string): Promise<Attempt> {
+export async function startAttempt(ip: string, scope: GuardScope = "admin"): Promise<Attempt> {
   const noop = async () => {};
   if (!dbEnabled()) return { ok: true, passed: noop, failed: async () => 0, cancel: noop };
   try {
     await ensureSchema();
-    const [{ id }] = await db()<{ id: string }[]>`insert into gr_login_fails (ip) values (${ip}) returning id`;
+    const [{ id }] = await db()<{ id: string }[]>`insert into gr_login_fails (ip, scope) values (${ip}, ${scope}) returning id`;
     const [{ mine, last, total }] = await db()<{ mine: number; last: Date | null; total: number }[]>`
       select count(*) filter (where ip = ${ip} and id <> ${id} and at > now() - interval '1 day')::int as mine,
              max(at) filter (where ip = ${ip} and id <> ${id} and at > now() - interval '1 day') as last,
              count(*) filter (where at > now() - interval '1 hour')::int as total
-      from gr_login_fails`;
+      from gr_login_fails where scope = ${scope}`;
     const cancel = async () => void (await db()`delete from gr_login_fails where id = ${id}`.catch(() => null));
     const left = last ? lockMinutes(mine) - (Date.now() - last.getTime()) / 60_000 : 0;
     if (left > 0) {
       await cancel(); // waiting it out mustn't make the wait longer
       return { ok: false, status: 429, lockedFor: left, message: `Too many wrong tries. Try again in ${waitText(left)}.` };
     }
-    if (total > ALL_PER_HOUR) {
+    if (total > ALL_PER_HOUR[scope]) {
       await cancel();
-      return { ok: false, status: 429, lockedFor: 60, message: "Login is paused for a while after many wrong tries. Try again later, or use a passkey." };
+      return { ok: false, status: 429, lockedFor: 60, message: scope === "admin" ? "Login is paused for a while after many wrong tries. Try again later, or use a passkey." : "Login is busy right now. Please try again in a while." };
     }
     return {
       ok: true,
       cancel,
-      passed: async () => void (await db()`delete from gr_login_fails where ip = ${ip} or at < now() - interval '2 days'`.catch(() => null)),
+      passed: async () => void (await db()`delete from gr_login_fails where (ip = ${ip} and scope = ${scope}) or at < now() - interval '2 days'`.catch(() => null)),
       failed: async () => lockMinutes(mine + 1),
     };
   } catch (e) {
@@ -96,8 +103,8 @@ export function wrongMessage(what: string, lockedFor: number, triesLeft?: number
 }
 
 /** How many wrong tries this device has left before it is locked out. */
-export async function triesLeft(ip: string) {
+export async function triesLeft(ip: string, scope: GuardScope = "admin") {
   if (!dbEnabled()) return FREE_TRIES;
-  const [{ n }] = await db()<{ n: number }[]>`select count(*)::int as n from gr_login_fails where ip = ${ip} and at > now() - interval '1 day'`;
+  const [{ n }] = await db()<{ n: number }[]>`select count(*)::int as n from gr_login_fails where ip = ${ip} and scope = ${scope} and at > now() - interval '1 day'`;
   return Math.max(0, FREE_TRIES - n);
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { Checklist } from "@/components/security/Checklist";
 import { Devices } from "@/components/security/Devices";
 import { Password } from "@/components/security/Password";
 import { TwoFactor } from "@/components/security/TwoFactor";
@@ -24,7 +25,10 @@ export default function SecurityPage() {
         </div>
       </div>
 
-      <div className="grid gap-5">
+      <div className="grid items-start gap-5 xl:grid-cols-2">
+        <div className="xl:col-span-2">
+          <Checklist />
+        </div>
         <Password />
         <TwoFactor />
         <Passkeys />

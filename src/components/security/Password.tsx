@@ -56,8 +56,8 @@ export function Password() {
         <p className="mb-4 flex gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-[13px] leading-relaxed text-amber-900">
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
           <span>
-            You are still logging in with the PIN set in Vercel (APP_PASSWORD). Set a long password of your own here - at least {MIN} characters. A short sentence is
-            easy to remember and very hard to guess.
+            The PIN from Vercel (APP_PASSWORD) is still the login. Set a long password of your own here - at least {MIN} characters; otherwise the next login asks
+            for one. A short sentence is easy to remember and very hard to guess.
           </span>
         </p>
       )}

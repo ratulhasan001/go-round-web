@@ -5,6 +5,7 @@ import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Devices } from "@/components/security/Devices";
 import { Password } from "@/components/security/Password";
 import { TwoFactor } from "@/components/security/TwoFactor";
+import { Passkeys } from "@/components/security/Passkeys";
 import { Alerts, History } from "@/components/security/History";
 
 export default function SecurityPage() {
@@ -26,6 +27,7 @@ export default function SecurityPage() {
       <div className="grid gap-5">
         <Password />
         <TwoFactor />
+        <Passkeys />
         <Devices />
         <Alerts />
         <History />

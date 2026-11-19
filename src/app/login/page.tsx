@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, LockKeyholeOpen, Smartphone } from "lucide-react";
+import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Fingerprint, Loader2, LockKeyhole, LockKeyholeOpen, Smartphone } from "lucide-react";
 import { WAVE_BACK, WAVE_FRONT } from "@/lib/theme";
 import { Turnstile } from "@/components/Turnstile";
+import { useClientValue } from "@/components/ui";
 
 type Status = "idle" | "checking" | "error" | "success";
 
@@ -49,6 +51,7 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [recovery, setRecovery] = useState(false);
   const codeInput = useRef<HTMLInputElement>(null);
+  const passkeys = useClientValue(() => browserSupportsWebAuthn(), false); // this browser can use passkeys
 
   useEffect(() => {
     // already logged in on this device (a link from another site arrives without the login cookie): carry on
@@ -122,6 +125,29 @@ export default function LoginPage() {
     setCode("");
     codeInput.current?.focus();
     fail(b?.message ?? (res ? "That code isn't right." : "Can't connect. Check your internet."));
+  };
+
+  /** Logs in with a passkey: the device asks for a fingerprint, face or screen lock. */
+  const passkeyLogin = async () => {
+    if (busy) return;
+    setStatus("checking");
+    setError("");
+    const post2 = (body: unknown) =>
+      fetch("/api/login/passkey", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+        .then((r) => r.json() as Promise<Answer & { options?: Parameters<typeof startAuthentication>[0]["optionsJSON"]; token?: string }>)
+        .catch(() => null);
+    const o = await post2({ step: "options" });
+    if (!o?.options) return fail(o?.message ?? "Can't connect. Check your internet.");
+    let response;
+    try {
+      response = await startAuthentication({ optionsJSON: o.options });
+    } catch {
+      setStatus("idle");
+      return; // cancelled
+    }
+    const v = await post2({ step: "verify", token: o.token, response });
+    if (v?.ok) return finish();
+    fail(v?.message ?? "That passkey didn't work. Try again or use your password.");
   };
 
   const Lock = status === "success" ? LockKeyholeOpen : status === "idle" && ticket ? Smartphone : LockKeyhole;
@@ -262,6 +288,22 @@ export default function LoginPage() {
             )}
 
             <SubmitButton status={status} disabled={busy || !password || (!!siteKey && !human)} label="Log in" />
+
+            {passkeys && (
+              <>
+                <div className="my-4 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.2em] text-white/35">
+                  <span className="h-px flex-1 bg-white/10" /> or <span className="h-px flex-1 bg-white/10" />
+                </div>
+                <button
+                  type="button"
+                  onClick={passkeyLogin}
+                  disabled={busy}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] py-3.5 text-[15px] font-bold text-white transition hover:border-[#8cc556]/50 hover:bg-white/[0.1] active:scale-[0.98] disabled:opacity-50"
+                >
+                  <Fingerprint className="size-5 text-[#8cc556]" /> Log in with a passkey
+                </button>
+              </>
+            )}
           </form>
         )}
       </section>

@@ -90,6 +90,7 @@ export function ensureSchema() {
           at timestamptz not null default now()
         )`,
     )
+    .then(() => db()`alter table gr_login_fails add column if not exists id bigserial`)
     // admin logins, one row per logged-in device; only a hash of each device's token is kept
     .then(
       () => db()`

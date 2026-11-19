@@ -200,6 +200,9 @@ const writeJSON = (key: string, value: unknown) => {
   }
 };
 
+/** The login page, coming back to this page afterwards (a session ends after a few hours). */
+const loginAgain = () => `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+
 export function StoreProvider({ area, children }: { area: Area; children: React.ReactNode }) {
   const path = usePathname();
   // the login page, the public customer form (/f/…) and the customer website never load the shop's data
@@ -292,7 +295,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
         const r = await send(g.map(([, c]) => c));
         if (r === "auth") {
           flushing.current = false;
-          window.location.href = "/login"; // eslint-disable-line @next/next/no-location-assign-relative-destination -- full reload clears the session state
+          window.location.href = loginAgain(); // full reload clears the session state
           return;
         }
         if (r === "ok") done(g);
@@ -346,7 +349,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
     const startedAt = edits.current;
     const res = await fetch("/api/data", { cache: "no-store" }).catch(() => null);
     if (res?.status === 401) {
-      window.location.href = "/login"; // eslint-disable-line @next/next/no-location-assign-relative-destination -- full reload clears the session state
+      window.location.href = loginAgain(); // full reload clears the session state
       return "failed";
     }
     const body = res?.ok ? await res.json().catch(() => null) : null;

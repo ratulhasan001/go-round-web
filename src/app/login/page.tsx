@@ -36,7 +36,11 @@ export default function LoginPage() {
     // the PIN can be longer than 4 digits (set in APP_PASSWORD)
     fetch("/api/login")
       .then((r) => r.json())
-      .then((b: { length?: number }) => b.length && setPinLength(b.length))
+      .then((b: { length?: number; authed?: boolean }) => {
+        // already logged in on this device (a link from another site arrives without the login cookie): carry on
+        if (b.authed) window.location.replace(safeNext(new URLSearchParams(window.location.search).get("next")));
+        else if (b.length) setPinLength(b.length);
+      })
       .catch(() => null);
   }, []);
   const [pin, setPin] = useState("");

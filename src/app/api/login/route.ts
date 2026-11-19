@@ -1,20 +1,21 @@
 import { NextResponse } from "next/server";
-import { authEnabled, checkPassword, clientIp, isAuthed, pinLength, SESSION_COOKIE, startSession } from "@/lib/server/auth";
+import { authEnabled, clientIp, isAuthed, SESSION_COOKIE, startSession } from "@/lib/server/auth";
+import { verifyAdminPassword } from "@/lib/server/adminPassword";
 import { cookies } from "next/headers";
 import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 
 export const dynamic = "force-dynamic";
 
-// Guessing limits: a device gets 5 wrong PINs per 15 minutes, and everyone together 30 per hour (a PIN has few
+// Guessing limits: a device gets 5 wrong passwords per 15 minutes, and everyone together 30 per hour (an old short PIN has few
 // combinations, so many devices guessing at once must be stopped too).
 const PER_IP = 5;
 const PER_IP_MIN = 15;
 const ALL = 30;
 const ALL_MIN = 60;
 
-/** How many digits the keypad shows, and whether this device is already logged in (the login page then moves on). */
+/** Whether this device is already logged in (the login page then moves on). */
 export async function GET() {
-  return NextResponse.json({ length: pinLength(), authed: authEnabled() ? await isAuthed((await cookies()).get(SESSION_COOKIE)?.value) : true });
+  return NextResponse.json({ authed: authEnabled() ? await isAuthed((await cookies()).get(SESSION_COOKIE)?.value) : true });
 }
 
 export async function POST(req: Request) {
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
         from gr_login_fails`;
       if (mine > PER_IP || total > ALL)
         return NextResponse.json(
-          { error: "locked", message: mine > PER_IP ? `Too many wrong PINs. Try again in ${PER_IP_MIN} minutes.` : "Login is paused for a while after many wrong PINs. Try again later." },
+          { error: "locked", message: mine > PER_IP ? `Too many wrong passwords. Try again in ${PER_IP_MIN} minutes.` : "Login is paused for a while after many wrong passwords. Try again later." },
           { status: 429 },
         );
     } catch (e) {
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
   }
 
   if (authEnabled() && !dbEnabled()) return NextResponse.json({ error: "nodb", message: "The login needs the database (DATABASE_URL)." }, { status: 503 });
-  if (!checkPassword(password)) {
+  if (authEnabled() && !(await verifyAdminPassword(password))) {
     await new Promise((r) => setTimeout(r, 600)); // slow down guessing
     return NextResponse.json({ error: "Wrong password" }, { status: 401 });
   }

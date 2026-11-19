@@ -105,6 +105,15 @@ export function ensureSchema() {
           expires_at timestamptz not null
         )`,
     )
+    // the admin's own login settings (password hash, two-step login…), never sent to a browser
+    .then(
+      () => db()`
+        create table if not exists gr_admin_settings (
+          k text primary key,
+          v jsonb not null,
+          updated_at timestamptz not null default now()
+        )`,
+    )
     .catch((e) => {
       g.__grSchema = undefined; // retry on the next request
       throw e;

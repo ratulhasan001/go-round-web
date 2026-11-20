@@ -6,17 +6,22 @@ import { StoreProvider } from "@/components/store/StoreContext";
 import { Header } from "@/components/store/Header";
 import { Footer } from "@/components/store/Footer";
 import { Floating } from "@/components/store/Floating";
+import { SITE_URL } from "@/lib/seo";
+import { SHARE_IMAGE, shopDescription } from "@/lib/server/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { shop } = await loadCatalog();
   // as on the visiting card: "Importer & supplier of aquarium plants & accessories"
   const title = `${shop.name} · Importer & Supplier of Aquarium Plants & Accessories`;
-  const description = `${shop.tagline}. Importer and supplier of aquarium plants, fertilisers and accessories in Bangladesh - order online, pay with bKash or bank transfer.`;
+  const description = shopDescription(shop);
   return {
+    // links in the page's search and sharing details are on the shop's own address (goroundbd.com), wherever it's served
+    metadataBase: new URL(SITE_URL),
     title: { default: title, template: `%s · ${shop.name}` },
     description,
     applicationName: shop.name,
-    openGraph: { siteName: shop.name, type: "website", title, description },
+    openGraph: { siteName: shop.name, type: "website", locale: "en_BD", title, description, images: [{ ...SHARE_IMAGE, alt: `${shop.name} - ${shop.tagline}` }] },
+    twitter: { card: "summary_large_image", title, description, images: [SHARE_IMAGE.url] },
   };
 }
 

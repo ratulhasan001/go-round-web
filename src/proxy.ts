@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, isAuthed } from "@/lib/server/auth";
-import { HOSTS, STORE_BASE, areaOf, isStorePath } from "@/lib/site";
+import { type Area, HOSTS, STORE_BASE, areaOf, isStorePath } from "@/lib/site";
+import { contentSecurityPolicy, newNonce } from "@/lib/csp";
 
 // a staff code on the verify address: any single word of letters and digits (typed codes may be mistyped, in capitals or
 // the wrong length - they still get the "can't verify" page), except the store's own page names
@@ -21,6 +22,8 @@ const PUBLIC_API = (p: string) => p.startsWith("/api/site/") || p.startsWith("/a
  * Admin pages and API calls need the shop password, except the login page, the public customer form (/f/<token>, its
  * submit endpoint and the shop logo it shows), which is protected by its own one-time, 30-minute token, and the
  * customer website (/store…, its /api/site/… endpoints and product photos).
+ *
+ * Every page gets a Content-Security-Policy with a fresh nonce (see page() and src/lib/csp.ts).
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -45,21 +48,22 @@ export async function proxy(request: NextRequest) {
     // old /store/… links lose the prefix; the verify pages have their own address
     if (isStorePath(pathname)) return to(HOSTS.store, pathname.slice(STORE_BASE.length) || "/");
     if (pathname === "/verify" || pathname.startsWith("/verify/")) return to(HOSTS.verify, pathname.slice("/verify".length) || "/");
-    return framing(pathname, NextResponse.rewrite(new URL(`${STORE_BASE}${pathname === "/" ? "" : pathname}${search}`, request.url)));
+    return page(request, area, { rewrite: new URL(`${STORE_BASE}${pathname === "/" ? "" : pathname}${search}`, request.url), storePath: pathname });
   }
 
   if (area === "verify" && !api) {
-    if (pathname === "/") return NextResponse.rewrite(new URL(`${STORE_BASE}/verify${search}`, request.url));
+    if (pathname === "/") return page(request, area, { rewrite: new URL(`${STORE_BASE}/verify${search}`, request.url) });
     const staff = STAFF_CODE.exec(pathname);
-    if (staff && !STORE_PAGES.has(staff[1]!.toLowerCase())) return NextResponse.rewrite(new URL(`${STORE_BASE}/verify/${staff[1]!.toLowerCase()}${search}`, request.url));
+    if (staff && !STORE_PAGES.has(staff[1]!.toLowerCase())) return page(request, area, { rewrite: new URL(`${STORE_BASE}/verify/${staff[1]!.toLowerCase()}${search}`, request.url) });
     return to(HOSTS.store, isStorePath(pathname) ? pathname.slice(STORE_BASE.length) || "/" : pathname); // anything else is a store page
   }
 
   if (area === "admin" && isStorePath(pathname)) return to(HOSTS.store, pathname.slice(STORE_BASE.length) || "/");
 
-  if (pathname === "/login" || pathname.startsWith("/login/") || pathname === "/api/login" || pathname.startsWith("/api/login/") || pathname === "/api/logout") return NextResponse.next();
-  if (pathname.startsWith("/f/") || pathname.startsWith("/api/f/")) return NextResponse.next();
-  if (isStorePath(pathname)) return framing(pathname.slice(STORE_BASE.length), NextResponse.next());
+  if (pathname === "/login" || pathname.startsWith("/login/") || pathname === "/api/login" || pathname.startsWith("/api/login/") || pathname === "/api/logout")
+    return api ? NextResponse.next() : page(request, area);
+  if (pathname.startsWith("/f/") || pathname.startsWith("/api/f/")) return api ? NextResponse.next() : page(request, area);
+  if (isStorePath(pathname)) return page(request, area, { storePath: pathname.slice(STORE_BASE.length) });
   if (PUBLIC_API(pathname)) return NextResponse.next();
   // admin changes may only come from the admin's own pages: the store and verify addresses count as the "same site" to
   // the browser, so the session cookie alone wouldn't stop a script elsewhere on goroundbd.com from sending them
@@ -75,7 +79,7 @@ export async function proxy(request: NextRequest) {
       if (from !== host.toLowerCase()) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
   }
-  if (await isAuthed(request.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
+  if (await isAuthed(request.cookies.get(SESSION_COOKIE)?.value)) return api ? NextResponse.next() : page(request, area);
 
   if (api) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const url = new URL("/login", request.url);
@@ -84,11 +88,22 @@ export async function proxy(request: NextRequest) {
 }
 
 /**
+ * A page, with its Content-Security-Policy. Next.js reads this view's nonce from the request's copy of the header and
+ * puts it on its scripts; the browser enforces the response's copy.
+ *
  * The home page preview (/preview) takes its settings from the admin panel that frames it, so only the admin panel may
- * frame it - no other site can show its own text on the shop's address that way.
+ * frame it - no other site can show its own text on the shop's address that way. `storePath` is the store page's path
+ * without the /store prefix.
  */
-function framing(storePath: string, res: NextResponse) {
-  if (storePath === "/preview" || storePath.startsWith("/preview/")) res.headers.set("Content-Security-Policy", `frame-ancestors 'self' https://${HOSTS.admin}`);
+async function page(request: NextRequest, area: Area, opts: { rewrite?: URL; storePath?: string } = {}) {
+  const nonce = newNonce();
+  const preview = opts.storePath !== undefined && (opts.storePath === "/preview" || opts.storePath.startsWith("/preview/"));
+  const policy = await contentSecurityPolicy({ nonce, area, dev: process.env.NODE_ENV === "development", framedByAdmin: preview });
+  const headers = new Headers(request.headers);
+  headers.set("content-security-policy", policy);
+  const init = { request: { headers } };
+  const res = opts.rewrite ? NextResponse.rewrite(opts.rewrite, init) : NextResponse.next(init);
+  res.headers.set("Content-Security-Policy", policy);
   return res;
 }
 

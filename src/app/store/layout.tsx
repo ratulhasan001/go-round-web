@@ -7,6 +7,7 @@ import { Header } from "@/components/store/Header";
 import { Footer } from "@/components/store/Footer";
 import { Floating } from "@/components/store/Floating";
 import { CookieBanner } from "@/components/store/CookieBanner";
+import { CartDrawer } from "@/components/store/CartDrawer";
 import { SITE_URL } from "@/lib/seo";
 import { SHARE_IMAGE, shopDescription } from "@/lib/server/seo";
 
@@ -40,6 +41,7 @@ export default async function StoreLayout({ children }: LayoutProps<"/store">) {
         <main className="flex-1">{children}</main>
         <Footer shop={shop} links={links} />
         <Floating />
+        <CartDrawer />
         <CookieBanner />
       </div>
     </StoreProvider>

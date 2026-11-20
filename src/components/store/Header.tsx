@@ -11,7 +11,7 @@ import { FacebookIcon, WhatsAppIcon } from "./Icons";
 const isOn = (path: string, href: string, home: string) => (href === home ? path === href : path === href.split("?")[0] || path.startsWith(href + "/"));
 
 export function Header() {
-  const { shop, count, ready, links } = useShop();
+  const { shop, count, ready, links, openCart } = useShop();
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -70,7 +70,17 @@ export function Header() {
             <Link href={links.store("/account")} className="grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70 max-[420px]:hidden" aria-label="My account">
               <UserRound className="size-[21px]" />
             </Link>
-            <Link href={links.store("/cart")} className="relative grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70" aria-label={`Cart, ${count} item${count === 1 ? "" : "s"}`}>
+            <Link
+              href={links.store("/cart")}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // opening it in a new tab
+                e.preventDefault();
+                openCart(); // the cart slides in from the right instead of opening its own page
+              }}
+              aria-haspopup="dialog"
+              className="relative grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70"
+              aria-label={`Cart, ${count} item${count === 1 ? "" : "s"}`}
+            >
               <ShoppingBag className="size-[21px]" />
               {ready && count > 0 && (
                 <span key={bump} className="sea-pop absolute right-0.5 top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-sea-teal px-1 text-[11px] font-extrabold text-white">

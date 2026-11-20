@@ -31,6 +31,10 @@ interface Ctx {
   /** The little "added" sheet. */
   added: { name: string; at: number } | null;
   dismissAdded: () => void;
+  /** The cart panel that slides in from the right (the cart button opens it instead of going to the cart page). */
+  cartOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
   /** The admin panel's live preview shows its own (unsaved) settings instead of the saved ones. */
   setPreviewSite: (site: SiteSettings | null) => void;
 }
@@ -45,6 +49,12 @@ export function StoreProvider({ shop: saved, online, host, children }: { shop: P
   const [lines, setLines] = useState<CartLine[]>([]);
   const [ready, setReady] = useState(false);
   const [added, setAdded] = useState<Ctx["added"]>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+  const openCart = useCallback(() => {
+    setAdded(null);
+    setCartOpen(true);
+  }, []);
+  const closeCart = useCallback(() => setCartOpen(false), []);
 
   useEffect(() => {
     try {
@@ -118,9 +128,12 @@ export function StoreProvider({ shop: saved, online, host, children }: { shop: P
       refresh,
       added,
       dismissAdded: () => setAdded(null),
+      cartOpen,
+      openCart,
+      closeCart,
       setPreviewSite,
     }),
-    [shop, links, online, lines, ready, add, refresh, added],
+    [shop, links, online, lines, ready, add, refresh, added, cartOpen, openCart, closeCart],
   );
   return <C.Provider value={value}>{children}</C.Provider>;
 }

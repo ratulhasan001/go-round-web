@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Check, X } from "lucide-react";
 import { waLink } from "@/lib/site";
@@ -10,7 +9,7 @@ import { WhatsAppIcon } from "./Icons";
 
 /** WhatsApp button in the corner, and the "Added to cart" sheet. */
 export function Floating() {
-  const { shop, added, dismissAdded, count, links } = useShop();
+  const { shop, added, dismissAdded, count, links, openCart } = useShop();
   const path = usePathname();
   const onCheckout = path.startsWith(links.store("/checkout")) || path.startsWith(links.store("/cart"));
   // on a phone the corner button sat on top of "Buy now"; product pages have their own "Ask about this product" link
@@ -45,9 +44,9 @@ export function Floating() {
               <p className="truncate text-[13.5px] font-bold">{added.name}</p>
               <p className="text-[12px] text-white/70">Added · {count} in your cart</p>
             </div>
-            <Link href={links.store("/cart")} onClick={dismissAdded} className="rounded-full bg-white px-4 py-2 text-[13px] font-bold text-sea-ink">
+            <button onClick={openCart} className="rounded-full bg-white px-4 py-2 text-[13px] font-bold text-sea-ink">
               View cart
-            </Link>
+            </button>
             <button onClick={dismissAdded} className="grid size-8 place-items-center rounded-full text-white/60 hover:text-white" aria-label="Dismiss">
               <X className="size-4" />
             </button>

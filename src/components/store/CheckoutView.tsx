@@ -31,7 +31,7 @@ export function CheckoutView() {
   const note = useFreshCart();
   const s = shop.site;
   const [me, setMe] = useState<Me | null | undefined>(undefined);
-  const [f, setF] = useState({ name: "", phone: "", email: "", address: "", ps: "", note: "", zone: "", method: "bKash" as OrderPayMethod, trxId: "", sender: "", password: "", gr_hp: "" });
+  const [f, setF] = useState({ name: "", phone: "", email: "", address: "", ps: "", note: "", zone: "", method: "bKash" as OrderPayMethod, trxId: "", sender: "", password: "" });
   const [area, setArea] = useState<DeliveryArea | "">("");
   const [accept, setAccept] = useState(false);
   const [makeAccount, setMakeAccount] = useState(false);
@@ -221,10 +221,6 @@ export function CheckoutView() {
               <SeaInput id="c-email" name="email" type="email" autoComplete="email" value={f.email} onChange={set("email")} invalid={!!errors.email} />
             </SeaField>
           </div>
-          {/* bots fill this in, people never see it */}
-          {/* bot trap: people never see it. Not called "website" - browsers and password managers autofilled that, and real orders were refused */}
-          <input name="gr_hp" value={f.gr_hp} onChange={set("gr_hp")} tabIndex={-1} autoComplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" className="absolute -left-[9999px] size-px opacity-0" aria-hidden />
-
           {me === null && (
             <div className="mt-5 rounded-2xl bg-white p-4 ring-1 ring-sea-line">
               <label className="flex cursor-pointer items-center gap-3 text-[14px] font-bold">

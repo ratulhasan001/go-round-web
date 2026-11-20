@@ -18,6 +18,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     page("/products", 0.9, "daily"),
     ...categories.map((c) => page(`/products?category=${encodeURIComponent(c)}`, 0.8, "weekly")),
     ...products.map((p) => ({ ...page(productPath(p), 0.7, "weekly"), images: p.images.map(absoluteUrl) })),
+    page("/wholesale", 0.6, "monthly"),
     page("/reviews", 0.5, "weekly"),
     page("/about", 0.5, "monthly"),
     page("/contact", 0.5, "monthly"),

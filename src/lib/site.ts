@@ -67,6 +67,7 @@ export function linksFor(host: string | null | undefined): Links {
     nav: [
       { href: store(), label: "Home" },
       { href: store("/products"), label: "Shop" },
+      { href: store("/wholesale"), label: "Wholesale" },
       { href: orderStatus(), label: "Order status" },
       { href: store("/about"), label: "About us" },
       { href: store("/contact"), label: "Contact us" },

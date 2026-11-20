@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, Landmark, Loader2, Lock, ShoppingBag, Smartphone } from "lucide-react";
+import { Clock, Landmark, Loader2, Lock, ShoppingBag, Smartphone, TicketPercent, X } from "lucide-react";
 import { deliveryFee, extraKg, needsTrxAtCheckout, splitPoliceStation, tk, waLink } from "@/lib/site";
 import { POLICIES } from "@/lib/policies";
+import { couponAmount } from "@/lib/couponRules";
 import { DELIVERY_AREAS, type DeliveryArea, type OrderPayMethod } from "@/lib/types";
 import { ProductImage } from "./ProductImage";
 import { rememberOrder, useShop } from "./StoreContext";
@@ -39,6 +40,10 @@ export function CheckoutView() {
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  // a coupon typed in the order summary, once the server has checked it (it is checked again when the order is placed)
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<{ code: string; pct: number; freeDelivery: boolean; label: string } | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
 
   // logged in? fill in the saved details
   useEffect(() => {
@@ -73,7 +78,8 @@ export function CheckoutView() {
   const weight = lines.reduce((sum, l) => sum + (l.weight ?? 0) * l.qty, 0);
   const picked = s.zones.find((z) => z.id === f.zone);
   const { zone, fee, quote, extra } = deliveryFee(s, f.zone, subtotal, weight);
-  const total = subtotal + (picked ? fee : 0);
+  const couponOff = coupon ? couponAmount(subtotal, picked && !quote ? fee : 0, coupon) : 0;
+  const total = Math.round((subtotal + (picked ? fee : 0) - couponOff) * 100) / 100;
   const clearError = (k: string) => setErrors(({ [k]: _drop, ...rest }) => (void _drop, rest));
 
   if (!ready) return <div className="h-96 animate-pulse rounded-[28px] bg-sea-sand/50" />;
@@ -128,7 +134,7 @@ export function CheckoutView() {
       const res = await fetch("/api/site/orders", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...f, accept, password: !me && makeAccount ? f.password : "", items: lines.map((l) => ({ id: l.id, qty: l.qty })) }),
+        body: JSON.stringify({ ...f, accept, coupon: coupon?.code ?? "", password: !me && makeAccount ? f.password : "", items: lines.map((l) => ({ id: l.id, qty: l.qty })) }),
       });
       const b = await res.json().catch(() => ({}));
       if (res.ok && b.order) {
@@ -139,6 +145,11 @@ export function CheckoutView() {
       }
       if (b.fields) {
         setErrors(b.fields);
+        // the coupon was refused (used meanwhile, or not for this mobile number): it comes off the total
+        if (b.fields.coupon && coupon) {
+          setCouponInput(coupon.code);
+          setCoupon(null);
+        }
         const first = Object.keys(b.fields)[0];
         formRef.current?.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
       } else if (b.error === "unavailable" && Array.isArray(b.ids)) {
@@ -150,6 +161,21 @@ export function CheckoutView() {
       setProblem("You seem to be offline. Check your connection and try again.");
     }
     setBusy(false);
+  };
+
+  /** Checks the coupon code typed in the order summary and, when it's good, shows its discount. */
+  const applyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code || couponBusy) return;
+    setCouponBusy(true);
+    clearError("coupon");
+    const res = await fetch("/api/site/coupon", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code, phone: f.phone, name: f.name }) }).catch(() => null);
+    const b = await res?.json().catch(() => null);
+    if (res?.ok && b?.coupon) {
+      setCoupon(b.coupon);
+      setCouponInput("");
+    } else setErrors((x) => ({ ...x, coupon: b?.message ?? "Couldn't check the coupon. Please try again." }));
+    setCouponBusy(false);
   };
 
   const methodCard = (m: OrderPayMethod, icon: React.ReactNode, hint: string) => (
@@ -387,11 +413,62 @@ export function CheckoutView() {
               </p>
             )}
             {picked && quote && <p className="-mt-1 text-[12px] leading-relaxed text-amber-700">The charge depends on your location - we&apos;ll message you the delivery charge after you order.</p>}
+            {coupon && (
+              <div className="flex justify-between gap-3 text-sea-leaf">
+                <dt className="font-semibold">
+                  Coupon {coupon.code} · {coupon.label}
+                </dt>
+                <dd className="shrink-0 font-bold tabular-nums">{couponOff > 0 ? `− ${tk(couponOff)}` : coupon.freeDelivery && quote ? "Free delivery" : tk(0)}</dd>
+              </div>
+            )}
             <div className="mt-2 flex justify-between border-t border-sea-line pt-3 text-[18px]">
               <dt className="font-extrabold">Total</dt>
               <dd className="font-extrabold tabular-nums">{tk(total)}</dd>
             </div>
           </dl>
+          <div className="mt-5 border-t border-sea-line pt-4">
+            {coupon ? (
+              <p className="flex items-center justify-between gap-3 rounded-xl bg-sea-leaf/10 px-3 py-2.5 text-[13px] font-bold text-sea-ink">
+                <span className="flex min-w-0 items-center gap-2">
+                  <TicketPercent className="size-4 shrink-0 text-sea-leaf" />
+                  <span className="truncate">
+                    {coupon.code} applied · {coupon.label}
+                  </span>
+                </span>
+                <button type="button" onClick={() => setCoupon(null)} className="grid size-7 shrink-0 place-items-center rounded-full text-sea-muted hover:bg-white hover:text-red-600" aria-label="Remove coupon">
+                  <X className="size-4" />
+                </button>
+              </p>
+            ) : (
+              <>
+                <label htmlFor="c-coupon" className="text-[13px] font-bold text-sea-ink">
+                  Coupon code <span className="font-semibold text-sea-muted">(optional)</span>
+                </label>
+                <div className="mt-1.5 flex gap-2">
+                  <SeaInput
+                    id="c-coupon"
+                    name="coupon"
+                    value={couponInput}
+                    onChange={(e) => {
+                      setCouponInput(e.target.value);
+                      clearError("coupon");
+                    }}
+                    // Enter checks the coupon instead of placing the order
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), void applyCoupon())}
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    placeholder="e.g. GR00-00-00-01A"
+                    invalid={!!errors.coupon}
+                    className="!text-[14px]"
+                  />
+                  <button type="button" onClick={() => void applyCoupon()} disabled={!couponInput.trim() || couponBusy} className={btn("outline", "md", "shrink-0")}>
+                    {couponBusy ? <Loader2 className="size-4 animate-spin" /> : "Apply"}
+                  </button>
+                </div>
+                {errors.coupon && <p className="mt-1.5 text-[12.5px] font-semibold text-red-600">{errors.coupon}</p>}
+              </>
+            )}
+          </div>
           <div className="mt-5 border-t border-sea-line pt-4">
             <label htmlFor="c-note" className="text-[13px] font-bold text-sea-ink">
               Add note <span className="font-semibold text-sea-muted">(optional)</span>

@@ -26,6 +26,8 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
   const subsub = params.get("type") ?? "";
   const brand = params.get("brand") ?? "";
   const sort = params.get("sort") ?? "new";
+  // from the home page's "See all": only what's on sale, or only featured products
+  const show = params.get("show") === "sale" || params.get("show") === "featured" ? params.get("show")! : "";
   const [inStockOnly, setInStockOnly] = useState(false);
 
   const categories = useMemo(() => {
@@ -74,6 +76,8 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
         (!subcategory || same(p.subcategory, subcategory)) &&
         (!subsub || same(p.subsubcategory, subsub)) &&
         (!brand || same(p.brand, brand)) &&
+        (show !== "sale" || p.regularPrice > p.price) &&
+        (show !== "featured" || p.featured) &&
         (!inStockOnly || p.inStock) &&
         words.every((w) => `${p.name} ${p.brand} ${p.sku} ${p.category} ${p.subcategory} ${p.subsubcategory} ${plainText(p.description)}`.toLowerCase().includes(w)),
     );
@@ -83,7 +87,7 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
     else if (sort === "az") list.sort(byName);
     // sold-out items go last, whatever the order
     return list.sort((a, b) => Number(b.inStock) - Number(a.inStock));
-  }, [products, q, category, subcategory, subsub, brand, sort, inStockOnly]);
+  }, [products, q, category, subcategory, subsub, brand, sort, inStockOnly, show]);
 
   const subChip = (on: boolean) =>
     cx("h-9 shrink-0 rounded-full px-3.5 text-[13px] font-bold transition", on ? "bg-sea-teal text-white" : "bg-sea-teal-soft text-sea-teal hover:bg-sea-teal/15");
@@ -194,6 +198,16 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
         {subcategory && ` › ${subcategory}`}
         {subsub && ` › ${subsub}`}
         {brand && ` · ${brand}`}
+        {show && (
+          <button
+            type="button"
+            onClick={() => setParam("show", "")}
+            className="ml-2 inline-flex items-center gap-1 rounded-full bg-sea-teal-soft px-2.5 py-0.5 align-middle text-[12.5px] font-bold text-sea-teal hover:bg-sea-teal/15"
+            aria-label={`Show all products, not only ${show === "sale" ? "those on sale" : "featured ones"}`}
+          >
+            {show === "sale" ? "On sale" : "Featured"} <X className="size-3.5" />
+          </button>
+        )}
       </p>
 
       {shown.length ? (

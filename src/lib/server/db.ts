@@ -107,6 +107,8 @@ export function ensureSchema() {
           expires_at timestamptz not null
         )`,
     )
+    // the country each admin login came from: a session used from another country is ended (see auth.ts)
+    .then(() => db()`alter table gr_admin_sessions add column if not exists country text not null default ''`)
     // the admin's own login settings (password hash, two-step login…), never sent to a browser
     .then(
       () => db()`

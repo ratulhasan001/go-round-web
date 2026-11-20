@@ -231,7 +231,7 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
         );
 
       case "aquarium":
-        // the shop's interactive aquarium in guest mode (fish, games and weather - never any shop data), on a planted tank
+        // the shop's aquarium in guest mode (just the fish - never any shop data), on a planted tank
         return (
           <section className={`mx-auto max-w-6xl px-4 sm:px-6 ${top(first, "mt-24")}`}>
             <Reveal className="mb-8 max-w-2xl">
@@ -239,7 +239,7 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
               <h2 className="mt-3 font-serif text-[34px] leading-tight sm:text-[44px]">
                 Our little <em className="text-sea-teal">aquarium</em>
               </h2>
-              <p className="mt-4 text-[15.5px] leading-relaxed text-sea-body">A planted tank with rummy-nose tetras and harlequin rasboras. Feed the fish, play with them, go fishing, change the weather - tap around and see what happens.</p>
+              <p className="mt-4 text-[15.5px] leading-relaxed text-sea-body">A planted tank with schools of neon tetras, rummy-nose tetras and harlequin rasboras. Feed them, play with them, or tap one to meet it.</p>
             </Reveal>
             <Reveal>
               <LazyAquarium guest />

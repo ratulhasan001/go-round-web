@@ -10,7 +10,7 @@ import { Bubbles, Fish, Grass, Rule } from "./Art";
 import { ProductCard } from "./ProductCard";
 import { ProductImage } from "./ProductImage";
 import { Reveal } from "./Reveal";
-import { PlantedTank } from "../PlantedTank";
+import { LazyAquarium } from "../aquarium/LazyAquarium";
 import { WhatsAppIcon } from "./Icons";
 import { btn } from "./ui";
 import { HomeBlockView, LogoSection } from "./HomeBlocks";
@@ -202,7 +202,7 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
         );
 
       case "aquarium":
-        // a planted tank, the kind our plants and soil are made for
+        // the shop's interactive aquarium in guest mode (fish, games and weather - never any shop data), on a planted tank
         return (
           <section className={`mx-auto max-w-6xl px-4 sm:px-6 ${top(first, "mt-24")}`}>
             <Reveal className="mb-8 max-w-2xl">
@@ -210,10 +210,10 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
               <h2 className="mt-3 font-serif text-[34px] leading-tight sm:text-[44px]">
                 Our little <em className="text-sea-teal">aquarium</em>
               </h2>
-              <p className="mt-4 text-[15.5px] leading-relaxed text-sea-body">Black aqua soil, stones, driftwood and a school of neon tetras - the calm, green tank our plants and accessories are made for.</p>
+              <p className="mt-4 text-[15.5px] leading-relaxed text-sea-body">A planted tank with rummy-nose tetras and harlequin rasboras. Feed the fish, play with them, go fishing, change the weather - tap around and see what happens.</p>
             </Reveal>
             <Reveal>
-              <PlantedTank />
+              <LazyAquarium guest />
             </Reveal>
           </section>
         );

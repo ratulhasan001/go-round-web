@@ -55,7 +55,7 @@ export class ReviewError extends Error {
 }
 
 /** A review written on the website. It goes live at once, or waits for the shop, as the Website settings say. */
-export async function addReview(body: Record<string, unknown>): Promise<{ review: PublicReview; approved: boolean }> {
+export async function addReview(body: Record<string, unknown>, opts: { hold?: boolean } = {}): Promise<{ review: PublicReview; approved: boolean }> {
   const name = clean(body.name).slice(0, 60);
   const text = String(body.text ?? "").trim().replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").slice(0, 1000);
   const rating = Math.round(Number(body.rating));
@@ -78,7 +78,7 @@ export async function addReview(body: Record<string, unknown>): Promise<{ review
     name,
     rating,
     text,
-    approved: settings.autoApproveReviews,
+    approved: settings.autoApproveReviews && !opts.hold,
     source: "customer",
     createdAt: now,
     updatedAt: now,

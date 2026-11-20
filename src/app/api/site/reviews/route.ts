@@ -23,10 +23,11 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "bad request", message: "Please refresh the page and try again." }, { status: 400 });
   }
-  // bots fill the hidden trap field (gr_hp). The old trap was called "website", which browsers autofilled, so that name is no longer checked
-  if (typeof body.gr_hp === "string" && body.gr_hp.trim()) return NextResponse.json({ error: "bad request", message: "Please refresh the page and try again." }, { status: 400 });
+  // bots fill the hidden trap field (gr_hp), but so do some phone browsers' autofill - so a filled trap never refuses the
+  // review, it only holds it back until the shop approves it
+  const suspect = typeof body.gr_hp === "string" && !!body.gr_hp.trim();
   try {
-    return NextResponse.json({ ok: true, ...(await addReview(body)) });
+    return NextResponse.json({ ok: true, ...(await addReview(body, { hold: suspect })) });
   } catch (e) {
     if (e instanceof ReviewError) return NextResponse.json(e.body, { status: e.status });
     console.error("POST /api/site/reviews failed", e);

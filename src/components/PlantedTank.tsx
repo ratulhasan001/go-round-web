@@ -25,14 +25,8 @@ function rng(seed: number) {
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
-/** Height of the soil's top edge at x: higher at the back corners, a gentle valley in the middle. */
+/** Height of the floor (the leaf carpet's top edge) at x: higher at the back corners, a gentle valley in the middle. */
 const soil = (x: number) => 768 - 30 * Math.sin((Math.PI * x) / W) + 9 * Math.sin(x / 160) + (x < 520 ? (520 - x) * -0.05 : 0);
-
-const SOIL_TOP = (() => {
-  let d = `M0 ${r1(soil(0))}`;
-  for (let x = 20; x <= W; x += 20) d += ` L${x} ${r1(soil(x))}`;
-  return d;
-})();
 
 const SOIL_PATH = (() => {
   let d = `M0 ${H} L0 ${r1(soil(0))}`;
@@ -193,7 +187,7 @@ function Rock({ pts, face, lines, id }: { pts: string; face: string; lines: stri
   );
 }
 
-/** The low carpet of tiny leaves along the front of the soil. */
+/** The leafy top edge of the carpet. */
 function Carpet({ seed }: { seed: number }) {
   const rand = rng(seed);
   const leaves = [];
@@ -426,7 +420,7 @@ export function PlantedScene({ id, interactive = false }: { id: string; interact
       preserveAspectRatio="xMidYMax slice"
       className="pt-scene anim-zone absolute inset-0 size-full"
       role="img"
-      aria-label="A planted aquarium under an LED light, with a canister filter and CO2 - rocks, driftwood, green plants, and schools of rummy-nose tetras and harlequin rasboras"
+      aria-label="A planted aquarium under an LED light, with a canister filter and CO2 - rocks, driftwood and green plants over a carpet of small leaves"
     >
       <defs>
         <linearGradient id={`${id}-water`} x1="0" y1="0" x2="0" y2="1">
@@ -447,26 +441,30 @@ export function PlantedScene({ id, interactive = false }: { id: string; interact
           <stop offset="0.45" stopColor="#000" stopOpacity="0" />
           <stop offset="1" stopColor="#000" stopOpacity="0.35" />
         </linearGradient>
-        <linearGradient id={`${id}-soilshade`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.45" />
+        <linearGradient id={`${id}-bed`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#4f9f34" />
+          <stop offset="1" stopColor="#2c6624" />
         </linearGradient>
         <linearGradient id={`${id}-wood`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#6b4426" />
           <stop offset="1" stopColor="#94653a" />
         </linearGradient>
-        <pattern id={`${id}-soil`} width="36" height="36" patternUnits="userSpaceOnUse">
-          <rect width="36" height="36" fill="#1c1e1e" />
-          <circle cx="4" cy="5" r="3.2" fill="#2d3030" />
-          <circle cx="15" cy="3" r="2.6" fill="#141515" />
-          <circle cx="26" cy="7" r="3.4" fill="#343737" />
-          <circle cx="9" cy="15" r="2.8" fill="#272a2a" />
-          <circle cx="20" cy="17" r="3.6" fill="#101111" />
-          <circle cx="31" cy="18" r="2.6" fill="#2f3232" />
-          <circle cx="5" cy="27" r="3.4" fill="#141515" />
-          <circle cx="16" cy="29" r="2.4" fill="#383b3b" />
-          <circle cx="27" cy="29" r="3.2" fill="#232525" />
-          <circle cx="34" cy="33" r="1.8" fill="#3a3d3d" />
+        <pattern id={`${id}-leaves`} width="44" height="34" patternUnits="userSpaceOnUse">
+          <ellipse cx="4" cy="5" rx="6" ry="3.4" fill="#5fb83a" transform="rotate(-30 4 5)" />
+          <ellipse cx="15" cy="3" rx="5.5" ry="3" fill="#7fcd4c" transform="rotate(25 15 3)" />
+          <ellipse cx="27" cy="6" rx="6.2" ry="3.4" fill="#4a9d2f" transform="rotate(-15 27 6)" />
+          <ellipse cx="38" cy="4" rx="5" ry="2.8" fill="#93d65a" transform="rotate(40 38 4)" />
+          <ellipse cx="9" cy="14" rx="6" ry="3.2" fill="#3f8a2c" transform="rotate(20 9 14)" />
+          <ellipse cx="21" cy="13" rx="5.6" ry="3.2" fill="#6cc04a" transform="rotate(-40 21 13)" />
+          <ellipse cx="33" cy="15" rx="6.4" ry="3.4" fill="#7fcd4c" transform="rotate(10 33 15)" />
+          <ellipse cx="43" cy="13" rx="5" ry="3" fill="#5fb83a" transform="rotate(-25 43 13)" />
+          <ellipse cx="3" cy="23" rx="5.8" ry="3.2" fill="#4a9d2f" transform="rotate(35 3 23)" />
+          <ellipse cx="15" cy="24" rx="6.2" ry="3.4" fill="#93d65a" transform="rotate(-10 15 24)" />
+          <ellipse cx="27" cy="22" rx="5.4" ry="3" fill="#3f8a2c" transform="rotate(30 27 22)" />
+          <ellipse cx="39" cy="25" rx="6" ry="3.4" fill="#6cc04a" transform="rotate(-35 39 25)" />
+          <ellipse cx="10" cy="31" rx="5.6" ry="3" fill="#5fb83a" transform="rotate(15 10 31)" />
+          <ellipse cx="22" cy="31" rx="6" ry="3.2" fill="#7fcd4c" transform="rotate(-20 22 31)" />
+          <ellipse cx="34" cy="32" rx="5.2" ry="3" fill="#4a9d2f" transform="rotate(25 34 32)" />
         </pattern>
       </defs>
 
@@ -536,10 +534,9 @@ export function PlantedScene({ id, interactive = false }: { id: string; interact
 
       <Sword x={1500} seed={17} />
 
-      {/* the soil, with the front glass showing its grains */}
-      <path d={SOIL_PATH} fill={`url(#${id}-soil)`} />
-      <path d={SOIL_PATH} fill={`url(#${id}-soilshade)`} />
-      <path d={SOIL_TOP} stroke="#4a4f4f" strokeWidth="5" fill="none" opacity="0.8" />
+      {/* the floor: no soil showing - a carpet of small leaves over all of it, thicker along its top edge */}
+      <path d={SOIL_PATH} fill={`url(#${id}-bed)`} />
+      <path d={SOIL_PATH} fill={`url(#${id}-leaves)`} />
       <Tufts xs={[460, 560, 700, 820, 960, 1060, 1240, 1400]} seed={21} />
       <Carpet seed={23} />
     </svg>

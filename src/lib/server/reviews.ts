@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { clean } from "@/lib/phone";
 import { siteSettings } from "@/lib/site";
 import type { Product, Review } from "@/lib/types";
@@ -26,10 +27,13 @@ const view = (r: Review): PublicReview => ({
   createdAt: r.createdAt,
 });
 
-/** Approved reviews, newest first: for one product, or the newest across the shop. */
-export async function loadReviews(productId?: string, limit = 50): Promise<PublicReview[]> {
-  if (!dbEnabled()) return [];
-  try {
+/** Tag of the cached reviews: refreshReviews() expires them. */
+export const REVIEWS_TAG = "reviews";
+
+// kept in Next's data cache like the catalogue (see catalog.ts), so page views don't read the database; a failed read
+// throws, so it is never cached as "no reviews"
+const cachedReviews = unstable_cache(
+  async (productId: string, limit: number): Promise<PublicReview[]> => {
     await ensureSchema();
     const rows = productId
       ? await db()<{ data: Review }[]>`
@@ -39,10 +43,25 @@ export async function loadReviews(productId?: string, limit = 50): Promise<Publi
           select data from gr_docs where kind = 'review' and (data->>'approved')::boolean
           order by (data->>'createdAt')::bigint desc limit ${limit}`;
     return rows.map((r) => view(r.data));
+  },
+  ["store-reviews", "1"],
+  { tags: [REVIEWS_TAG], revalidate: 600 },
+);
+
+/** Approved reviews, newest first: for one product, or the newest across the shop. */
+export async function loadReviews(productId?: string, limit = 50): Promise<PublicReview[]> {
+  if (!dbEnabled()) return [];
+  try {
+    return await cachedReviews(productId ?? "", limit);
   } catch (e) {
     console.error("reviews failed", e);
     return [];
   }
+}
+
+/** A review was added, approved, changed or deleted: the next page view reads the database again. */
+export function refreshReviews() {
+  revalidateTag(REVIEWS_TAG, { expire: 0 });
 }
 
 export class ReviewError extends Error {

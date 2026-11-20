@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { loadCatalog } from "@/lib/server/catalog";
+import { keywordsFor } from "@/lib/server/seo";
 import { storeLinks } from "@/lib/server/links";
 import { type PublicProduct, avgRating, plainText, tk } from "@/lib/site";
 import { SITE_URL, absoluteUrl, cleanName, findProduct, productPath } from "@/lib/seo";
@@ -37,6 +38,16 @@ export async function generateMetadata({ params }: PageProps<"/store/products/[i
   return {
     title,
     description,
+    // the product, how people search for its price, and where it sits in the shop
+    keywords: keywordsFor(shop, [
+      cleanName(product.name),
+      `${cleanName(product.name)} price in Bangladesh`,
+      product.brand,
+      product.brand && `${product.brand} Bangladesh`,
+      product.category,
+      product.subcategory,
+      product.subsubcategory,
+    ].filter((k): k is string => !!k?.trim())),
     alternates: { canonical: url },
     openGraph: { type: "website", siteName: shop.name, locale: "en_BD", url, title, description, images: product.images.slice(0, 1).map((i) => absoluteUrl(i)) },
     twitter: { card: "summary_large_image", title, description },

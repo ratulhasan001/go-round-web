@@ -11,6 +11,8 @@ import { DELIVERY_AREAS, type DeliveryArea, type DeliveryZone, type Faq, type Ho
 // the store under /store and the verify page under /store/verify.
 
 export const DOMAIN = "goroundbd.com";
+/** The admin is logged out after this many minutes without using the panel (server: auth.ts, browser: store.tsx). */
+export const ADMIN_IDLE_MINUTES = 30;
 export const HOSTS = { store: DOMAIN, admin: `admin.${DOMAIN}`, verify: `verify.${DOMAIN}` } as const;
 export type Area = "store" | "admin" | "verify" | "dev";
 

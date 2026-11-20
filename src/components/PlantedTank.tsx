@@ -5,6 +5,9 @@
 
 const W = 1600;
 const H = 900;
+// what is shown of the drawing: the bottom 70 units are left off, so only the top half of the leaf carpet shows
+// (the floor reads as a thin layer of leaves, not a deep bed)
+const VIEW_H = 830;
 
 /** Small seeded random number generator (mulberry32). */
 function rng(seed: number) {
@@ -338,7 +341,7 @@ export function Cabinet({ dark }: { dark: boolean }) {
 export function PlantedScene({ id, interactive = false }: { id: string; interactive?: boolean }) {
   return (
     <svg
-      viewBox={`0 0 ${W} ${H}`}
+      viewBox={`0 0 ${W} ${VIEW_H}`}
       preserveAspectRatio="xMidYMax slice"
       className="pt-scene anim-zone absolute inset-0 size-full"
       role="img"

@@ -229,7 +229,7 @@ export default function CouponsPage() {
             const s = status(c);
             if (s === "used")
               return (
-                <div key="used" className="animate-label-swap flex h-10 items-center gap-1 rounded-xl border border-line bg-canvas pl-2" title={c.usedInvoice ? `Used on receipt ${c.usedInvoice}` : undefined}>
+                <div key="used" className="animate-label-swap flex h-10 items-center gap-1 rounded-xl border border-line bg-canvas pl-2" title={c.usedInvoice ? `Used on receipt ${c.usedInvoice}` : c.usedOrder ? `Used on website order ${c.usedOrder}` : undefined}>
                   <Check className="size-4 shrink-0 text-brand" />
                   <input
                     type="date"
@@ -241,7 +241,7 @@ export default function CouponsPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => update({ usedOn: "", usedInvoice: undefined, usedInvoiceId: undefined })}
+                    onClick={() => update({ usedOn: "", usedInvoice: undefined, usedInvoiceId: undefined, usedOrderId: undefined, usedOrder: undefined })}
                     className="grid size-8 shrink-0 place-items-center rounded-lg text-faint transition hover:bg-white hover:text-red-600"
                     aria-label="Mark as not used"
                     title="Mark as not used"

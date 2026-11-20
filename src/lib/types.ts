@@ -1,3 +1,4 @@
+import type { OrderCoupon } from "./couponRules";
 export type PaymentMethod = "Cash" | "bKash" | "Bank Transfer" | "Card";
 
 export const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "bKash", "Bank Transfer", "Card"];
@@ -201,6 +202,7 @@ export interface Order {
   zone: string; // how it is delivered, e.g. "Inside Dhaka · Steadfast Express delivery"
   weight?: number; // kg, from the products' weights (when they have one)
   deliveryQuote?: boolean; // the delivery charge depends on the location and isn't in the total yet
+  coupon?: OrderCoupon; // a coupon the customer used at checkout (already taken off the total)
   total: number;
   payment: {
     method: OrderPayMethod;
@@ -286,6 +288,8 @@ export interface CouponCode {
   usedOn: string; // yyyy-mm-dd, "" = not used yet
   usedInvoice?: string; // receipt number it was used on (for display)
   usedInvoiceId?: string; // id of that receipt; missing on coupons marked used before ids were kept
+  usedOrderId?: string; // a website order that took it at checkout (the order's receipt then takes it over)
+  usedOrder?: string; // that order's code (for display)
   givenInvoice?: string; // receipt number it was given away on as a gift (for display)
   givenInvoiceId?: string; // id of that receipt
   updatedAt?: number;

@@ -69,19 +69,26 @@ export function couponStatus(c: CouponCode, today = todayISO()): CouponStatus {
   return "available";
 }
 
-/** Whether the coupon's "used on" receipt is this one (by id; older coupons only kept the receipt number). */
-export const usedBy = (c: CouponCode, inv: { id: string; number: string }) => (c.usedInvoiceId ? c.usedInvoiceId === inv.id : c.usedInvoice === inv.number);
+/**
+ * Whether the coupon's "used on" receipt is this one (by id; older coupons only kept the receipt number). A coupon a
+ * website order took at checkout belongs to that order's receipt.
+ */
+export const usedBy = (c: CouponCode, inv: { id: string; number: string; orderId?: string }) =>
+  c.usedInvoiceId ? c.usedInvoiceId === inv.id : c.usedOrderId ? !!inv.orderId && c.usedOrderId === inv.orderId : c.usedInvoice === inv.number;
+
+/** Where a used coupon went: its receipt number, or the website order that took it. */
+export const usedWhere = (c: CouponCode) => c.usedInvoice || (c.usedOrder ? `order ${c.usedOrder}` : "");
 
 /** Whether the coupon was given away as a gift on this receipt. */
 export const givenBy = (c: CouponCode, inv: { id: string }) => !!c.givenInvoiceId && c.givenInvoiceId === inv.id;
 
 /** Why a coupon can't be used on a receipt (or, with gift, given away on it) right now ("" when it can). */
 export function couponProblem(
-  c: CouponCode, inv: { id: string; number: string }, customer: { name: string; phone: string }, date = todayISO(), gift = false,
+  c: CouponCode, inv: { id: string; number: string; orderId?: string }, customer: { name: string; phone: string }, date = todayISO(), gift = false,
 ) {
   const mine = givenBy(c, inv); // given away on this receipt, so it's for whoever the receipt is for
   if (gift && mine) return ""; // and stays given, even once it's been used or has run out
-  if (c.usedOn && !usedBy(c, inv)) return `Already used${c.usedInvoice ? ` on ${c.usedInvoice}` : ""}`;
+  if (c.usedOn && !usedBy(c, inv)) return `Already used${usedWhere(c) ? ` on ${usedWhere(c)}` : ""}`;
   if (c.validTo && c.validTo < date) return "Expired";
   if (!gift && c.validFrom && c.validFrom > date) return "Not valid yet"; // it can be handed out before it starts
   if (mine) return "";

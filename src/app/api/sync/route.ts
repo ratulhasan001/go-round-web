@@ -2,7 +2,7 @@ import type postgres from "postgres";
 import { NextResponse } from "next/server";
 import { adminAuthed } from "@/lib/server/auth";
 import { KINDS, type Kind, db, dbEnabled, ensureSchema } from "@/lib/server/db";
-import { mergeOrder, mergeProduct, stockForOrderChange } from "@/lib/server/orders";
+import { couponForOrderChange, mergeOrder, mergeProduct, stockForOrderChange } from "@/lib/server/orders";
 import { syncAccount } from "@/lib/server/customers";
 import type { Invoice, Order, Product } from "@/lib/types";
 
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
             // a deleted order that never left the shop gives its stock back
             const [cur] = await tx<{ data: Order }[]>`select data from gr_docs where kind = 'order' and id = ${c.id} for update`;
             await stockForOrderChange(tx, cur?.data, null);
+            await couponForOrderChange(tx, cur?.data, null);
           }
           await tx`delete from gr_docs where kind = ${c.kind} and id = ${c.id}`;
         } else if (c.kind === "order") {
@@ -53,6 +54,8 @@ export async function POST(req: Request) {
           const data = mergeOrder(cur?.data, c.data as unknown as Order);
           // cancelling puts the items back in stock; bringing the order back takes them again
           await stockForOrderChange(tx, cur?.data, data);
+          // and so does a coupon used at checkout
+          await couponForOrderChange(tx, cur?.data, data);
           await tx`
             insert into gr_docs (kind, id, data) values ('order', ${c.id}, ${tx.json(data as never)})
             on conflict (kind, id) do update set data = excluded.data, updated_at = now()`;

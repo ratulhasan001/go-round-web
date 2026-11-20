@@ -30,6 +30,8 @@ export function invoiceFromOrder(order: Order, number: string): Invoice {
     items: order.items.map((i) => ({ id: uid(), description: i.name, price: i.price, qty: i.qty })),
     delivery: order.delivery,
     discount: 0,
+    // the coupon used at checkout, so the receipt takes off what the order did (and the coupon follows the receipt)
+    ...(order.coupon ? { coupon: { code: order.coupon.code, pct: order.coupon.pct, amount: 0, freeDelivery: order.coupon.freeDelivery } } : {}),
     payments: order.payment.verified ? [orderPayment(order)] : [],
     notes: `Website order ${order.code}`,
     orderId: order.id,

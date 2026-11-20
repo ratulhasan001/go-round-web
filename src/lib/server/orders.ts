@@ -2,10 +2,11 @@ import type postgres from "postgres";
 import { randomBytes, randomUUID } from "node:crypto";
 import { clean, normPhone, phoneKey } from "@/lib/phone";
 import { cleanCode, deliveryFee, makeOrderCode, needsTrxAtCheckout, onSite, siteSettings, splitPoliceStation, thumb, withPoliceStation } from "@/lib/site";
-import { ORDER_PAY_METHODS, type Invoice, type Order, type OrderItem, type OrderPayMethod, type Product } from "@/lib/types";
+import { ORDER_PAY_METHODS, type CouponCode, type Invoice, type Order, type OrderItem, type OrderPayMethod, type Product } from "@/lib/types";
 import { db } from "./db";
 import { loadShop } from "./catalog";
 import { syncAccount, upsertCustomer } from "./customers";
+import { type OrderCoupon, bdToday, couponAmount, couponKey, websiteCouponProblem } from "@/lib/couponRules";
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -103,6 +104,20 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
     const subtotal = round2(items.reduce((s, i) => s + i.price * i.qty, 0));
     const weight = Math.round(items.reduce((s, i) => s + (Number(byId.get(i.productId)?.weight) || 0) * i.qty, 0) * 1000) / 1000;
     const { zone, fee, quote } = deliveryFee(settings, String(body.zone ?? ""), subtotal, weight);
+
+    // a coupon typed at checkout: checked again here, with its row locked, so two orders can't both use it
+    const couponWanted = couponKey(String(body.coupon ?? "")).slice(0, 40);
+    let coupon: { id: string; data: CouponCode; offer: OrderCoupon } | null = null;
+    if (couponWanted) {
+      const [row] = await tx<{ id: string; data: CouponCode }[]>`
+        select id, data from gr_docs where kind = 'coupon' and upper(regexp_replace(data->>'code', '[[:space:]]', '', 'g')) = ${couponWanted} for update`;
+      const problem = websiteCouponProblem(row?.data, { phone, name });
+      if (problem) throw new OrderError(422, { error: "invalid", fields: { coupon: problem } });
+      const c = row!.data;
+      const offer = { code: c.code.trim().toUpperCase(), pct: Number(c.pct) || 0, freeDelivery: !!c.freeDelivery, amount: couponAmount(subtotal, fee, c) };
+      coupon = { id: row!.id, data: c, offer };
+    }
+
     const order: Order = {
       id: randomUUID(),
       code: "",
@@ -116,7 +131,8 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
       zone,
       ...(weight > 0 ? { weight } : {}),
       ...(quote ? { deliveryQuote: true } : {}),
-      total: round2(subtotal + fee),
+      ...(coupon ? { coupon: coupon.offer } : {}),
+      total: round2(subtotal + fee - (coupon?.offer.amount ?? 0)),
       payment: { method: method!, ...(trxId ? { trxId, submittedAt: now } : {}), ...(sender ? { sender } : {}) },
       ...(clean(body.note) ? { note: String(body.note).trim().slice(0, 500) } : {}),
       createdAt: now,
@@ -130,6 +146,11 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
       if (!taken) order.code = code;
     }
     await tx`insert into gr_docs (kind, id, data) values ('order', ${order.id}, ${tx.json(order as never)})`;
+    // the coupon is taken by this order (its receipt takes it over when the payment is approved)
+    if (coupon) {
+      const used: CouponCode = { ...coupon.data, usedOn: bdToday(now), usedOrderId: order.id, usedOrder: order.code, updatedAt: now };
+      await tx`update gr_docs set data = ${tx.json(used as never)}, updated_at = now() where kind = 'coupon' and id = ${coupon.id}`;
+    }
     // counted stock goes down by what was ordered (and the product sells out at 0)
     await adjustStock(tx, items, -1);
     await upsertCustomer(tx, { name, phone, address, email });
@@ -280,6 +301,35 @@ export async function stockForOrderChange(tx: Tx, before: Order | undefined, aft
   }
   if (holdsStock(before) && !holdsStock(after)) await adjustStock(tx, before.items, 1);
   else if (!holdsStock(before) && holdsStock(after)) await adjustStock(tx, after.items, -1);
+}
+
+/**
+ * A coupon follows its order's life too: an order cancelled or deleted before it got a receipt frees its coupon for
+ * someone else, and a cancelled order brought back takes it again if it's still free. (Once a receipt uses the
+ * coupon, the receipt decides.)
+ */
+export async function couponForOrderChange(tx: Tx, before: Order | undefined, after: Order | null) {
+  if (!before?.coupon) return;
+  const gone = after === null || (holdsStock(before) && !holdsStock(after));
+  const back = after !== null && !holdsStock(before) && holdsStock(after);
+  if (gone) {
+    const rows = await tx<{ id: string; data: CouponCode }[]>`select id, data from gr_docs where kind = 'coupon' and data->>'usedOrderId' = ${before.id} for update`;
+    for (const { id, data } of rows) {
+      if (data.usedInvoiceId) continue;
+      const { usedOrderId: _o, usedOrder: _c, ...rest } = data;
+      void _o;
+      void _c;
+      const freed: CouponCode = { ...rest, usedOn: "", updatedAt: Date.now() };
+      await tx`update gr_docs set data = ${tx.json(freed as never)}, updated_at = now() where kind = 'coupon' and id = ${id}`;
+    }
+  } else if (back) {
+    const [row] = await tx<{ id: string; data: CouponCode }[]>`
+      select id, data from gr_docs where kind = 'coupon' and upper(regexp_replace(data->>'code', '[[:space:]]', '', 'g')) = ${couponKey(before.coupon.code)} for update`;
+    if (row && !row.data.usedOn) {
+      const used: CouponCode = { ...row.data, usedOn: bdToday(), usedOrderId: before.id, usedOrder: before.code, updatedAt: Date.now() };
+      await tx`update gr_docs set data = ${tx.json(used as never)}, updated_at = now() where kind = 'coupon' and id = ${row.id}`;
+    }
+  }
 }
 
 /**

@@ -14,7 +14,8 @@ const PROD = process.env.NODE_ENV === "production";
 export const CUSTOMER_COOKIE = PROD ? "__Host-gr_customer" : "gr_customer";
 /** The name it had before (2026-11-20); those logins are no longer accepted, and the cookie is cleared when seen. */
 const OLD_CUSTOMER_COOKIE = "gr_customer";
-const SESSION_DAYS = 180;
+/** A login lasts this long since the customer last used the site (it renews itself, at most once a day). */
+const SESSION_DAYS = 30;
 
 export interface Account {
   id: string;
@@ -70,17 +71,33 @@ export async function endOtherSessions(accountId: string) {
   await db()`delete from gr_sessions where account_id = ${accountId} and token_hash <> ${sha(token)}`;
 }
 
-/** The logged-in customer, or null. */
+/**
+ * The logged-in customer, or null. Using the site keeps the login going: once a day at most, the session is pushed
+ * back to SESSION_DAYS from now. Only for route handlers (it may set the cookie).
+ */
 export async function currentAccount(): Promise<Account | null> {
   if (!dbEnabled()) return null;
-  const token = (await cookies()).get(CUSTOMER_COOKIE)?.value;
+  const jar = await cookies();
+  const token = jar.get(CUSTOMER_COOKIE)?.value;
   if (!token || token.length > 100) return null;
   try {
     await ensureSchema();
-    const [a] = await db()<Account[]>`
-      select a.id, a.phone, a.name, a.email, a.address from gr_sessions s join gr_accounts a on a.id = s.account_id
+    const [a] = await db()<(Account & { renew: boolean })[]>`
+      select a.id, a.phone, a.name, a.email, a.address,
+             s.expires_at < now() + make_interval(days => ${SESSION_DAYS - 1}) as renew
+      from gr_sessions s join gr_accounts a on a.id = s.account_id
       where s.token_hash = ${sha(token)} and s.expires_at > now()`;
-    return a ?? null;
+    if (!a) return null;
+    const { renew, ...account } = a;
+    if (renew) {
+      try {
+        await db()`update gr_sessions set expires_at = now() + make_interval(days => ${SESSION_DAYS}) where token_hash = ${sha(token)}`;
+        setCookie(jar, token);
+      } catch {
+        /* still logged in; it renews on the next visit */
+      }
+    }
+    return account;
   } catch {
     return null;
   }

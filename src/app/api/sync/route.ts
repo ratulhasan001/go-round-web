@@ -1,9 +1,12 @@
 import type postgres from "postgres";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { adminAuthed } from "@/lib/server/auth";
 import { KINDS, type Kind, db, dbEnabled, ensureSchema } from "@/lib/server/db";
 import { couponForOrderChange, mergeOrder, mergeProduct, stockForOrderChange } from "@/lib/server/orders";
 import { syncAccount } from "@/lib/server/customers";
+import { submitToIndexNow } from "@/lib/server/indexNow";
+import { productPath } from "@/lib/seo";
+import { onSite } from "@/lib/site";
 import type { Invoice, Order, Product } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -95,6 +98,9 @@ export async function POST(req: Request) {
             on conflict (kind, id) do update set data = excluded.data, updated_at = now()`;
       }
     });
+    // products added or changed on the website: tell Bing & co. now rather than waiting for their crawlers
+    const shown = (changes as Change[]).filter((c) => c.kind === "product" && c.data && onSite(c.data as unknown as Product)).map((c) => productPath(c.data as unknown as Product));
+    if (shown.length) after(() => submitToIndexNow([...shown, "/products"]));
     return NextResponse.json({ ok: true, saved: (changes as Change[]).length, renumbered });
   } catch (e) {
     console.error("POST /api/sync failed", e);

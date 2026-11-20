@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { clientIp } from "@/lib/server/auth";
 import { allow, tooMany } from "@/lib/server/rateLimit";
 import { dbEnabled } from "@/lib/server/db";
-import { ReviewError, addReview, loadReviews } from "@/lib/server/reviews";
+import { ReviewError, addReview, loadReviews, refreshReviews } from "@/lib/server/reviews";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,9 @@ export async function POST(req: Request) {
   // review, it only holds it back until the shop approves it
   const suspect = typeof body.gr_hp === "string" && !!body.gr_hp.trim();
   try {
-    return NextResponse.json({ ok: true, ...(await addReview(body, { hold: suspect })) });
+    const added = await addReview(body, { hold: suspect });
+    if (added.approved) refreshReviews(); // it's live: the review lists show it from the next page view
+    return NextResponse.json({ ok: true, ...added });
   } catch (e) {
     if (e instanceof ReviewError) return NextResponse.json(e.body, { status: e.status });
     console.error("POST /api/site/reviews failed", e);

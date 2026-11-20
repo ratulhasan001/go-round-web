@@ -9,6 +9,7 @@ import { Modal } from "./Modal";
 import { DescriptionEditor } from "./DescriptionEditor";
 import { Input, Switch, cx, useToast } from "./ui";
 import { forget, storePhoto } from "@/lib/photos";
+import { purchaseMax, withPurchase, withRegular } from "@/lib/productPrice";
 
 const MAX_PHOTOS = 8;
 
@@ -221,17 +222,21 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
 
         {/* prices, stock, weight, warranty */}
         <div className={cx(section, "grid gap-4 sm:grid-cols-2")}>
-          <label className="block sm:col-span-2 sm:max-w-[calc(50%-0.5rem)]">
-            <Label hint="admin only, never on the website">Purchase price</Label>
-            <Input type="number" inputMode="decimal" min={0} value={p.purchasePrice ?? ""} placeholder="Purchase price" onChange={(e) => update({ purchasePrice: num(e.target.value) })} />
-          </label>
+          <div className="block sm:col-span-2">
+            <Label hint="admin only, never on the website · a range when it varies, e.g. 1200 to 1500">Purchase price</Label>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:max-w-[calc(100%-0.5rem)]">
+              <PriceInput value={p.purchasePrice ?? 0} placeholder="From" ariaLabel="Purchase price from" onCommit={(v) => update(withPurchase(v || undefined, purchaseMax(p)))} />
+              <span className="text-[13px] font-semibold text-muted">to</span>
+              <PriceInput value={purchaseMax(p) ?? 0} placeholder="To (optional)" ariaLabel="Purchase price to" onCommit={(v) => update(withPurchase(p.purchasePrice, v || undefined))} />
+            </div>
+          </div>
           <label className="block">
             <Label required>Regular price</Label>
             <PriceInput
               value={regular}
               placeholder="Regular price"
               // applied when the field is left, so half-typed numbers never reach the website
-              onCommit={(v) => update(discounted && p.price < v ? { regularPrice: v } : { price: v, regularPrice: undefined })}
+              onCommit={(v) => update(withRegular(p, v))}
             />
           </label>
           <label className="block">
@@ -439,7 +444,8 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
  * A price box that keeps what is typed to itself and hands the number over when the field is left (or Enter is
  * pressed): prices go live on the website as they change, so in-between values like "9" on the way to "900" must not.
  */
-function PriceInput({ value, placeholder, onCommit }: { value: number; placeholder: string; onCommit: (v: number) => void }) {
+/** A price field that saves when it's left (or on Enter), so half-typed numbers never reach the website. */
+export function PriceInput({ value, placeholder, onCommit, ariaLabel, className }: { value: number; placeholder: string; onCommit: (v: number) => void; ariaLabel?: string; className?: string }) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
     if (draft === null) return;
@@ -454,6 +460,8 @@ function PriceInput({ value, placeholder, onCommit }: { value: number; placehold
       min={0}
       value={draft ?? (value || "")}
       placeholder={placeholder}
+      aria-label={ariaLabel}
+      className={className}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commit())}

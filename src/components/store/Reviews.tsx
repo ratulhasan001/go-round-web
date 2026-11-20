@@ -43,7 +43,7 @@ export function ProductReviews({ productId, initial, page }: { productId: string
   const { online } = useShop();
   const [list, setList] = useState(initial);
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ name: "", rating: 0, text: "", gr_hp: "" });
+  const [f, setF] = useState({ name: "", anonymous: false, rating: 0, text: "", gr_hp: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState("");
@@ -61,7 +61,7 @@ export function ProductReviews({ productId, initial, page }: { productId: string
       if (res.ok && b.review) {
         if (b.approved) setList((l) => [b.review, ...l]);
         setDone(b.approved ? "Thank you! Your review is up." : "Thank you! Your review will appear once we've checked it.");
-        setF({ name: "", rating: 0, text: "", gr_hp: "" });
+        setF({ name: "", anonymous: false, rating: 0, text: "", gr_hp: "" });
         setOpen(false);
       } else if (b.fields) setErrors(b.fields);
       else setErrors({ form: b.message ?? `Something went wrong (error ${res.status}). Please try again.` });
@@ -111,9 +111,31 @@ export function ProductReviews({ productId, initial, page }: { productId: string
               ))}
             </div>
           </SeaField>
-          <SeaField label="Your name" error={errors.name} htmlFor="r-name">
-            <SeaInput id="r-name" value={f.name} onChange={(e) => setF((x) => ({ ...x, name: e.target.value }))} autoComplete="name" invalid={!!errors.name} />
-          </SeaField>
+          <div>
+            <SeaField label={f.anonymous ? "Your name (not shown)" : "Your name"} error={errors.name} htmlFor="r-name">
+              <SeaInput
+                id="r-name"
+                value={f.name}
+                onChange={(e) => setF((x) => ({ ...x, name: e.target.value }))}
+                autoComplete="name"
+                placeholder={f.anonymous ? "Optional - only we see it" : undefined}
+                invalid={!!errors.name}
+              />
+            </SeaField>
+            {/* post without a name: the review shows as "Anonymous" */}
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-[13.5px] font-semibold text-sea-body">
+              <input
+                type="checkbox"
+                checked={f.anonymous}
+                onChange={(e) => {
+                  setF((x) => ({ ...x, anonymous: e.target.checked }));
+                  setErrors((er) => ({ ...er, name: "" }));
+                }}
+                className="size-4 accent-[#113A2D]"
+              />
+              Post anonymously
+            </label>
+          </div>
           <SeaField label="Your review" error={errors.text} className="sm:col-span-2" htmlFor="r-text">
             <SeaTextarea id="r-text" rows={4} value={f.text} onChange={(e) => setF((x) => ({ ...x, text: e.target.value }))} placeholder={page ? "How was your order, the products and our service?" : "How did it work in your tank?"} invalid={!!errors.text} />
           </SeaField>

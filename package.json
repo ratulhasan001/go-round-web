@@ -10,6 +10,7 @@
     "postinstall": "node scripts/patch-react-pdf.mjs"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.1.1",
     "@react-pdf/renderer": "^4.9.0",
     "@simplewebauthn/browser": "14.0.0",
     "@simplewebauthn/server": "14.0.3",

@@ -227,6 +227,7 @@ export interface Product {
   price: number; // what the customer pays (the discounted price when there is a discount)
   regularPrice?: number; // the price before the discount, shown crossed out ("" / missing = no discount)
   purchasePrice?: number; // what the shop paid - admin only, never on the website
+  purchasePriceMax?: number; // top of a purchase price range (e.g. 1200 - 1500); missing = a single purchase price
   unit?: string; // what the price is for, e.g. "pcs", "bottle", "pack"; missing on older saved products
   inStock?: boolean; // missing (older saved products) means in stock
   updatedAt?: number; // ms timestamp of the last edit; missing on older saved products

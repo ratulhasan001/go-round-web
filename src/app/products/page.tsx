@@ -7,7 +7,8 @@ import { uid } from "@/lib/calc";
 import type { Product } from "@/lib/types";
 import { ListEditor } from "@/components/ListEditor";
 import { cx } from "@/components/ui";
-import { ProductDetailsButton, ProductDetailsDialog } from "@/components/ProductDetailsDialog";
+import { PriceInput, ProductDetailsButton, ProductDetailsDialog } from "@/components/ProductDetailsDialog";
+import { isDiscounted, purchaseMax, regularOf, withPurchase, withRegular, withUnitPrice } from "@/lib/productPrice";
 import { thumb } from "@/lib/site";
 
 const inStock = (p: Product) => p.inStock !== false;
@@ -87,8 +88,39 @@ export default function ProductsPage() {
         { key: "name", label: "Product name", placeholder: "e.g. Seachem Prime 325ml", width: "minmax(0,2fr)" },
         { key: "unit", label: "Unit", placeholder: "e.g. pcs, bottle", width: "120px" },
         { key: "inStock", label: "Status", type: "toggle", on: "In stock", off: "Out of stock", width: "150px" },
-        { key: "purchasePrice", label: "Purchase price (BDT)", type: "number", placeholder: "0.00", width: "150px", align: "right" },
-        { key: "price", label: "Unit price (BDT)", type: "number", placeholder: "0.00", width: "150px", align: "right" },
+        {
+          key: "purchasePrice",
+          label: "Purchase price (BDT)",
+          type: "custom",
+          width: "210px",
+          // one figure, or a range when it varies ("1200 - 1500"); the "to" box only shows while editing or when set
+          render: (p, update) => {
+            const max = purchaseMax(p);
+            return (
+              <div className="flex items-center gap-1.5">
+                <PriceInput value={p.purchasePrice ?? 0} placeholder="0.00" ariaLabel="Purchase price from" className="text-right font-semibold" onCommit={(v) => update(withPurchase(v || undefined, max))} />
+                <span className={cx("text-[12px] font-semibold text-muted", !max && "[fieldset:disabled_&]:hidden")}>to</span>
+                <PriceInput value={max ?? 0} placeholder="max" ariaLabel="Purchase price to" className={cx("text-right font-semibold", !max && "[fieldset:disabled_&]:hidden")} onCommit={(v) => update(withPurchase(p.purchasePrice, v || undefined))} />
+              </div>
+            );
+          },
+        },
+        {
+          key: "regularPrice",
+          label: "Regular price (BDT)",
+          type: "custom",
+          width: "150px",
+          // the price before any discount; the same as the unit price when there is none
+          render: (p, update) => <PriceInput value={regularOf(p)} placeholder="0.00" ariaLabel="Regular price" className={cx("text-right font-semibold", isDiscounted(p) && "text-muted line-through")} onCommit={(v) => update(withRegular(p, v))} />,
+        },
+        {
+          key: "price",
+          label: "Unit price (BDT)",
+          type: "custom",
+          width: "150px",
+          // what the customer pays: the sale price when the product is on discount
+          render: (p, update) => <PriceInput value={p.price} placeholder="0.00" ariaLabel="Unit price" className={cx("text-right font-semibold", isDiscounted(p) && "text-brand")} onCommit={(v) => update(withUnitPrice(p, v))} />,
+        },
       ]}
     />
     {formFor && <ProductDetailsDialog productId={formFor} onClose={() => setFormFor(null)} />}

@@ -5,7 +5,15 @@ import { db, dbEnabled, ensureSchema } from "./db";
 
 const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
-export const CUSTOMER_COOKIE = "gr_customer";
+const PROD = process.env.NODE_ENV === "production";
+/**
+ * Customer login cookie. `__Host-`: the browser only accepts it over https, for this exact address, from the whole
+ * site's root - so no other address (even one of our subdomains) can plant or overwrite it. SameSite stays "lax" so a
+ * customer who opens the shop from a WhatsApp link is still logged in.
+ */
+export const CUSTOMER_COOKIE = PROD ? "__Host-gr_customer" : "gr_customer";
+/** The name it had before (2026-11-20); those logins are no longer accepted, and the cookie is cleared when seen. */
+const OLD_CUSTOMER_COOKIE = "gr_customer";
 const SESSION_DAYS = 180;
 
 export interface Account {
@@ -39,13 +47,13 @@ export async function startSession(accountId: string) {
     insert into gr_sessions (token_hash, account_id, expires_at)
     values (${sha(token)}, ${accountId}, now() + make_interval(days => ${SESSION_DAYS}))`;
   await db()`delete from gr_sessions where expires_at < now()`;
-  (await cookies()).set(CUSTOMER_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
-  });
+  const jar = await cookies();
+  setCookie(jar, token);
+  if (OLD_CUSTOMER_COOKIE !== CUSTOMER_COOKIE) jar.delete(OLD_CUSTOMER_COOKIE);
+}
+
+function setCookie(jar: Awaited<ReturnType<typeof cookies>>, token: string) {
+  jar.set(CUSTOMER_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: PROD, path: "/", maxAge: SESSION_DAYS * 24 * 60 * 60 });
 }
 
 export async function endSession() {
@@ -53,6 +61,7 @@ export async function endSession() {
   const token = jar.get(CUSTOMER_COOKIE)?.value;
   if (token && dbEnabled()) await db()`delete from gr_sessions where token_hash = ${sha(token)}`.catch(() => null);
   jar.delete(CUSTOMER_COOKIE);
+  if (OLD_CUSTOMER_COOKIE !== CUSTOMER_COOKIE) jar.delete(OLD_CUSTOMER_COOKIE);
 }
 
 /** Logs the account out everywhere except this browser (after a password change). */

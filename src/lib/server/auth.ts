@@ -37,6 +37,18 @@ export function deviceName(ua: string) {
   return [browser || "Browser", os && `on ${os}`].filter(Boolean).join(" ");
 }
 
+/** Where a request comes from: its browser, country (from Vercel; "" elsewhere) and address. */
+export interface RequestFrom {
+  ua: string;
+  country: string;
+  ip: string;
+}
+export const requestFrom = (h: Headers): RequestFrom => ({
+  ua: h.get("user-agent") ?? "",
+  country: (h.get("x-vercel-ip-country") ?? "").toUpperCase().slice(0, 2),
+  ip: h.get("x-real-ip") ?? h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown",
+});
+
 // A page load asks for several files at once; a session checked a moment ago isn't looked up again for 15 seconds.
 // Logging a device out clears it here at once, and on other server instances within those 15 seconds.
 const g = globalThis as unknown as { __grSessions?: Map<string, { until: number; checked: number }> };
@@ -101,9 +113,9 @@ export async function startSession(req: Request, how: string) {
   const ua = req.headers.get("user-agent") ?? "";
   await ensureSchema();
   await db()`
-    insert into gr_admin_sessions (token_hash, id, device, ip, ua, how, expires_at)
+    insert into gr_admin_sessions (token_hash, id, device, ip, ua, how, country, expires_at)
     values (${sha(token)}, ${randomBytes(9).toString("base64url")}, ${deviceName(ua)}, ${clientIp(req)}, ${ua.slice(0, 300)}, ${how},
-            now() + make_interval(hours => ${SESSION_HOURS}))`;
+            ${requestFrom(req.headers).country}, now() + make_interval(hours => ${SESSION_HOURS}))`;
   await db()`delete from gr_admin_sessions where expires_at < now() - interval '1 day'`;
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, { httpOnly: true, secure: PROD, sameSite: "strict", path: "/", maxAge: SESSION_HOURS * 60 * 60 });

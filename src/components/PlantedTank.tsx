@@ -351,7 +351,7 @@ function DropChecker({ x, y }: { x: number; y: number }) {
 }
 
 /** The LED light resting on the tank's rim, with its glow on the water below. */
-export function Light({ dark, night = 0 }: { dark: boolean; night?: number }) {
+export function Light({ dark }: { dark: boolean }) {
   return (
     <svg viewBox="0 0 1600 64" preserveAspectRatio="none" className="pointer-events-none relative z-[1] -mb-[2px] block h-auto w-full" aria-hidden>
       <defs>
@@ -365,10 +365,9 @@ export function Light({ dark, night = 0 }: { dark: boolean; night?: number }) {
       <rect x="80" y="10" width="1440" height="24" rx="12" fill="url(#pt-led-body)" />
       <rect x="96" y="14" width="1408" height="4" rx="2" fill="#ffffff" opacity="0.18" />
       {/* the LEDs along the underside */}
-      {/* moonlight blue at night */}
-      <rect x="110" y="30" width="1380" height="6" rx="3" fill={night > 0.5 ? "#93c5fd" : "#fff8dc"} style={{ transition: "fill 2s" }} />
+      <rect x="110" y="30" width="1380" height="6" rx="3" fill="#fff8dc" />
       {Array.from({ length: 24 }, (_, i) => (
-        <circle key={i} cx={140 + i * 56} cy="33" r="3.2" fill={night > 0.5 ? "#dbeafe" : "#ffffff"} style={{ transition: "fill 2s" }} />
+        <circle key={i} cx={140 + i * 56} cy="33" r="3.2" fill="#ffffff" />
       ))}
     </svg>
   );

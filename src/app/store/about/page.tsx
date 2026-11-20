@@ -5,8 +5,10 @@ import { storeLinks } from "@/lib/server/links";
 import { Bubbles, Fish, Grass } from "@/components/store/Art";
 import { Reveal } from "@/components/store/Reveal";
 import { PageHead, btn } from "@/components/store/ui";
+import { pageMetadata } from "@/lib/server/seo";
 
-export const metadata: Metadata = { title: "About us" };
+export const generateMetadata = (): Promise<Metadata> =>
+  pageMetadata({ path: "/about", title: "About us", description: "About Go Round: importer and supplier of aquarium plants, fertilisers and planted-tank equipment in Bangladesh - picked by hobbyists, packed by hand and delivered to your door." });
 
 export default async function AboutPage() {
   const { shop } = await loadCatalog();

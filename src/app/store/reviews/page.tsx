@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { loadReviews } from "@/lib/server/reviews";
 import { ProductReviews } from "@/components/store/Reviews";
+import { pageMetadata } from "@/lib/server/seo";
 
-export const metadata: Metadata = { title: "Customer reviews", description: "What hobbyists say about our plants, products and service - and write your own review." };
+export const generateMetadata = (): Promise<Metadata> =>
+  pageMetadata({ path: "/reviews", title: "Customer reviews", description: "What hobbyists say about our plants, products and service - and write your own review." });
 
 /** Every approved review, newest first, and a form to review the shop. */
 export default async function ReviewsPage() {

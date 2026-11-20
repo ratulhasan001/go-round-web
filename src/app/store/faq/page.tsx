@@ -5,8 +5,10 @@ import { waLink } from "@/lib/site";
 import { WhatsAppIcon } from "@/components/store/Icons";
 import { Reveal } from "@/components/store/Reveal";
 import { PageHead, btn } from "@/components/store/ui";
+import { pageMetadata } from "@/lib/server/seo";
 
-export const metadata: Metadata = { title: "FAQ" };
+export const generateMetadata = (): Promise<Metadata> =>
+  pageMetadata({ path: "/faq", title: "FAQ", description: "Answers about ordering from Go Round: bKash and bank payments, delivery inside and outside Dhaka, order status and returns." });
 
 export default async function FaqPage() {
   const { shop } = await loadCatalog();

@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Eye, EyeOff, Fingerprint, Loader2, LockKeyhole, 
 import { LoginShell, loginButton, loginField, loginInput, loginLabel, loginLink } from "@/components/LoginShell";
 import { Turnstile } from "@/components/Turnstile";
 import { useClientValue } from "@/components/ui";
+import { forgetDeviceCopy } from "@/lib/store";
 
 type Status = "idle" | "checking" | "error" | "success";
 
@@ -71,8 +72,9 @@ export default function LoginPage() {
     fetch("/api/login", { cache: "no-store" })
       .then((r) => r.json())
       .then((b: { authed?: boolean; turnstile?: string | null }) => {
-        if (b.authed) window.location.replace(goNext());
-        else if (b.turnstile) setSiteKey(b.turnstile);
+        if (b.authed) return window.location.replace(goNext());
+        forgetDeviceCopy(); // logged out: no shop data stays in this browser
+        if (b.turnstile) setSiteKey(b.turnstile);
       })
       .catch(() => null);
   }, []);

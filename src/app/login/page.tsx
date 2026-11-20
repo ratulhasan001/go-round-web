@@ -7,6 +7,7 @@ import { LoginShell, loginButton, loginField, loginInput, loginLabel, loginLink 
 import { Turnstile } from "@/components/Turnstile";
 import { useClientValue } from "@/components/ui";
 import { forgetDeviceCopy } from "@/lib/store";
+import { ADMIN_IDLE_MINUTES } from "@/lib/site";
 
 type Status = "idle" | "checking" | "error" | "success";
 
@@ -66,6 +67,8 @@ export default function LoginPage() {
   const [forgot, setForgot] = useState(false);
   const [sent, setSent] = useState("");
   const passkeys = useClientValue(() => browserSupportsWebAuthn(), false); // this browser can use passkeys
+  // the panel logged itself out after ADMIN_IDLE_MINUTES without use
+  const idle = useClientValue(() => new URLSearchParams(window.location.search).get("idle") === "1", false);
 
   useEffect(() => {
     // already logged in on this device (a link from another site arrives without the login cookie): carry on
@@ -296,6 +299,11 @@ export default function LoginPage() {
         <div className="mb-1 text-center text-[11px] font-bold uppercase tracking-[0.28em] text-[#8cc556]">{ticket ? "Step 2 of 2" : "Restricted access"}</div>
         <h1 className="text-center font-[family-name:var(--font-bricolage)] text-3xl font-extrabold tracking-[-0.02em]">{title}</h1>
         <p className="mt-1.5 text-center text-[14px] text-[#b9d8c9]/75">{hint}</p>
+        {idle && !ticket && status !== "success" && (
+          <p role="status" className="mx-auto mt-3 max-w-xs rounded-xl bg-white/5 px-3 py-2 text-center text-[13px] text-[#b9d8c9]">
+            You were logged out after {ADMIN_IDLE_MINUTES} minutes without using the panel.
+          </p>
+        )}
 
         {ticket ? (
           <form onSubmit={submitCode} className="mt-7">

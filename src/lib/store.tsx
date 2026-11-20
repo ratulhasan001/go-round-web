@@ -7,7 +7,7 @@ import { DEFAULT_SHOP, SEED_CUSTOMERS, SEED_INVOICES, SEED_PRODUCTS } from "./se
 import { uid } from "./calc";
 import { couponProblem, givenBy, normCode, usedBy } from "./coupons";
 import { normPhone, phoneKey } from "./phone";
-import { isStorePath, type Area } from "./site";
+import { ADMIN_IDLE_MINUTES, isStorePath, type Area } from "./site";
 
 const KEY = "go-round-receipts:v1"; // this device's copy of the data
 const OUTBOX = "go-round-receipts:outbox"; // changes not yet confirmed by the server
@@ -54,7 +54,8 @@ interface Store extends Data {
   exportBackup: () => string;
   importBackup: (json: string) => void;
   resetAll: () => void;
-  logout: () => Promise<void>;
+  /** Logs out ("idle": the panel logs itself out after ADMIN_IDLE_MINUTES without use). */
+  logout: (reason?: "idle") => Promise<void>;
   /** Pulls the latest data from the database (e.g. after a customer filled in a form), unless local changes are still being sent. */
   reload: () => void;
 }
@@ -215,6 +216,9 @@ export function forgetDeviceCopy() {
     /* private mode */
   }
 }
+
+// the last time the admin used the panel, shared by this browser's admin tabs (see the idle logout below)
+const ACTIVE = "go-round-receipts:active";
 
 export function StoreProvider({ area, children }: { area: Area; children: React.ReactNode }) {
   const path = usePathname();
@@ -540,11 +544,62 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
     return saved;
   }, []);
 
-  const logout = useCallback(async () => {
-    await fetch("/api/logout", { method: "POST" }).catch(() => null);
+  const leaving = useRef(false);
+  const logout = useCallback(async (reason?: "idle") => {
+    if (leaving.current) return;
+    leaving.current = true;
+    await fetch("/api/logout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason }) }).catch(() => null);
     forgetDeviceCopy(); // no shop data left on a logged-out device (unsent changes stay in OUTBOX)
-    window.location.href = "/login"; // eslint-disable-line @next/next/no-location-assign-relative-destination -- full reload clears the session state
+    window.location.href = reason === "idle" ? `${loginAgain()}&idle=1` : "/login"; // full reload clears the session state
   }, []);
+
+  // Log out after ADMIN_IDLE_MINUTES without the admin touching the panel in any tab of this browser - so a laptop left
+  // open doesn't stay logged in. (The server also ends a session after that long without requests, for a closed tab
+  // or a sleeping computer.) Idleness is checked before new activity counts: moving the mouse on a computer waking up
+  // after an hour must log out, not extend the session.
+  useEffect(() => {
+    if (offApp || !authEnabled) return;
+    const limit = ADMIN_IDLE_MINUTES * 60_000;
+    let marked = Date.now();
+    const lastUse = () => {
+      let shared = 0;
+      try {
+        shared = Number(localStorage.getItem(ACTIVE)) || 0;
+      } catch {
+        /* private mode */
+      }
+      return Math.max(shared, marked);
+    };
+    const save = () => {
+      try {
+        localStorage.setItem(ACTIVE, String(marked));
+      } catch {
+        /* private mode */
+      }
+    };
+    const check = () => {
+      if (Date.now() - lastUse() > limit) void logout("idle");
+    };
+    const used = () => {
+      const now = Date.now();
+      if (now - lastUse() > limit) return void logout("idle");
+      if (now - marked < 10_000) return; // remember it at most every 10 seconds
+      marked = now;
+      save();
+    };
+    save(); // opening a page of the panel counts as using it
+    const kinds = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", "scroll"] as const;
+    for (const k of kinds) window.addEventListener(k, used, { passive: true, capture: true });
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    const timer = setInterval(check, 30_000);
+    return () => {
+      for (const k of kinds) window.removeEventListener(k, used, { capture: true });
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+      clearInterval(timer);
+    };
+  }, [offApp, authEnabled, logout]);
 
   const store = useMemo<Store>(
     () => ({

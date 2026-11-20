@@ -1,11 +1,13 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { ADMIN_IDLE_MINUTES } from "@/lib/site";
 import { db, dbEnabled, ensureSchema } from "./db";
 
 /**
  * Admin login sessions. Each login gets its own random token, kept in an httpOnly cookie on that device; only a hash
  * of it is stored (gr_admin_sessions), so one device can be logged out on its own and a database copy can't be used
- * to log in. A session ends 3 hours after the login, however busy it is.
+ * to log in. A session ends 3 hours after the login, however busy it is - or sooner, after IDLE_MINUTES without a single
+ * request.
  */
 const PROD = process.env.NODE_ENV === "production";
 /** `__Host-`: the browser only accepts it over https, for this exact address, from the whole site's root. */
@@ -13,6 +15,9 @@ export const SESSION_COOKIE = PROD ? "__Host-gr_admin" : "gr_admin";
 /** The cookie of the old one-for-every-device login, cleared on the next login or logout. */
 export const OLD_SESSION_COOKIE = "gr_session";
 export const SESSION_HOURS = 3;
+/** A session ends after this long without any request from it (the admin panel also logs itself out after this long
+ *  without the admin touching it - see src/lib/store.tsx). */
+export const IDLE_MINUTES = ADMIN_IDLE_MINUTES;
 
 /**
  * Login is on when APP_PASSWORD is set (Vercel → Settings → Environment Variables), and always on the live site: if
@@ -38,7 +43,7 @@ const g = globalThis as unknown as { __grSessions?: Map<string, { until: number;
 const seen = (g.__grSessions ??= new Map());
 const RECHECK_MS = 15_000;
 
-/** Whether this cookie value belongs to a session that is still open. */
+/** Whether this cookie value belongs to a session that is still open (and was used in the last IDLE_MINUTES). */
 export async function isAuthed(token: string | undefined): Promise<boolean> {
   if (!authEnabled()) return true;
   if (!token || token.length > 100 || !dbEnabled()) return false;
@@ -49,7 +54,9 @@ export async function isAuthed(token: string | undefined): Promise<boolean> {
   try {
     await ensureSchema();
     const [row] = await db()<{ expires_at: Date }[]>`
-      update gr_admin_sessions set last_seen = now() where token_hash = ${key} and expires_at > now() returning expires_at`;
+      update gr_admin_sessions set last_seen = now()
+      where token_hash = ${key} and expires_at > now() and last_seen > now() - make_interval(mins => ${IDLE_MINUTES})
+      returning expires_at`;
     if (!row) {
       seen.delete(key);
       return false;
@@ -72,7 +79,9 @@ export async function adminAuthed() {
 export async function currentSessionId(): Promise<string | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token || !dbEnabled()) return null;
-  const [row] = await db()<{ id: string }[]>`select id from gr_admin_sessions where token_hash = ${sha(token)} and expires_at > now()`;
+  const [row] = await db()<{ id: string }[]>`
+    select id from gr_admin_sessions
+    where token_hash = ${sha(token)} and expires_at > now() and last_seen > now() - make_interval(mins => ${IDLE_MINUTES})`;
   return row?.id ?? null;
 }
 
@@ -117,7 +126,7 @@ export async function endSession() {
 export async function listSessions(): Promise<SessionInfo[]> {
   return db()<SessionInfo[]>`
     select id, device, ip, how, created_at, last_seen, expires_at from gr_admin_sessions
-    where expires_at > now() order by created_at desc`;
+    where expires_at > now() and last_seen > now() - make_interval(mins => ${IDLE_MINUTES}) order by created_at desc`;
 }
 
 /** Logs out one device by its id, or every device but this one (`except`), or every device. */

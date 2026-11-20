@@ -141,14 +141,21 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
 
 /** The order with this code, if the phone number matches the one it was placed with. */
 export async function findOrder(code: string, phone: string): Promise<Order | null> {
-  const c = cleanCode(code);
   const digits = phoneKey(phone);
-  if (c.length < 6 || c.length > 12 || digits.length < 6) return null;
-  const [row] = await db()<{ data: Order }[]>`select data from gr_docs where kind = 'order' and data->>'code' = ${c}`;
-  if (!row) return null;
-  const saved = phoneKey(row.data.customer.phone);
+  if (digits.length < 6) return null;
+  const order = await findOrderByCode(code);
+  if (!order) return null;
+  const saved = phoneKey(order.customer.phone);
   const same = saved === digits || (saved.length >= 10 && digits.length >= 10 && saved.slice(-10) === digits.slice(-10));
-  return same ? row.data : null;
+  return same ? order : null;
+}
+
+/** The order with this code, without checking who asks - only for callers that already did (e.g. a signed link). */
+export async function findOrderByCode(code: string): Promise<Order | null> {
+  const c = cleanCode(code);
+  if (c.length < 6 || c.length > 12) return null;
+  const [row] = await db()<{ data: Order }[]>`select data from gr_docs where kind = 'order' and data->>'code' = ${c}`;
+  return row?.data ?? null;
 }
 
 /**

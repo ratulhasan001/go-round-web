@@ -493,7 +493,6 @@ export function CheckoutView() {
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), void applyCoupon())}
                     autoCapitalize="characters"
                     autoComplete="off"
-                    placeholder="e.g. GR00-00-00-01A"
                     invalid={!!errors.coupon}
                     className="!text-[14px]"
                   />

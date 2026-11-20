@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, BriefcaseBusiness, Check, Clock, Copy, ExternalLink, Handshake, HelpCircle, ImagePlus, Landmark, LayoutGrid, LayoutTemplate, Loader2, Megaphone, MessageCircle, Palette, Pencil, Plus, QrCode, Rows3, Settings2, SquarePen, Star, Store, Trash2, Truck, BookOpen, X } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { DEFAULT_ABOUT, DEFAULT_FAQ, DEFAULT_HOME, DEFAULT_HOURS, DEFAULT_ZONES, FEATURE_CATEGORY_IDEAS, HERO_KEYS, sameName, siteSettings, absolute, publicLinks } from "@/lib/site";
+import { DEFAULT_ABOUT, DEFAULT_FAQ, DEFAULT_HOME, DEFAULT_HOURS, DEFAULT_ZONES, FEATURE_CATEGORY_IDEAS, HERO_KEYS, SHOWCASE_SOURCES, sameName, siteSettings, absolute, publicLinks } from "@/lib/site";
 import { CATEGORY_ICONS, categoryIconId, iconKey } from "@/lib/categoryIcons";
 import { forget, storePhoto } from "@/lib/photos";
 import { uid } from "@/lib/calc";
-import { DELIVERY_AREAS, type DeliveryZone, type HomeSettings, type Review, type SiteSettings } from "@/lib/types";
+import { DELIVERY_AREAS, type DeliveryZone, type HeroShowcase, type HomeSettings, type Review, type SiteSettings } from "@/lib/types";
 import { SectionIcon } from "@/components/nav";
 import { BlocksEditor, HeadlinesEditor, LayoutEditor, LogoListEditor, PreviewPanel } from "@/components/website/HomeDesign";
 import { Button, Card, Field, Input, SectionTitle, Select, Switch, Textarea, cx, useToast } from "@/components/ui";
@@ -90,7 +90,7 @@ export default function WebsitePage() {
               <SectionTitle
                 icon={<LayoutTemplate className="size-4" />}
                 title="Top of the page"
-                hint="The big title, the text under it, the search box and the Shop button block"
+                hint="The big title, the text under it, the search box, the photos beside it and the Shop button block"
                 action={
                   heroChanged ? (
                     <Button size="sm" variant="ghost" onClick={() => setHome((h) => ({ ...h, ...Object.fromEntries(HERO_KEYS.map((k) => [k, DEFAULT_HOME[k]])) }))}>
@@ -99,7 +99,7 @@ export default function WebsitePage() {
                   ) : undefined
                 }
               />
-              <HomeEditor home={s.home} onChange={(p) => setHome((h) => ({ ...h, ...p }))} />
+              <HomeEditor home={s.home} categories={[...new Set(products.map((p) => p.category?.trim()).filter(Boolean) as string[])].sort()} onChange={(p) => setHome((h) => ({ ...h, ...p }))} />
             </Card>
 
             {/* news ticker */}
@@ -509,8 +509,16 @@ function BkashQr({ value, cloud, onChange }: { value: string; cloud: boolean; on
 }
 
 /** The top of the home page: the big title, the text under it, the search box and the Shop button block. */
-function HomeEditor({ home, onChange }: { home: HomeSettings; onChange: (p: Partial<HomeSettings>) => void }) {
+/** Ready-made titles for the photos beside the big title - one tap, then edit it if you like. */
+const SHOWCASE_TITLES = ["Featured products", "On sale", "New arrivals", "Best sellers", "Staff picks", "Just arrived", "Limited-time offers", "Top picks this week"];
+
+function HomeEditor({ home, categories, onChange }: { home: HomeSettings; categories: string[]; onChange: (p: Partial<HomeSettings>) => void }) {
   const set = onChange;
+  const sc = home.showcase;
+  const setShowcase = (p: Partial<HeroShowcase>) => set({ showcase: { ...sc, ...p } });
+  const source = SHOWCASE_SOURCES.find((x) => x.id === sc.source) ?? SHOWCASE_SOURCES[0]!;
+  // with no title of its own, the photos are titled after what they show
+  const autoTitle = sc.source === "category" ? sc.category.trim() || "the category's name" : source.label;
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -537,6 +545,51 @@ function HomeEditor({ home, onChange }: { home: HomeSettings; onChange: (p: Part
         </span>
         <Switch checked={home.search} label="Search box on the home page" onChange={(v) => set({ search: v })} />
       </label>
+      <div className="rounded-xl bg-canvas px-4 py-3.5">
+        <span className="block text-[14.5px] font-bold">Photos beside the title</span>
+        <span className="block text-[12.5px] text-muted">Three product photos to the right of the big title (on computers and tablets), with a title above them and a “See all” link.</span>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label="Show">
+            <Select value={sc.source} onChange={(e) => setShowcase({ source: e.target.value as HeroShowcase["source"] })}>
+              {SHOWCASE_SOURCES.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {sc.source === "category" && (
+            <Field label="Category">
+              <Select value={sc.category} onChange={(e) => setShowcase({ category: e.target.value })}>
+                <option value="">Choose a category</option>
+                {[...categories, ...(sc.category && !categories.some((c) => sameName(c, sc.category)) ? [sc.category] : [])].map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          <Field label="Title above the photos" className="sm:col-span-2">
+            <Input value={sc.title} maxLength={40} placeholder={autoTitle} onChange={(e) => setShowcase({ title: e.target.value })} />
+          </Field>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {SHOWCASE_TITLES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setShowcase({ title: sameName(sc.title, t) ? "" : t })}
+              className={cx("rounded-full px-2.5 py-1 text-[12px] font-semibold ring-1 transition", sameName(sc.title, t) ? "bg-deep text-lime ring-deep" : "bg-white text-muted ring-line hover:text-ink")}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-[12px] text-muted">
+          {source.hint}. Empty title = “{autoTitle}”. If there&apos;s nothing to show (no discounts, an empty category), the newest products appear as “New arrivals”.
+        </p>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Shop button - heading">
           <Input value={home.shopTitle} placeholder={DEFAULT_HOME.shopTitle} onChange={(e) => set({ shopTitle: e.target.value })} />

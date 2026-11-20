@@ -35,9 +35,11 @@ export async function contentSecurityPolicy(o: { nonce: string; area: Area; dev:
   const admin = o.area === "admin" || o.area === "dev";
   const rules: Record<string, (string | false)[]> = {
     "default-src": ["'self'"],
-    // 'strict-dynamic': scripts the allowed ones add (page chunks, the Turnstile script) may run too. 'self' and the
-    // Turnstile address are for older browsers that don't know 'strict-dynamic' (newer ones ignore them)
-    "script-src": ["'self'", `'nonce-${o.nonce}'`, await inlineScriptHash(), "'strict-dynamic'", TURNSTILE, admin && "'wasm-unsafe-eval'", o.dev && "'unsafe-eval'"],
+    // 'strict-dynamic': scripts the allowed ones add (page chunks, the Turnstile script) may run too. The rest are
+    // fallbacks that browsers which understand nonces ignore: 'self' and the Turnstile address for browsers without
+    // 'strict-dynamic' (Safari before 15.4), 'unsafe-inline' for very old ones that know no nonces at all - many
+    // customers' phones are old, and without it Next.js's own inline scripts wouldn't run there
+    "script-src": ["'self'", `'nonce-${o.nonce}'`, await inlineScriptHash(), "'strict-dynamic'", TURNSTILE, "'unsafe-inline'", admin && "'wasm-unsafe-eval'", o.dev && "'unsafe-eval'"],
     "style-src": ["'self'", "'unsafe-inline'"],
     "img-src": ["'self'", "data:", "blob:", "https:"],
     "font-src": ["'self'", "data:"],

@@ -41,7 +41,9 @@ export async function contentSecurityPolicy(o: { nonce: string; area: Area; dev:
     "style-src": ["'self'", "'unsafe-inline'"],
     "img-src": ["'self'", "data:", "blob:", "https:"],
     "font-src": ["'self'", "data:"],
-    "connect-src": ["'self'", TURNSTILE, admin && EMOJI],
+    // data: / blob: - the admin's Word, Excel and ID-card files read their own pictures (signature, logo, photos) back
+    // as bytes this way; such an address already holds its data, so nothing can be sent anywhere through it
+    "connect-src": ["'self'", "data:", "blob:", TURNSTILE, admin && EMOJI],
     "frame-src": ["'self'", TURNSTILE, admin && `https://${HOSTS.store}`],
     "worker-src": ["'self'", "blob:"],
     "object-src": ["'none'"],

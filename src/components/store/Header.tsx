@@ -66,7 +66,8 @@ export function Header() {
             >
               <Store className="size-[17px]" /> Shop
             </Link>
-            <Link href={links.store("/account")} className="grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70" aria-label="My account">
+            {/* on small phones "My account" is in the menu, so the shop's name has room */}
+            <Link href={links.store("/account")} className="grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70 max-[420px]:hidden" aria-label="My account">
               <UserRound className="size-[21px]" />
             </Link>
             <Link href={links.store("/cart")} className="relative grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70" aria-label={`Cart, ${count} item${count === 1 ? "" : "s"}`}>

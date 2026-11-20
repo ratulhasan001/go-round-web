@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import { AnimationPauser } from "@/components/AnimationPauser";
 import { areaOf } from "@/lib/site";
 import { requestHost } from "@/lib/server/links";
+import { JS_CLASS_SCRIPT } from "@/lib/csp";
 
 const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"], weight: ["500", "600", "700", "800"] });
 const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
@@ -32,8 +33,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     // suppressHydrationWarning: the inline script below adds the "js" class before React starts
     <html lang="en" className={`${bricolage.variable} ${manrope.variable} antialiased`} suppressHydrationWarning>
       <head>
-        {/* marks that JavaScript runs, so scroll-reveal effects may hide content until it scrolls into view */}
-        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
+        {/* marks that JavaScript runs, so scroll-reveal effects may hide content until it scrolls into view. The
+            Content-Security-Policy allows this script by its hash (src/lib/csp.ts) */}
+        <script dangerouslySetInnerHTML={{ __html: JS_CLASS_SCRIPT }} />
       </head>
       <body>
         <AnimationPauser />

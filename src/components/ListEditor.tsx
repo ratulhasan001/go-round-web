@@ -34,12 +34,26 @@ const ROW_OUT_MS = 280;
 // Screen width from which rows are laid out as a table (below it each row is a card).
 // Written out in full so Tailwind sees every class.
 const LAYOUT = {
+  // one line per row from 900px (56.25rem - in rem like Tailwind's own breakpoints, so it's ordered after sm: in px it
+  // landed before it and sm:grid-cols-2 won): a phone's "desktop site" mode (about 980px) and small laptops; columns
+  // that can't fit scroll sideways inside the card (tableMin)
+  wide: {
+    head: "min-[56.25rem]:grid",
+    list: "min-[56.25rem]:gap-1.5",
+    row: "sm:grid-cols-2 min-[56.25rem]:border-transparent min-[56.25rem]:p-1 min-[56.25rem]:-mx-1 min-[56.25rem]:[grid-template-columns:var(--g)] min-[56.25rem]:hover:bg-canvas",
+    label: "min-[56.25rem]:hidden",
+    lead: "min-[56.25rem]:grid",
+    scroll: "min-[56.25rem]:overflow-x-auto",
+    inner: "min-[56.25rem]:min-w-[var(--table-min)]",
+  },
   md: {
     head: "md:grid",
     list: "md:gap-1.5",
     row: "md:border-transparent md:p-1 md:-mx-1 md:[grid-template-columns:var(--g)] md:hover:bg-canvas",
     label: "md:hidden",
     lead: "md:grid",
+    scroll: "",
+    inner: "",
   },
   xl: {
     head: "xl:grid",
@@ -47,6 +61,8 @@ const LAYOUT = {
     row: "sm:grid-cols-2 xl:border-transparent xl:p-1 xl:-mx-1 xl:[grid-template-columns:var(--g)] xl:hover:bg-canvas",
     label: "xl:hidden",
     lead: "xl:grid",
+    scroll: "",
+    inner: "",
   },
   "2xl": {
     head: "2xl:grid",
@@ -54,6 +70,8 @@ const LAYOUT = {
     row: "sm:grid-cols-2 lg:grid-cols-3 2xl:border-transparent 2xl:p-1 2xl:-mx-1 2xl:[grid-template-columns:var(--g)] 2xl:hover:bg-canvas",
     label: "2xl:hidden",
     lead: "2xl:grid",
+    scroll: "",
+    inner: "",
   },
 } as const;
 
@@ -75,6 +93,7 @@ export function ListEditor<T extends { id: string }>({
   onAdd,
   rowActions,
   tableFrom = "md",
+  tableMin = "0px",
   section,
 }: {
   title: string;
@@ -101,6 +120,8 @@ export function ListEditor<T extends { id: string }>({
   rowActions?: (row: T) => React.ReactNode;
   /** When rows switch from cards to a table; use "xl" or "2xl" for lists with many columns. */
   tableFrom?: keyof typeof LAYOUT;
+  /** "wide" layout: the narrowest the one-line table may get before it scrolls sideways (e.g. "940px"). */
+  tableMin?: string;
   /** Section key (see nav.tsx): the header icon then morphs from the home tile. */
   section?: string;
 }) {
@@ -414,6 +435,8 @@ export function ListEditor<T extends { id: string }>({
           </div>
         </div>
 
+        <div className={L.scroll}>
+        <div className={L.inner} style={{ "--table-min": tableMin } as React.CSSProperties}>
         <div className={cx("hidden gap-3 px-4 pt-3 text-[11.5px] font-semibold uppercase tracking-wide text-muted", L.head)} style={{ gridTemplateColumns: grid }}>
           {lead && <span />}
           {columns.map((c) => (
@@ -519,6 +542,8 @@ export function ListEditor<T extends { id: string }>({
               </div>
             );
           })}
+        </div>
+        </div>
         </div>
       </Card>
     </div>

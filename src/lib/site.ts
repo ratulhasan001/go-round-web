@@ -236,25 +236,25 @@ export const SHOWCASE_SOURCES: { id: HeroShowcase["source"]; label: string; hint
  * with nothing to show (no discounts, an empty category) falls back to the newest products under their own title,
  * so the title never promises what the photos don't show.
  */
-export function heroShowcase(products: PublicProduct[], sc: HeroShowcase): { title: string; pics: PublicProduct[]; link: string } {
+export function heroShowcase(products: PublicProduct[], sc: HeroShowcase): { kind: HeroShowcase["source"]; title: string; pics: PublicProduct[]; link: string } {
   const withPhoto = products.filter((p) => p.images.length);
   // in-stock products first, keeping each list's own order
   const pick = (list: PublicProduct[]) => [...list.filter((p) => p.inStock), ...list.filter((p) => !p.inStock)].slice(0, 3);
   const label = (id: HeroShowcase["source"]) => SHOWCASE_SOURCES.find((x) => x.id === id)!.label;
   const own = sc.title.trim();
-  const newest = { title: own || label("new"), pics: pick(withPhoto), link: "/products" };
+  const newest = { kind: "new" as const, title: own || label("new"), pics: pick(withPhoto), link: "/products" };
   if (sc.source === "featured") {
     const featured = pick(withPhoto.filter((p) => p.featured));
-    return { title: own || label("featured"), pics: [...featured, ...pick(withPhoto.filter((p) => !featured.includes(p)))].slice(0, 3), link: featured.length ? "/products?show=featured" : "/products" };
+    return { kind: "featured", title: own || label("featured"), pics: [...featured, ...pick(withPhoto.filter((p) => !featured.includes(p)))].slice(0, 3), link: featured.length ? "/products?show=featured" : "/products" };
   }
   if (sc.source === "sale") {
     const off = (p: PublicProduct) => (p.regularPrice > p.price ? 1 - p.price / p.regularPrice : 0);
     const sale = pick(withPhoto.filter((p) => off(p) > 0).sort((a, b) => off(b) - off(a)));
-    return sale.length ? { title: own || label("sale"), pics: sale, link: "/products?show=sale" } : { ...newest, title: label("new") };
+    return sale.length ? { kind: "sale", title: own || label("sale"), pics: sale, link: "/products?show=sale" } : { ...newest, title: label("new") };
   }
   if (sc.source === "category" && sc.category.trim()) {
     const inCat = pick(withPhoto.filter((p) => inCategory(p.category, sc.category)));
-    return inCat.length ? { title: own || sc.category.trim(), pics: inCat, link: `/products?category=${encodeURIComponent(sc.category.trim())}` } : { ...newest, title: label("new") };
+    return inCat.length ? { kind: "category", title: own || sc.category.trim(), pics: inCat, link: `/products?category=${encodeURIComponent(sc.category.trim())}` } : { ...newest, title: label("new") };
   }
   return newest;
 }

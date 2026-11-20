@@ -4,8 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Check, Download, FileText, Hourglass, Loader2, PartyPopper, Search, Truck } from "lucide-react";
 import { ORDER_HINT, ORDER_LABEL, ORDER_STEPS, PAY_LABEL, cleanCode, fmtWhen, payState, tk, waLink } from "@/lib/site";
-import { DEFAULT_SHOP } from "@/lib/seed";
-import type { Invoice, Shop } from "@/lib/types";
 import type { OrderView } from "@/lib/server/orders";
 import { recentOrders, useShop } from "./StoreContext";
 import { PaymentInfo } from "./PaymentInfo";
@@ -415,21 +413,36 @@ function PaymentBlock({ order, phone, onChange }: { order: OrderView; phone?: st
   );
 }
 
-/** The receipt the shop made when it approved the payment, as the same A4 PDF the shop prints. */
+/**
+ * The receipt the shop made when it approved the payment, as the same A4 PDF the shop prints. The server builds the PDF
+ * and the button is a plain link to it, so every phone browser can save it (building it in the browser failed on Opera,
+ * Opera Mini and in-app browsers).
+ */
 function ReceiptBlock({ order, phone }: { order: OrderView; phone?: string }) {
-  const [state, setState] = useState<"idle" | "busy" | "missing" | "error">("idle");
-  const download = async () => {
-    setState("busy");
-    try {
-      const res = await fetch("/api/site/receipt", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: order.code, phone: phone || order.customer.phone }) });
-      if (res.status === 409) return setState("missing");
-      const b = (await res.json()) as { invoice: Invoice; shop: Partial<Shop> };
-      const { downloadPdf } = await import("@/lib/download");
-      await downloadPdf(b.invoice, { ...DEFAULT_SHOP, ...b.shop });
-      setState("idle");
-    } catch {
-      setState("error");
-    }
+  const [link, setLink] = useState<{ url: string } | "loading" | "missing" | "error">("loading");
+  const [attempt, setAttempt] = useState(0);
+  const who = phone || order.customer.phone;
+  const ready = !!order.invoiceNumber;
+  useEffect(() => {
+    if (!ready) return;
+    let live = true;
+    fetch("/api/site/receipt", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: order.code, phone: who }) })
+      .then(async (res) => {
+        if (res.status === 409) return "missing" as const;
+        const b = (await res.json().catch(() => null)) as { url?: unknown } | null;
+        return res.ok && typeof b?.url === "string" ? { url: b.url } : ("error" as const);
+      })
+      .catch(() => "error" as const)
+      .then((next) => {
+        if (live) setLink(next);
+      });
+    return () => {
+      live = false;
+    };
+  }, [ready, order.code, order.invoiceNumber, who, attempt]);
+  const retry = () => {
+    setLink("loading");
+    setAttempt((n) => n + 1);
   };
   return (
     <div className="flex flex-wrap items-center gap-4 rounded-[28px] border border-sea-sprout/50 bg-[#eef5e6] p-5 sm:p-6">
@@ -439,17 +452,25 @@ function ReceiptBlock({ order, phone }: { order: OrderView; phone?: string }) {
       <div className="min-w-0 flex-1">
         <p className="font-serif text-[22px] leading-tight">Payment approved</p>
         <p className="mt-0.5 text-[14px] text-sea-body">
-          {state === "missing" || !order.invoiceNumber
-            ? "Your receipt is being prepared - it will be here shortly."
-            : `Your receipt ${order.invoiceNumber} is ready.`}
-          {state === "error" && <span className="block font-semibold text-red-600">Couldn&apos;t download it. Please try again.</span>}
+          {link === "missing" || !ready ? "Your receipt is being prepared - it will be here shortly." : `Your receipt ${order.invoiceNumber} is ready.`}
+          {link === "error" && <span className="block font-semibold text-red-600">Couldn&apos;t get your receipt. Please try again.</span>}
         </p>
       </div>
-      {order.invoiceNumber && state !== "missing" && (
-        <button onClick={download} disabled={state === "busy"} className={btn("primary", "lg", "w-full sm:w-auto")}>
-          {state === "busy" ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} Download receipt
-        </button>
-      )}
+      {ready &&
+        link !== "missing" &&
+        (typeof link === "object" ? (
+          <a href={link.url} className={btn("primary", "lg", "w-full sm:w-auto")}>
+            <Download className="size-4" /> Download receipt
+          </a>
+        ) : link === "error" ? (
+          <button onClick={retry} className={btn("primary", "lg", "w-full sm:w-auto")}>
+            <Download className="size-4" /> Try again
+          </button>
+        ) : (
+          <button disabled className={btn("primary", "lg", "w-full sm:w-auto")}>
+            <Loader2 className="size-4 animate-spin" /> Download receipt
+          </button>
+        ))}
     </div>
   );
 }

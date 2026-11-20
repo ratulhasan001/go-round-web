@@ -29,6 +29,7 @@ const LABEL: Record<string, { text: string; tone: "ok" | "bad" | "info" }> = {
   "passkey-removed": { text: "Passkey removed", tone: "info" },
   "reset-requested": { text: "Password reset asked for", tone: "info" },
   "password-reset": { text: "Password reset", tone: "info" },
+  "session-blocked": { text: "Login used from another browser or country - logged out", tone: "bad" },
 };
 const HOW: Record<string, string> = { password: "with password", "password+2fa": "with password + code", "password+email": "with password + email code", "password+recovery": "with a recovery code", passkey: "with a passkey", reset: "after a reset" };
 const DOT = { ok: "bg-brand", bad: "bg-red-500", info: "bg-faint" };

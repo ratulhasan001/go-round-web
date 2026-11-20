@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { SESSION_COOKIE, isAuthed } from "@/lib/server/auth";
+import { SESSION_COOKIE, isAuthed, requestFrom } from "@/lib/server/auth";
 import { type Area, HOSTS, STORE_BASE, areaOf, isStorePath } from "@/lib/site";
 import { contentSecurityPolicy, newNonce } from "@/lib/csp";
 
@@ -79,7 +79,7 @@ export async function proxy(request: NextRequest) {
       if (from !== host.toLowerCase()) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
   }
-  if (await isAuthed(request.cookies.get(SESSION_COOKIE)?.value)) return api ? NextResponse.next() : page(request, area);
+  if (await isAuthed(request.cookies.get(SESSION_COOKIE)?.value, requestFrom(request.headers))) return api ? NextResponse.next() : page(request, area);
 
   if (api) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const url = new URL("/login", request.url);

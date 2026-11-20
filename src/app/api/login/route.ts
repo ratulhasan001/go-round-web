@@ -1,6 +1,6 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { authEnabled, clientIp, isAuthed, SESSION_COOKIE } from "@/lib/server/auth";
+import { authEnabled, clientIp, isAuthed, requestFrom, SESSION_COOKIE } from "@/lib/server/auth";
 import { alertLater, logEvent, loggedIn, securityLink, whoLine } from "@/lib/server/adminEvents";
 import { passwordProblem, passwordStatus, setAdminPassword, verifyAdminPassword } from "@/lib/server/adminPassword";
 import { issueToken, peekToken, updateToken, spendToken } from "@/lib/server/adminTokens";
@@ -27,7 +27,7 @@ const emailWhy = "Someone (hopefully you) typed the right admin password.";
 /** What the login page needs: whether this device is already logged in, and the human check's site key. */
 export async function GET() {
   return NextResponse.json({
-    authed: authEnabled() ? await isAuthed((await cookies()).get(SESSION_COOKIE)?.value) : true,
+    authed: authEnabled() ? await isAuthed((await cookies()).get(SESSION_COOKIE)?.value, requestFrom(await headers())) : true,
     turnstile: turnstileSiteKey() || null,
   });
 }

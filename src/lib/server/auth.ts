@@ -1,13 +1,13 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
-import { ADMIN_IDLE_MINUTES } from "@/lib/site";
+import { cookies, headers } from "next/headers";
+import { ADMIN_IDLE_MINUTES, HOSTS } from "@/lib/site";
 import { db, dbEnabled, ensureSchema } from "./db";
 
 /**
  * Admin login sessions. Each login gets its own random token, kept in an httpOnly cookie on that device; only a hash
  * of it is stored (gr_admin_sessions), so one device can be logged out on its own and a database copy can't be used
  * to log in. A session ends 3 hours after the login, however busy it is - or sooner, after IDLE_MINUTES without a single
- * request.
+ * request. It also only works in the browser and country it logged in from: a cookie copied elsewhere ends it.
  */
 const PROD = process.env.NODE_ENV === "production";
 /** `__Host-`: the browser only accepts it over https, for this exact address, from the whole site's root. */
@@ -49,32 +49,69 @@ export const requestFrom = (h: Headers): RequestFrom => ({
   ip: h.get("x-real-ip") ?? h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown",
 });
 
-// A page load asks for several files at once; a session checked a moment ago isn't looked up again for 15 seconds.
-// Logging a device out clears it here at once, and on other server instances within those 15 seconds.
-const g = globalThis as unknown as { __grSessions?: Map<string, { until: number; checked: number }> };
+interface Seen {
+  until: number;
+  checked: number;
+  device: string; // "Chrome on Mac": the browser and system it logged in from
+  country: string; // where it logged in from ("" when unknown)
+}
+// A page load asks for several files at once; a session checked a moment ago isn't looked up again for 15 seconds
+// (its browser and country are still checked every time). Logging a device out clears it here at once, and on other
+// server instances within those 15 seconds.
+const g = globalThis as unknown as { __grSessions?: Map<string, Seen> };
 const seen = (g.__grSessions ??= new Map());
 const RECHECK_MS = 15_000;
 
-/** Whether this cookie value belongs to a session that is still open (and was used in the last IDLE_MINUTES). */
-export async function isAuthed(token: string | undefined): Promise<boolean> {
+/**
+ * A different browser or system, or another country, than the session logged in from: its cookie has been copied
+ * (malware, a stolen laptop's files…). Normal changes of internet address, as on mobile data, don't count.
+ */
+const moved = (s: Seen, from: RequestFrom) => (!!s.device && deviceName(from.ua) !== s.device) || (!!s.country && !!from.country && s.country !== from.country);
+
+/** Ends a session whose cookie turned up somewhere else, writes it in the login history and tells the owner. */
+async function endMovedSession(key: string, s: Seen, from: RequestFrom) {
+  seen.delete(key);
+  const where = (device: string, country: string) => `${device}${country ? ` in ${country}` : ""}`;
+  const detail = `logged in on ${where(s.device, s.country)}, used from ${where(deviceName(from.ua), from.country)}`;
+  try {
+    await db()`delete from gr_admin_sessions where token_hash = ${key}`;
+    await db()`insert into gr_admin_events (kind, ip, device, detail) values ('session-blocked', ${from.ip}, ${deviceName(from.ua)}, ${detail})`;
+    const { sendAlert } = await import("./adminEvents"); // (adminEvents imports this file)
+    await sendAlert("Login used from another browser or country", [
+      `A logged-in admin session was used from somewhere else, so it was logged out at once.`,
+      `Logged in on: ${where(s.device, s.country)}`,
+      `Used from: ${where(deviceName(from.ua), from.country)}, IP ${from.ip}`,
+      "If that was you (a VPN, or another browser), just log in again. If not, someone copied your login: change your password.",
+      `Check it: https://${HOSTS.admin}/settings/security`,
+    ]);
+  } catch (e) {
+    console.error("ending a moved session failed", e);
+  }
+  return false;
+}
+
+/** Whether this cookie value belongs to a session that is still open, and is used where it logged in. */
+export async function isAuthed(token: string | undefined, from: RequestFrom): Promise<boolean> {
   if (!authEnabled()) return true;
   if (!token || token.length > 100 || !dbEnabled()) return false;
   const key = sha(token);
   const now = Date.now();
   const hit = seen.get(key);
-  if (hit && now < hit.until && now - hit.checked < RECHECK_MS) return true;
+  if (hit && now < hit.until && now - hit.checked < RECHECK_MS) return moved(hit, from) ? endMovedSession(key, hit, from) : true;
   try {
     await ensureSchema();
-    const [row] = await db()<{ expires_at: Date }[]>`
+    const [row] = await db()<{ expires_at: Date; device: string; country: string }[]>`
       update gr_admin_sessions set last_seen = now()
       where token_hash = ${key} and expires_at > now() and last_seen > now() - make_interval(mins => ${IDLE_MINUTES})
-      returning expires_at`;
+      returning expires_at, device, country`;
     if (!row) {
       seen.delete(key);
       return false;
     }
+    const s: Seen = { until: row.expires_at.getTime(), checked: now, device: row.device, country: row.country };
+    if (moved(s, from)) return endMovedSession(key, s, from);
     if (seen.size > 500) seen.clear();
-    seen.set(key, { until: row.expires_at.getTime(), checked: now });
+    seen.set(key, s);
     return true;
   } catch (e) {
     console.error("session check failed", e);
@@ -84,7 +121,7 @@ export async function isAuthed(token: string | undefined): Promise<boolean> {
 
 /** For API routes: is the request from a logged-in admin? */
 export async function adminAuthed() {
-  return isAuthed((await cookies()).get(SESSION_COOKIE)?.value);
+  return isAuthed((await cookies()).get(SESSION_COOKIE)?.value, requestFrom(await headers()));
 }
 
 /** The session behind this request's cookie (its id, for "this device" in the devices list). */

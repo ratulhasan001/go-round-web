@@ -5,8 +5,10 @@ import { prettyPhone, waLink } from "@/lib/site";
 import { FacebookIcon, WhatsAppIcon } from "@/components/store/Icons";
 import { Reveal } from "@/components/store/Reveal";
 import { PageHead } from "@/components/store/ui";
+import { pageMetadata } from "@/lib/server/seo";
 
-export const metadata: Metadata = { title: "Contact us" };
+export const generateMetadata = (): Promise<Metadata> =>
+  pageMetadata({ path: "/contact", title: "Contact us", description: "Contact Go Round on WhatsApp, phone or email about aquarium plants, fertilisers, accessories and your orders anywhere in Bangladesh." });
 
 export default async function ContactPage() {
   const { shop } = await loadCatalog();

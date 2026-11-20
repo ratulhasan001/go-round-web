@@ -818,7 +818,7 @@ function ReviewsEditor({ auto, onAuto }: { auto: boolean; onAuto: (v: boolean) =
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-x-2 text-[13px]">
                     <span className="text-amber-500">{"★".repeat(r.rating)}</span>
-                    <b>{r.name}</b>
+                    <b>{r.anonymous ? (r.name.trim() ? `${r.name} (shown as Anonymous)` : "Anonymous") : r.name}</b>
                     <span className="text-muted">
                       {r.productName || "Shop"} · {new Date(r.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · {r.source === "shop" ? "added by you" : "from the website"}
                     </span>

@@ -7,7 +7,7 @@ import { contentSecurityPolicy, newNonce } from "@/lib/csp";
 // a staff code on the verify address: any single word of letters and digits (typed codes may be mistyped, in capitals or
 // the wrong length - they still get the "can't verify" page), except the store's own page names
 const STAFF_CODE = /^\/([a-z0-9]{6,40})\/?$/i;
-const STORE_PAGES = new Set(["about", "account", "cart", "checkout", "contact", "faq", "products", "reviews", "verify"]);
+const STORE_PAGES = new Set(["about", "account", "cart", "checkout", "contact", "faq", "products", "reviews", "verify", "wholesale"]);
 // the only API routes the public addresses may call
 const PUBLIC_API = (p: string) => p.startsWith("/api/site/") || p.startsWith("/api/img/") || p === "/api/shop-logo";
 

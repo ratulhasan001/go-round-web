@@ -4,7 +4,7 @@
 // section order, and a live preview of the store's home page that follows every keystroke.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, BellRing, BriefcaseBusiness, ExternalLink, Eye, EyeOff, Handshake, ImagePlus, Loader2, Megaphone, Monitor, Plus, RotateCw, Smartphone, Sparkles, Trash2, TriangleAlert, Type, X } from "lucide-react";
-import { forget, storePhoto } from "@/lib/photos";
+import { forget, imageFiles, storePhoto } from "@/lib/photos";
 import { uid } from "@/lib/calc";
 import { HOME_BLOCK_STYLES, HOME_SECTIONS, PREVIEW_READY, PREVIEW_SITE, absolute, blockKey, publicLinks } from "@/lib/site";
 import type { HomeBlock, HomeBlockStyle, HomeSettings, LogoItem, SiteSettings } from "@/lib/types";
@@ -17,37 +17,74 @@ const moveIn = <T,>(list: T[], i: number, d: -1 | 1) => {
   return next;
 };
 
-/** Upload one photo (or several); the callback runs once per saved photo. */
+/**
+ * Upload one photo (or several), picked or dragged in; the callback runs once per saved photo. Any size of image
+ * works - it's scaled down in the browser before it's saved.
+ */
 function usePhotoPicker(cloud: boolean, onSaved: (url: string, file: File) => void) {
   const toast = useToast();
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const upload = async (picked: File[]) => {
+    const files = imageFiles(picked);
+    if (!files.length) return void (picked.length && toast("Drop an image file (JPG, PNG, WebP, SVG…)", "err"));
+    setBusy(true);
+    const failed: string[] = [];
+    for (const f of files) {
+      try {
+        onSaved(await storePhoto(f, cloud), f);
+      } catch (e) {
+        failed.push(e instanceof Error && e.message.startsWith("Couldn't read") ? e.message : `Couldn't upload ${f.name || "a photo"}`);
+      }
+    }
+    setBusy(false);
+    if (failed.length) toast(failed.length === 1 ? failed[0]! : `${failed.length} images couldn't be uploaded - ${failed[0]}`, "err");
+  };
   const input = (multiple = false) => (
     <input
       ref={ref}
       type="file"
-      accept="image/*"
+      accept="image/*,.svg,.heic,.heif"
       multiple={multiple}
       hidden
-      onChange={async (e) => {
+      onChange={(e) => {
         const files = [...(e.target.files ?? [])];
         e.target.value = "";
-        if (!files.length) return;
-        setBusy(true);
-        let failed = 0;
-        for (const f of files) {
-          try {
-            onSaved(await storePhoto(f, cloud), f);
-          } catch {
-            failed++;
-          }
-        }
-        setBusy(false);
-        if (failed) toast(failed === 1 ? "Couldn't upload a photo" : `Couldn't upload ${failed} photos`, "err");
+        if (files.length) void upload(files);
       }}
     />
   );
-  return { open: () => ref.current?.click(), busy, input };
+  return { open: () => ref.current?.click(), busy, input, upload };
+}
+
+/** Lets files be dropped on an element: `over` is true while files are dragged over it. */
+function useDropFiles(onFiles: (files: File[]) => void, enabled = true) {
+  const [over, setOver] = useState(false);
+  const has = (e: React.DragEvent) => e.dataTransfer.types.includes("Files");
+  return {
+    over,
+    props: enabled
+      ? {
+          onDragOver: (e: React.DragEvent) => {
+            if (!has(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "copy";
+            setOver(true);
+          },
+          onDragLeave: (e: React.DragEvent) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+          },
+          onDrop: (e: React.DragEvent) => {
+            if (!has(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            setOver(false);
+            onFiles([...e.dataTransfer.files]);
+          },
+        }
+      : {},
+  };
 }
 
 // ---------- news headlines ----------
@@ -253,8 +290,16 @@ export function LogoListEditor({
   const bulk = usePhotoPicker(cloud, (url, f) => update((list) => [...list, { id: uid(), name: fromFileName(f), logo: url }]));
   const edit = (id: string, p: Partial<LogoItem>) => update((list) => list.map((x) => (x.id === id ? { ...x, ...p } : x)));
   const [added, setAdded] = useState(""); // the entry just added by hand: its name box takes the cursor
+  const drop = useDropFiles((files) => void bulk.upload(files), !bulk.busy);
   return (
-    <div>
+    <div {...drop.props} className={cx("relative rounded-2xl transition", drop.over && "bg-soft ring-2 ring-brand ring-offset-4 ring-offset-white")}>
+      {drop.over && (
+        <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl bg-white/80">
+          <span className="flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-[13px] font-bold text-white shadow-lg">
+            <ImagePlus className="size-4" /> Drop to add {word} logos
+          </span>
+        </div>
+      )}
       <label className="block">
         <span className="mb-1.5 block text-[13px] font-semibold text-ink">Section heading</span>
         <Input value={title} placeholder={kind === "partners" ? "Our partners" : "Where we have worked"} onChange={(e) => onTitle(e.target.value)} />
@@ -298,7 +343,7 @@ export function LogoListEditor({
       </div>
       <p className="mt-2 text-[12px] text-muted">
         {items.length ? `${items.length} ${word}${items.length === 1 ? "" : "s"}. ` : "Nothing yet - the section stays hidden until you add one. "}
-        You can pick several logo files at once; each becomes an entry named after its file. Logos look best on a white or clear background.
+        Pick or drag in several logo files at once (any size - big images are scaled down); each becomes an entry named after its file. Drop a file on a logo to replace it. Logos look best on a white or clear background.
       </p>
     </div>
   );
@@ -309,9 +354,11 @@ function LogoRow({ x, focus, kind, cloud, first, last, onEdit, onMove, onRemove 
     if (x.logo) forget(x.logo);
     onEdit({ logo: url });
   });
+  // a file dropped on this logo replaces it (only the first one)
+  const drop = useDropFiles((files) => void photo.upload(files.slice(0, 1)), !photo.busy);
   return (
     <li className="flex items-start gap-3 rounded-2xl border border-line bg-white p-2.5">
-      <button type="button" onClick={photo.open} disabled={photo.busy} className="group relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-canvas ring-1 ring-line" aria-label={x.logo ? `Change ${x.name || "the"} logo` : "Upload a logo"} title={x.logo ? "Change logo" : "Upload logo"}>
+      <button type="button" {...drop.props} onClick={photo.open} disabled={photo.busy} className={cx("group relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-canvas ring-1 ring-line", drop.over && "ring-2 ring-brand")} aria-label={x.logo ? `Change ${x.name || "the"} logo` : "Upload a logo"} title={x.logo ? "Change logo" : "Upload logo"}>
         {photo.busy ? (
           <Loader2 className="size-5 animate-spin text-muted" />
         ) : x.logo ? (

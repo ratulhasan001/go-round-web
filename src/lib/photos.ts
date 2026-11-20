@@ -1,19 +1,47 @@
 // Photo uploads from the admin panel: scaled in the browser, then saved to the database (or kept as a data URL).
 
-/** Draws the image at most `max` px on its longest side. */
+/**
+ * Reads an image file of any size. createImageBitmap is fast but can't read SVG logos (or, in some browsers, very
+ * large or unusual photos), so those are read through an <img> instead - which also opens iPhone HEIC photos in Safari.
+ */
+async function readImage(file: File): Promise<{ img: CanvasImageSource; width: number; height: number; done: () => void }> {
+  try {
+    const bmp = await createImageBitmap(file);
+    return { img: bmp, width: bmp.width, height: bmp.height, done: () => bmp.close() };
+  } catch {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.src = url;
+    try {
+      await img.decode();
+    } catch {
+      URL.revokeObjectURL(url);
+      throw new Error(`Couldn't read ${file.name || "that image"} - save it as a JPG or PNG and try again.`);
+    }
+    // an SVG without its own size draws at 1000 px across
+    const w = img.naturalWidth || 1000;
+    const h = img.naturalHeight || Math.round((w * 3) / 4);
+    return { img, width: w, height: h, done: () => URL.revokeObjectURL(url) };
+  }
+}
+
+/** Draws the image at most `max` px on its longest side (any size of file: big ones are scaled down here). */
 async function drawScaled(file: File, max: number) {
-  const bmp = await createImageBitmap(file);
-  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const { img, width, height, done } = await readImage(file);
+  const k = Math.min(1, max / Math.max(width, height));
   const c = document.createElement("canvas");
-  c.width = Math.max(1, Math.round(bmp.width * k));
-  c.height = Math.max(1, Math.round(bmp.height * k));
+  c.width = Math.max(1, Math.round(width * k));
+  c.height = Math.max(1, Math.round(height * k));
   const g = c.getContext("2d")!;
   g.fillStyle = "#fff"; // transparent PNGs get a white background in JPEG
   g.fillRect(0, 0, c.width, c.height);
-  g.drawImage(bmp, 0, 0, c.width, c.height);
-  bmp.close();
+  g.drawImage(img, 0, 0, c.width, c.height);
+  done();
   return c;
 }
+
+/** The image files among dropped or picked files (anything a browser calls an image, plus .heic/.svg by name). */
+export const imageFiles = (files: Iterable<File>) => [...files].filter((f) => f.type.startsWith("image/") || /\.(heic|heif|svg|avif|webp|png|jpe?g|gif|bmp)$/i.test(f.name));
 
 const toBlob = (c: HTMLCanvasElement, type: string, q: number) =>
   new Promise<Blob | null>((resolve) => c.toBlob(resolve, type, q));

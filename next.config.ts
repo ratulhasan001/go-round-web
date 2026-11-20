@@ -34,6 +34,12 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: SAFETY_HEADERS },
       // the preview is /preview on the store's address, and /store/preview where everything shares one address
       { source: "/:path((?!preview$|preview/|store/preview$|store/preview/).*)", headers: NO_FRAMING },
+      // the admin panel and the verify address never appear in search results (their robots.txt also closes them)
+      ...["admin.goroundbd.com", "verify.goroundbd.com"].map((host) => ({
+        source: "/:path*",
+        has: [{ type: "host" as const, value: host }],
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      })),
     ];
   },
 };

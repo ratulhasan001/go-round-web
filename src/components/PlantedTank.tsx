@@ -1,12 +1,7 @@
-import { useId } from "react";
-
-// A planted aquascape in a rimless glass tank: black aqua soil, iwagumi rocks, driftwood, stem plants with red tips,
-// vallisneria, a sword plant, a carpet along the front glass and a small school of neon tetras.
-// Pure SVG + CSS (classes pt-* in globals.css). Everything "random" comes from a seeded generator, so the server
-// and the browser draw exactly the same picture.
-
-// no import from ./ui (a client module): the store renders this tank on the server
-const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
+// The scenery of the aquarium (components/aquarium): a planted aquascape in a rimless glass tank - iwagumi rocks,
+// driftwood, stem plants with red tips, vallisneria, a sword plant and a carpet of small leaves over the whole floor -
+// with the LED light above and the cabinet (canister filter, CO2) below. Pure SVG + CSS (classes pt-* in globals.css).
+// Everything "random" comes from a seeded generator, so the server and the browser draw exactly the same picture.
 
 const W = 1600;
 const H = 900;
@@ -221,79 +216,6 @@ function Tufts({ xs, seed }: { xs: number[]; seed: number }) {
     </g>
   );
 }
-
-/** A rummy-nose tetra facing right, about 46 units long: silver body, bright red nose, black-and-white striped tail. */
-function RummyNose() {
-  return (
-    <g>
-      {/* tail: white lobes with the three black bars */}
-      <path d="M1 -7 L12 0 L1 7 Q4.5 0 1 -7 Z" fill="#f4f7f8" opacity="0.92" />
-      <path d="M0.6 -1.3 L12 -0.5 L12 0.5 L0.6 1.3 Z" fill="#1c2124" />
-      <path d="M1.8 -6 L7 -3.4 L6.4 -2.4 L1.6 -4.4 Z" fill="#1c2124" />
-      <path d="M1.8 6 L7 3.4 L6.4 2.4 L1.6 4.4 Z" fill="#1c2124" />
-      {/* body, silver with a faint green sheen along the back */}
-      <ellipse cx="27" cy="0" rx="17" ry="5.6" fill="#e3eaec" opacity="0.95" />
-      <path d="M13 -2.6 Q27 -6.2 40 -3" stroke="#c9d9c8" strokeWidth="1.4" fill="none" opacity="0.8" />
-      <path d="M22 -5.4 Q25 -9.6 29 -5.4" fill="#e3eaec" opacity="0.8" />
-      {/* the red head */}
-      <path d="M33 -5.2 Q42 -4.6 45 0 Q42 4.6 33 5.2 Q36.5 0 33 -5.2 Z" fill="#e2333b" />
-      <circle cx="40" cy="-0.8" r="2.1" fill="#ffd9d9" />
-      <circle cx="40.3" cy="-0.8" r="1.25" fill="#1b1416" />
-    </g>
-  );
-}
-
-/** A harlequin rasbora facing right, about 46 units long: deep copper body with the black wedge, red-tinted fins. */
-function Harlequin() {
-  return (
-    <g>
-      <path d="M1 -7.6 L12 0 L1 7.6 Q4.5 0 1 -7.6 Z" fill="#f08c63" opacity="0.7" />
-      <ellipse cx="27" cy="0" rx="17" ry="7.6" fill="#f2a27f" />
-      <path d="M13 1 Q27 9 41 2" fill="#f7c3a4" opacity="0.7" />
-      {/* the black triangle from mid-body to the tail */}
-      <path d="M27 -5.6 L13 0.4 L27 6.2 Q29.5 0.6 27 -5.6 Z" fill="#231b1c" />
-      <path d="M20 -7.2 Q25 -12.6 31 -7.2" fill="#e8734d" opacity="0.85" />
-      <path d="M24 7 Q27 11 31 7" fill="#e8734d" opacity="0.7" />
-      <circle cx="39.5" cy="-1.4" r="2.2" fill="#fff4ee" />
-      <circle cx="39.8" cy="-1.4" r="1.3" fill="#1b1416" />
-    </g>
-  );
-}
-
-/**
- * The two schools: where each fish starts, how far it swims across and back, and how long that takes - slow, so they
- * glide rather than dart. Rummy-noses keep tight together up high; the harlequins drift lower, past the rocks.
- */
-const RUMMY = [
-  { x: 430, y: 236, s: 1.9, reach: 560, dur: 48, delay: 0, bob: 4 },
-  { x: 476, y: 214, s: 1.8, reach: 570, dur: 48, delay: -0.5, bob: 4.6 },
-  { x: 506, y: 252, s: 1.86, reach: 550, dur: 48, delay: -0.9, bob: 3.8 },
-  { x: 398, y: 268, s: 1.74, reach: 580, dur: 49, delay: -0.3, bob: 4.2 },
-  { x: 546, y: 230, s: 1.68, reach: 540, dur: 48.5, delay: -1.3, bob: 5 },
-  { x: 452, y: 288, s: 1.8, reach: 560, dur: 49.5, delay: -0.7, bob: 4 },
-  { x: 520, y: 282, s: 1.7, reach: 545, dur: 49, delay: -1.1, bob: 4.4 },
-  { x: 372, y: 230, s: 1.66, reach: 585, dur: 48.5, delay: -0.2, bob: 4.8 },
-];
-const HARLEQUIN = [
-  { x: 860, y: 420, s: 1.62, reach: 420, dur: 42, delay: -12, bob: 4.4 },
-  { x: 910, y: 446, s: 1.55, reach: 400, dur: 42, delay: -12.6, bob: 5 },
-  { x: 832, y: 458, s: 1.58, reach: 430, dur: 43, delay: -11.5, bob: 4.2 },
-  { x: 952, y: 412, s: 1.5, reach: 390, dur: 42.5, delay: -13.2, bob: 4.8 },
-  { x: 884, y: 486, s: 1.52, reach: 410, dur: 43.5, delay: -12.2, bob: 4 },
-  { x: 980, y: 470, s: 1.46, reach: 380, dur: 42, delay: -13.8, bob: 5.2 },
-  { x: 806, y: 432, s: 1.48, reach: 440, dur: 43, delay: -11, bob: 4.6 },
-];
-
-/** Fine CO2 bubbles rising from the diffuser. */
-const BUBBLES = [
-  { x: 1346, r: 2.6, delay: 0, dur: 6.2 },
-  { x: 1352, r: 2, delay: -0.9, dur: 5.8 },
-  { x: 1342, r: 3, delay: -1.8, dur: 6.6 },
-  { x: 1349, r: 1.8, delay: -2.7, dur: 5.6 },
-  { x: 1344, r: 2.4, delay: -3.6, dur: 6.4 },
-  { x: 1351, r: 2.2, delay: -4.5, dur: 6 },
-  { x: 1340, r: 1.6, delay: -5.2, dur: 5.4 },
-];
 
 /** The filter's intake inside the tank: a clear pipe down the back glass, with a slotted strainer near the soil. */
 function Intake({ x }: { x: number }) {
@@ -540,53 +462,5 @@ export function PlantedScene({ id, interactive = false }: { id: string; interact
       <Tufts xs={[460, 560, 700, 820, 960, 1060, 1240, 1400]} seed={21} />
       <Carpet seed={23} />
     </svg>
-  );
-}
-
-export function PlantedTank({ className, dark = false, caption }: { className?: string; dark?: boolean; caption?: React.ReactNode }) {
-  const id = "pt" + useId().replace(/[^a-zA-Z0-9]/g, "");
-  return (
-    <figure className={cx("relative w-full", className)}>
-      <Light dark={dark} />
-      <div
-        className={cx(
-          "relative overflow-hidden rounded-[22px] border-[3px] border-t-[9px] aspect-[4/3] sm:aspect-[16/9]",
-          dark ? "border-[#cfe6e2]/70 border-t-[#0b261d] shadow-[0_30px_70px_-30px_rgba(0,0,0,0.65)]" : "border-[#d3e5e2] border-t-[#113A2D] shadow-[0_30px_60px_-34px_rgba(17,58,45,0.55)]",
-        )}
-      >
-        <PlantedScene id={id} />
-
-        {/* the fish, bubbles and glass on a layer of their own: on phones the planted scene underneath holds still
-            (redrawing its thousands of leaves every frame made phones stutter), while these few shapes keep moving */}
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" className="pt-fx anim-zone pointer-events-none absolute inset-0 size-full" aria-hidden>
-          {/* the two schools: rummy-nose tetras up high, harlequin rasboras lower down */}
-          {[...RUMMY.map((f) => ({ ...f, Fish: RummyNose })), ...HARLEQUIN.map((f) => ({ ...f, Fish: Harlequin }))].map(({ Fish, ...f }, i) => (
-            <g key={i} transform={`translate(${f.x} ${f.y}) scale(${f.s})`}>
-              <g className="pt-swim" style={{ "--reach": `${f.reach / f.s}px`, "--dur": `${f.dur}s`, "--delay": `${f.delay}s` } as React.CSSProperties}>
-                <g className="pt-bob" style={{ "--bob": `${f.bob}px`, animationDelay: `${-i * 0.7}s` } as React.CSSProperties}>
-                  <g className="pt-flip">
-                    <Fish />
-                  </g>
-                </g>
-              </g>
-            </g>
-          ))}
-
-          {/* fine CO2 bubbles from the diffuser */}
-          {BUBBLES.map((b, i) => (
-            <circle key={i} className="pt-bubble" cx={b.x} cy="664" r={b.r} fill="#ffffff" fillOpacity="0.4" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="1" style={{ animationDelay: `${b.delay}s`, animationDuration: `${b.dur}s` }} />
-          ))}
-
-          {/* reflections on the front glass */}
-          <polygon points="1210,0 1290,0 1060,700 990,700" fill="#ffffff" opacity="0.1" />
-          <polygon points="1320,0 1345,0 1110,700 1088,700" fill="#ffffff" opacity="0.08" />
-        </svg>
-        {/* the glass edges */}
-        <div className="pointer-events-none absolute inset-0 rounded-[19px] shadow-[inset_0_0_0_2px_rgba(255,255,255,0.55),inset_0_-10px_18px_-12px_rgba(0,0,0,0.5)]" />
-      </div>
-      {/* the cabinet it stands on, with the canister filter and CO2 cylinder inside */}
-      <Cabinet dark={dark} />
-      {caption && <figcaption className={cx("mt-4 text-center text-[13px] font-semibold", dark ? "text-white/80" : "opacity-70")}>{caption}</figcaption>}
-    </figure>
   );
 }

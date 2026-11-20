@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, Landmark, Loader2, Lock, Minus, Plus, ShoppingBag, TicketPercent, Trash2, Wallet, X } from "lucide-react";
+import { Clock, Landmark, Loader2, Lock, Minus, Plus, ShoppingBag, TicketPercent, Trash2, X } from "lucide-react";
 import { deliveryFee, extraKg, needsTrxAtCheckout, splitPoliceStation, tk, waLink } from "@/lib/site";
 import { POLICIES } from "@/lib/policies";
 import { couponAmount } from "@/lib/couponRules";
@@ -178,7 +178,6 @@ export function CheckoutView() {
     setCouponBusy(false);
   };
 
-  // bKash in its own pink, so customers spot it at once
   const methodCard = (m: OrderPayMethod, icon: React.ReactNode, hint: string, brand?: string) => (
     <label
       className={cx(
@@ -351,7 +350,14 @@ export function CheckoutView() {
           <h2 className="mb-5 font-serif text-[24px]">3. Payment</h2>
           {errors.method && <p className="mb-3 text-[13px] font-semibold text-red-600">{errors.method}</p>}
           <div className="grid gap-3 sm:grid-cols-2">
-            {methodCard("bKash", <Wallet className="size-5" />, "Send money from your bKash", "bg-[#E2136E] text-white")}
+            {methodCard(
+              "bKash",
+              // the bKash logo (public/pay/bkash.webp), so customers spot it at once
+              // eslint-disable-next-line @next/next/no-img-element -- a small fixed logo
+              <img src="/pay/bkash.webp" alt="" width={40} height={40} className="size-10 rounded-full" />,
+              "Send money from your bKash",
+              "overflow-hidden bg-white ring-1 ring-[#e2136e]/25",
+            )}
             {methodCard("Bank Transfer", <Landmark className="size-5" />, "From any bank account or app")}
           </div>
           <div className="mt-4">

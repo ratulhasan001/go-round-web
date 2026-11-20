@@ -12,6 +12,7 @@ import { WhatsAppIcon } from "./Icons";
 import { Panel, SeaField, SeaInput, btn, cx } from "./ui";
 import { useClientValue } from "@/components/ui";
 import { type BrowserKind, browserKind, inChrome } from "@/lib/inAppBrowser";
+import { couponLabel } from "@/lib/couponRules";
 
 /** Order status for guests: type the mobile number the order was placed with to see its orders, open one, get the receipt. */
 export function TrackView() {
@@ -291,6 +292,14 @@ export function OrderCard({
               <dt>Delivery · {order.zone}</dt>
               <dd className="font-bold tabular-nums">{order.deliveryQuote ? "By location - we'll message you" : order.delivery ? tk(order.delivery) : "Free"}</dd>
             </div>
+            {order.coupon && (
+              <div className="flex justify-between gap-3 text-sea-leaf">
+                <dt>
+                  Coupon {order.coupon.code} · {couponLabel(order.coupon)}
+                </dt>
+                <dd className="shrink-0 font-bold tabular-nums">{order.coupon.amount > 0 ? `− ${tk(order.coupon.amount)}` : "Applied"}</dd>
+              </div>
+            )}
             <div className="mt-1 flex justify-between text-[17px]">
               <dt className="font-extrabold">Total</dt>
               <dd className="font-extrabold tabular-nums">{tk(order.total)}</dd>

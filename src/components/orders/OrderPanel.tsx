@@ -27,6 +27,7 @@ import type { Order, OrderStatus } from "@/lib/types";
 import { Modal } from "../Modal";
 import { Button, Input, Label, Textarea, cx, useToast } from "../ui";
 import { PayChip, StatusChip, updateMessage } from "./shared";
+import { couponAmount, couponLabel } from "@/lib/couponRules";
 
 // "placed" moves on through Approve payment (see Body), which also makes the customer's receipt
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string; icon: React.ReactNode }>> = {
@@ -116,7 +117,9 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
   const setDelivery = () => {
     const fee = Math.max(0, Math.round(Number(charge) * 100) / 100);
     if (!charge.trim() || !Number.isFinite(fee)) return toast("Type the delivery charge", "err");
-    save({ ...o, delivery: fee, total: Math.round((o.subtotal + fee) * 100) / 100, deliveryQuote: false });
+    // a coupon keeps what it takes off (a free-delivery coupon now covers the charge too)
+    const coupon = o.coupon ? { ...o.coupon, amount: couponAmount(o.subtotal, fee, o.coupon) } : undefined;
+    save({ ...o, delivery: fee, ...(coupon ? { coupon } : {}), total: Math.round((o.subtotal + fee - (coupon?.amount ?? 0)) * 100) / 100, deliveryQuote: false });
     if (linked) saveInvoice({ ...linked, delivery: fee }, { remember: false });
     setCharge("");
     toast(`Delivery charge ${tk(fee)} added - send the customer an update`);
@@ -371,6 +374,14 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
             <dt className="text-muted">Delivery · {o.zone}</dt>
             <dd className="font-amount">{o.deliveryQuote ? "By location - tell the customer" : o.delivery ? tk(o.delivery) : "Free"}</dd>
           </div>
+          {o.coupon && (
+            <div className="flex justify-between gap-3 text-brand">
+              <dt>
+                Coupon {o.coupon.code} · {couponLabel(o.coupon)}
+              </dt>
+              <dd className="font-amount">{o.coupon.amount > 0 ? `− ${tk(o.coupon.amount)}` : "Applied"}</dd>
+            </div>
+          )}
           {!!o.weight && (
             <div className="flex justify-between">
               <dt className="text-muted">Parcel weight</dt>

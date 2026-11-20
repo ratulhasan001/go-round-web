@@ -29,7 +29,8 @@ export type EventKind =
   | "passkey-added"
   | "passkey-removed"
   | "reset-requested"
-  | "password-reset";
+  | "password-reset"
+  | "session-blocked"; // a session's cookie was used from another browser or country, and was ended
 
 /** This browser's own id: a random value kept in a cookie for a year, to tell a new device from a known one. */
 async function deviceId() {

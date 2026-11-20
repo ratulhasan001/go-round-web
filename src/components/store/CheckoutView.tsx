@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, Landmark, Loader2, Lock, Minus, Plus, ShoppingBag, Smartphone, TicketPercent, Trash2, X } from "lucide-react";
+import { Clock, Landmark, Loader2, Lock, Minus, Plus, ShoppingBag, TicketPercent, Trash2, Wallet, X } from "lucide-react";
 import { deliveryFee, extraKg, needsTrxAtCheckout, splitPoliceStation, tk, waLink } from "@/lib/site";
 import { POLICIES } from "@/lib/policies";
 import { couponAmount } from "@/lib/couponRules";
@@ -178,7 +178,8 @@ export function CheckoutView() {
     setCouponBusy(false);
   };
 
-  const methodCard = (m: OrderPayMethod, icon: React.ReactNode, hint: string) => (
+  // bKash in its own pink, so customers spot it at once
+  const methodCard = (m: OrderPayMethod, icon: React.ReactNode, hint: string, brand?: string) => (
     <label
       className={cx(
         "flex cursor-pointer items-center gap-3 rounded-2xl border bg-white p-4 transition",
@@ -186,7 +187,7 @@ export function CheckoutView() {
       )}
     >
       <input type="radio" name="method" value={m} checked={f.method === m} onChange={() => setF((x) => ({ ...x, method: m }))} className="sr-only" />
-      <span className={cx("grid size-10 shrink-0 place-items-center rounded-full", f.method === m ? "bg-sea-ink text-white" : "bg-sea-sand text-sea-ink")}>{icon}</span>
+      <span className={cx("grid size-10 shrink-0 place-items-center rounded-full", brand ?? (f.method === m ? "bg-sea-ink text-white" : "bg-sea-sand text-sea-ink"))}>{icon}</span>
       <span className="min-w-0">
         <span className="block text-[15px] font-extrabold">{m}</span>
         <span className="block text-[12.5px] text-sea-muted">{hint}</span>
@@ -350,7 +351,7 @@ export function CheckoutView() {
           <h2 className="mb-5 font-serif text-[24px]">3. Payment</h2>
           {errors.method && <p className="mb-3 text-[13px] font-semibold text-red-600">{errors.method}</p>}
           <div className="grid gap-3 sm:grid-cols-2">
-            {methodCard("bKash", <Smartphone className="size-5" />, "Send money from your bKash")}
+            {methodCard("bKash", <Wallet className="size-5" />, "Send money from your bKash", "bg-[#E2136E] text-white")}
             {methodCard("Bank Transfer", <Landmark className="size-5" />, "From any bank account or app")}
           </div>
           <div className="mt-4">

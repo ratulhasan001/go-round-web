@@ -164,6 +164,31 @@ export function ListEditor<T extends { id: string }>({
   });
 
   const tabs: Filter<T>[] = filters ? [{ label: "All", test: () => true }, ...filters] : [];
+  // each tab is as wide as its own label, so the sliding highlight is measured from the selected one
+  // (and that tab is scrolled into view when the row is too long for the card)
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const pillRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = tabRefs.current[tab];
+    const pill = pillRef.current;
+    const list = el?.parentElement;
+    if (!el || !pill || !list) return;
+    const place = () => {
+      pill.style.width = `${el.offsetWidth}px`;
+      pill.style.transform = `translateX(${el.offsetLeft - 4}px)`;
+    };
+    place();
+    const scroller = list.parentElement;
+    if (scroller && scroller.scrollWidth > scroller.clientWidth) {
+      const left = el.offsetLeft - 16;
+      const right = el.offsetLeft + el.offsetWidth + 16 - scroller.clientWidth;
+      if (scroller.scrollLeft > left) scroller.scrollLeft = left;
+      else if (scroller.scrollLeft < right) scroller.scrollLeft = right;
+    }
+    const ro = new ResizeObserver(place); // counts change, fonts load
+    ro.observe(list);
+    return () => ro.disconnect();
+  }, [tab, tabs.length]);
   const needle = q.trim().toLowerCase();
   const visible = ordered.filter(
     (r) =>
@@ -310,32 +335,30 @@ export function ListEditor<T extends { id: string }>({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-b border-line p-4 pt-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            {tabs.length > 0 && (
-              <div className="-mx-4 shrink-0 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
-              <div
-                role="tablist"
-                aria-label={`Filter ${title.toLowerCase()}`}
-                className="relative grid h-10 w-max min-w-full rounded-xl bg-canvas p-1 sm:min-w-0"
-                style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
-              >
+        <div className="flex flex-wrap items-center gap-3 border-b border-line p-4 pt-3">
+          {tabs.length > 0 && (
+            // never wider than the card: a row of tabs too long for it scrolls sideways
+            <div className="-mx-4 w-[calc(100%+2rem)] overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:w-auto sm:max-w-full sm:px-0 [&::-webkit-scrollbar]:hidden">
+              <div role="tablist" aria-label={`Filter ${title.toLowerCase()}`} className="relative flex h-10 w-max min-w-full rounded-xl bg-canvas p-1 sm:min-w-0">
                 {/* sliding highlight */}
                 <span
+                  ref={pillRef}
                   aria-hidden
-                  className="absolute inset-y-1 left-1 rounded-lg bg-white shadow-sm shadow-black/10 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-                  style={{ width: `calc((100% - 0.5rem) / ${tabs.length})`, transform: `translateX(${tab * 100}%)` }}
+                  className="absolute inset-y-1 left-1 rounded-lg bg-white shadow-sm shadow-black/10 transition-[transform,width] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
                 />
                 {tabs.map((f, i) => {
                   const n = rows.filter(f.test).length;
                   return (
                     <button
                       key={f.label}
+                      ref={(b) => {
+                        tabRefs.current[i] = b;
+                      }}
                       role="tab"
                       aria-selected={tab === i}
                       onClick={() => setTab(i)}
                       className={cx(
-                        "relative z-10 flex items-center justify-center gap-1 whitespace-nowrap px-1.5 text-[12px] sm:gap-1.5 sm:px-3 sm:text-[13px] font-semibold transition-colors",
+                        "relative z-10 flex flex-1 items-center justify-center gap-1 whitespace-nowrap px-2.5 text-[12px] font-semibold transition-colors sm:flex-none sm:gap-1.5 sm:px-3 sm:text-[13px]",
                         tab === i ? "text-ink" : "text-muted hover:text-ink",
                       )}
                     >
@@ -353,8 +376,10 @@ export function ListEditor<T extends { id: string }>({
                   );
                 })}
               </div>
-              </div>
-            )}
+            </div>
+          )}
+          {/* the sort box and the count stay together: after the tabs when there's room, on a line of their own when not */}
+          <div className="flex min-w-[min(100%,20rem)] flex-1 items-center justify-between gap-3">
             {sorts && sorts.length > 1 && (
               <div className="flex shrink-0 items-center gap-2">
                 <div className="relative">
@@ -380,13 +405,13 @@ export function ListEditor<T extends { id: string }>({
                 </div>
               </div>
             )}
+            <span className="ml-auto shrink-0 text-[13px] font-semibold text-muted">
+              <span key={rows.length} className="animate-count-bump inline-block tabular-nums text-ink">
+                {rows.length}
+              </span>{" "}
+              saved<span className="hidden sm:inline"> · auto-saves</span>
+            </span>
           </div>
-          <span className="shrink-0 text-[13px] font-semibold text-muted">
-            <span key={rows.length} className="animate-count-bump inline-block tabular-nums text-ink">
-              {rows.length}
-            </span>{" "}
-            saved<span className="hidden sm:inline"> · auto-saves</span>
-          </span>
         </div>
 
         <div className={cx("hidden gap-3 px-4 pt-3 text-[11.5px] font-semibold uppercase tracking-wide text-muted", L.head)} style={{ gridTemplateColumns: grid }}>

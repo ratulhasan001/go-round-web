@@ -1342,11 +1342,10 @@ input[type="number"] {
 }
 
 /* ---------- planted tank (components/PlantedTank.tsx) ---------- */
-.pt-sway,
-.pt-flip {
+.pt-sway {
   transform-box: fill-box;
 }
-/* phones and tablets: the plants and light rays hold still (the fish and bubbles, on their own layer, keep moving) */
+/* phones and tablets: the plants and light rays hold still (the aquarium's fish and bubbles keep moving) */
 @media (pointer: coarse), (max-width: 767px) {
   .pt-scene .pt-sway,
   .pt-scene .pt-ray {
@@ -1379,56 +1378,6 @@ input[type="number"] {
     transform: rotate(2.4deg) skewX(2deg);
   }
 }
-/* a tetra swims across, turns, swims back and turns again */
-@keyframes pt-swim {
-  0% {
-    transform: translateX(0);
-  }
-  48% {
-    transform: translateX(var(--reach));
-  }
-  52% {
-    transform: translateX(var(--reach));
-  }
-  98% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(0);
-  }
-}
-.pt-swim {
-  animation: pt-swim var(--dur, 36s) ease-in-out var(--delay, 0s) infinite;
-}
-@keyframes pt-flip {
-  0%,
-  48% {
-    transform: scaleX(1);
-  }
-  52%,
-  98% {
-    transform: scaleX(-1);
-  }
-  100% {
-    transform: scaleX(1);
-  }
-}
-.pt-flip {
-  transform-origin: center;
-  animation: pt-flip var(--dur, 36s) ease-in-out var(--delay, 0s) infinite;
-}
-@keyframes pt-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(var(--bob, 5px));
-  }
-}
-.pt-bob {
-  animation: pt-bob 3.4s ease-in-out infinite;
-}
 @keyframes pt-ray {
   0%,
   100% {
@@ -1441,36 +1390,10 @@ input[type="number"] {
 .pt-ray {
   animation: pt-ray 9s ease-in-out infinite;
 }
-@keyframes pt-bubble {
-  0% {
-    transform: translateY(0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 0.9;
-  }
-  100% {
-    transform: translateY(-660px);
-    opacity: 0;
-  }
-}
-.pt-bubble {
-  animation: pt-bubble 7s linear infinite;
-}
 @media (prefers-reduced-motion: reduce) {
   .pt-sway,
-  .pt-swim,
-  .pt-flip,
-  .pt-bob,
-  .pt-ray,
-  .pt-bubble {
+  .pt-ray {
     animation: none !important;
-  }
-  .pt-bubble {
-    opacity: 0;
   }
 }
 

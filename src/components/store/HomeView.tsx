@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { ArrowRight, BadgePercent, LayoutGrid, PackageCheck, Search, ShoppingBag, Sparkles, Store, Wallet, Zap } from "lucide-react";
-import { avgRating, heroShowcase, inCategory, waLink, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
+import { avgRating, heroShowcase, inCategory, tk, waLink, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
 import { categoryIcon } from "@/lib/categoryIcons";
 import type { HomeSectionKey } from "@/lib/types";
 import type { PublicReview } from "@/lib/server/reviews";
@@ -350,10 +350,17 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
                       className={`relative block aspect-square overflow-hidden rounded-[28px] shadow-[0_30px_60px_-30px_rgba(17,58,45,0.6)] ring-1 ring-sea-line transition-[rotate,scale] duration-500 hover:rotate-0 hover:scale-[1.03] ${["-rotate-4", "rotate-5", "-rotate-2"][i]}`}
                     >
                       <ProductImage src={p.images[0]} name={p.name} eager />
-                      {home.showcase.source === "sale" && p.regularPrice > p.price && (
-                        <span className="absolute left-3 top-3 rounded-full bg-sea-teal px-2.5 py-1 text-[12px] font-extrabold text-white shadow">
-                          {Math.round((1 - p.price / p.regularPrice) * 100)}% OFF
-                        </span>
+                      {/* anything discounted shows how much off, and its price now - whatever the photos are showing */}
+                      {p.regularPrice > p.price && (
+                        <>
+                          <span className="absolute left-3 top-3 rounded-full bg-[#e11d48] px-2.5 py-1 text-[12px] font-extrabold text-white shadow-md">
+                            {Math.round((1 - p.price / p.regularPrice) * 100)}% OFF
+                          </span>
+                          <span className="absolute bottom-3 left-3 inline-flex items-baseline gap-1.5 rounded-full bg-white/95 px-3 py-1 shadow-md ring-1 ring-sea-line">
+                            <span className="text-[14px] font-extrabold text-sea-ink">{tk(p.price)}</span>
+                            <span className="text-[12px] font-semibold text-sea-muted line-through">{tk(p.regularPrice)}</span>
+                          </span>
+                        </>
                       )}
                     </Link>
                   </div>

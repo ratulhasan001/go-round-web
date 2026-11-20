@@ -108,7 +108,7 @@ async function page(request: NextRequest, area: Area, opts: { rewrite?: URL; sto
 }
 
 export const config = {
-  // skip static files, fonts, icons and the logo so the login page can still load them, and the share picture link
-  // previews read (og.png), which must answer as it is on every address
-  matcher: ["/((?!_next/static|_next/image|fonts/|favicon.ico|icon.png|apple-icon.png|icon-192.png|icon-512.png|logo.png|og.png|manifest.webmanifest).*)"],
+  // skip static files, fonts, icons and the logo so the login page can still load them, and the files search engines
+  // and link previews read (robots.txt, sitemap.xml, the share picture), which must answer as they are on every address
+  matcher: ["/((?!_next/static|_next/image|fonts/|favicon.ico|icon.png|apple-icon.png|icon-192.png|icon-512.png|logo.png|og.png|robots.txt|sitemap.xml|manifest.webmanifest).*)"],
 };

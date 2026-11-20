@@ -94,7 +94,8 @@ function linkCoupon(coupons: CouponCode[], inv: Invoice, deleted = false): Coupo
 
 function linkUse(c: CouponCode, inv: Invoice, uses: boolean): CouponCode {
   const mine = !!c.usedOn && usedBy(c, inv);
-  const release = () => ({ ...c, usedOn: "", usedInvoice: undefined, usedInvoiceId: undefined, updatedAt: Date.now() });
+  // a coupon a website order took stays that order's while the order lasts (the server frees it if the order goes)
+  const release = () => (c.usedOrderId ? { ...c, usedInvoice: undefined, usedInvoiceId: undefined, updatedAt: Date.now() } : { ...c, usedOn: "", usedInvoice: undefined, usedInvoiceId: undefined, updatedAt: Date.now() });
   if (uses && (!c.usedOn || mine)) {
     if (couponProblem(c, inv, inv.customer, inv.date)) return mine ? release() : c;
     if (!mine || c.usedOn !== inv.date || c.usedInvoice !== inv.number || c.usedInvoiceId !== inv.id)

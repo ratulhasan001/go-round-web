@@ -52,6 +52,8 @@ export async function contentSecurityPolicy(o: { nonce: string; area: Area; dev:
     "base-uri": ["'none'"],
     "form-action": ["'self'"],
     "frame-ancestors": o.framedByAdmin ? ["'self'", `https://${HOSTS.admin}`] : ["'none'"],
+    // anything blocked is logged by src/app/api/site/csp-report/route.ts
+    "report-uri": ["/api/site/csp-report"],
   };
   return Object.entries(rules)
     .map(([k, v]) => [k, ...v.filter(Boolean)].join(" "))

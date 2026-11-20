@@ -51,7 +51,7 @@ export function Devices() {
       <SectionTitle
         icon={<Laptop className="size-4" />}
         title="Logged-in devices"
-        hint="Each login lasts 3 hours, then asks again. Log out any device you don't recognise."
+        hint="Each login lasts 2 hours (or until 30 minutes without use), then asks again. Log out any device you don't recognise."
         action={
           others.length > 0 && (
             <Button size="sm" variant="danger" loading={busy === "all"} onClick={() => logOut({ others: true }, "all")}>

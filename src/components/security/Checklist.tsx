@@ -26,7 +26,7 @@ export function Checklist() {
   const done = ITEMS.filter((i) => s[i.key]).length;
   return (
     <Card className="p-5 sm:p-6">
-      <SectionTitle icon={<ListChecks className="size-4" />} title={`Security checklist · ${done} of ${ITEMS.length} done`} hint="Every login already ends after 3 hours, and wrong passwords lock the login for longer each time." />
+      <SectionTitle icon={<ListChecks className="size-4" />} title={`Security checklist · ${done} of ${ITEMS.length} done`} hint="Every login already ends after 2 hours, and wrong passwords lock the login for longer each time." />
       <div className="mb-4 h-2 overflow-hidden rounded-full bg-line">
         <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${(done / ITEMS.length) * 100}%` }} />
       </div>

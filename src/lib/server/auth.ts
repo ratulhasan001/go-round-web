@@ -6,7 +6,7 @@ import { db, dbEnabled, ensureSchema } from "./db";
 /**
  * Admin login sessions. Each login gets its own random token, kept in an httpOnly cookie on that device; only a hash
  * of it is stored (gr_admin_sessions), so one device can be logged out on its own and a database copy can't be used
- * to log in. A session ends 3 hours after the login, however busy it is - or sooner, after IDLE_MINUTES without a single
+ * to log in. A session ends 2 hours after the login, however busy it is - or sooner, after IDLE_MINUTES without a single
  * request. It also only works in the browser and country it logged in from: a cookie copied elsewhere ends it.
  */
 const PROD = process.env.NODE_ENV === "production";
@@ -14,7 +14,8 @@ const PROD = process.env.NODE_ENV === "production";
 export const SESSION_COOKIE = PROD ? "__Host-gr_admin" : "gr_admin";
 /** The cookie of the old one-for-every-device login, cleared on the next login or logout. */
 export const OLD_SESSION_COOKIE = "gr_session";
-export const SESSION_HOURS = 3;
+/** How long a login lasts, however busy it is (the user's choice, 2026-11-20: "keep it 2 hours", then log in again). */
+export const SESSION_HOURS = 2;
 /** A session ends after this long without any request from it (the admin panel also logs itself out after this long
  *  without the admin touching it - see src/lib/store.tsx). */
 export const IDLE_MINUTES = ADMIN_IDLE_MINUTES;

@@ -18,6 +18,13 @@ const NO_FRAMING = [
 ];
 
 const nextConfig: NextConfig = {
+  // customers' receipt PDFs are drawn on the server (src/lib/server/receiptPdf.ts). The canvas library loads a native
+  // add-on, so it is required as it is instead of bundled
+  serverExternalPackages: ["@napi-rs/canvas"],
+  // public/ isn't part of server functions on Vercel, so ship the fonts and pictures the receipt is drawn with
+  outputFileTracingIncludes: {
+    "/api/site/receipt/*": ["./public/fonts/*.ttf", "./public/fonts/*.woff", "./public/sign.png", "./public/logo.png"],
+  },
   // the customer page "Track your order" became "Order status"; old links still work
   async redirects() {
     return [{ source: "/store/track", destination: "/store/order-status", permanent: true }];

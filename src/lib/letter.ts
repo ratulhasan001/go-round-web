@@ -26,17 +26,7 @@ export const formatRef = (n: number) => `${LETTER_PREFIX}${String(n).padStart(4,
 export const nextLetterRef = (letters: Letter[], skipId?: string) =>
   formatRef(Math.max(0, ...letters.filter((l) => l.id !== skipId).map((l) => refNumber(l.ref))) + 1);
 
-/** The letterhead's contact block, under the shop name (and in the footer). */
-export const LETTERHEAD_ADDRESS = "Dhaka/Khulna, Bangladesh";
-export const LETTERHEAD_PHONE = "+8801309372143";
-/** The support address printed on the letterhead, receipts and ID cards (an empty saved email falls back to it). */
-export const SUPPORT_EMAIL = "contact@goroundbd.com";
-export const supportEmail = (shop: Pick<Shop, "email">) => shop.email?.trim() || SUPPORT_EMAIL;
-export const contactLines = (shop: Shop) =>
-  [`Address: ${LETTERHEAD_ADDRESS}`, `Contact: ${LETTERHEAD_PHONE}`, [`Support: ${supportEmail(shop)}`, shop.website].filter(Boolean).join("  ·  ")];
-
-/** The contact block on receipts (bill copies), one line each - the same details as the letterhead. */
-export const billLines = (shop: Pick<Shop, "email">) => [`Address: ${LETTERHEAD_ADDRESS}`, `Contact: ${LETTERHEAD_PHONE}`, `Support: ${supportEmail(shop)}`];
+export { LETTERHEAD_ADDRESS, LETTERHEAD_PHONE, SUPPORT_EMAIL, supportEmail, contactLines, billLines } from "./contact";
 
 /** A one-line summary for lists. */
 export const letterTitle = (l: Letter) => l.subject.trim() || l.to.trim().split("\n")[0] || "Untitled letter";

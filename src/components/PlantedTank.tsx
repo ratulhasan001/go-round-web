@@ -228,182 +228,357 @@ function Tufts({ xs, seed }: { xs: number[]; seed: number }) {
   );
 }
 
-/** A neon tetra facing right, about 48 units long. */
-function Tetra() {
+/** A rummy-nose tetra facing right, about 46 units long: silver body, bright red nose, black-and-white striped tail. */
+function RummyNose() {
   return (
     <g>
-      <path d="M1 -6 L11 0 L1 6 Q4 0 1 -6 Z" fill="#e7eef0" opacity="0.75" />
-      <ellipse cx="26" cy="0" rx="18" ry="6.6" fill="#dfe8ec" opacity="0.92" />
-      <path d="M11 0.6 Q21 7.2 34 4.4 Q25 2 11 0.6 Z" fill="#e8434c" />
-      <path d="M14 -1.4 Q28 -4.6 42 -1.6" stroke="#2bb8ff" strokeWidth="2.8" strokeLinecap="round" fill="none" />
-      <path d="M14 -1.4 Q28 -4.6 42 -1.6" stroke="#9be3ff" strokeWidth="0.9" strokeLinecap="round" fill="none" opacity="0.9" />
-      <path d="M22 -6 Q26 -10 30 -6" fill="#dfe8ec" opacity="0.8" />
-      <circle cx="39" cy="-0.6" r="2.3" fill="#ffffff" />
-      <circle cx="39.4" cy="-0.6" r="1.4" fill="#18242b" />
+      {/* tail: white lobes with the three black bars */}
+      <path d="M1 -7 L12 0 L1 7 Q4.5 0 1 -7 Z" fill="#f4f7f8" opacity="0.92" />
+      <path d="M0.6 -1.3 L12 -0.5 L12 0.5 L0.6 1.3 Z" fill="#1c2124" />
+      <path d="M1.8 -6 L7 -3.4 L6.4 -2.4 L1.6 -4.4 Z" fill="#1c2124" />
+      <path d="M1.8 6 L7 3.4 L6.4 2.4 L1.6 4.4 Z" fill="#1c2124" />
+      {/* body, silver with a faint green sheen along the back */}
+      <ellipse cx="27" cy="0" rx="17" ry="5.6" fill="#e3eaec" opacity="0.95" />
+      <path d="M13 -2.6 Q27 -6.2 40 -3" stroke="#c9d9c8" strokeWidth="1.4" fill="none" opacity="0.8" />
+      <path d="M22 -5.4 Q25 -9.6 29 -5.4" fill="#e3eaec" opacity="0.8" />
+      {/* the red head */}
+      <path d="M33 -5.2 Q42 -4.6 45 0 Q42 4.6 33 5.2 Q36.5 0 33 -5.2 Z" fill="#e2333b" />
+      <circle cx="40" cy="-0.8" r="2.1" fill="#ffd9d9" />
+      <circle cx="40.3" cy="-0.8" r="1.25" fill="#1b1416" />
     </g>
   );
 }
 
-/** Where each tetra starts, how far it swims across and back, and how long that takes. */
-const SCHOOL = [
-  { x: 420, y: 250, s: 1.94, reach: 640, dur: 36, delay: 0, bob: 5 },
-  { x: 470, y: 222, s: 1.78, reach: 650, dur: 36, delay: -0.6, bob: 6 },
-  { x: 500, y: 268, s: 1.86, reach: 630, dur: 36, delay: -1.1, bob: 4.6 },
-  { x: 380, y: 286, s: 1.71, reach: 660, dur: 37, delay: -0.3, bob: 5.4 },
-  { x: 545, y: 240, s: 1.63, reach: 620, dur: 36.5, delay: -1.6, bob: 6.2 },
-  { x: 440, y: 305, s: 1.78, reach: 650, dur: 37.5, delay: -0.9, bob: 5 },
-  { x: 900, y: 430, s: 1.47, reach: 380, dur: 28, delay: -14, bob: 4.2 },
-  { x: 950, y: 455, s: 1.4, reach: 360, dur: 28, delay: -14.7, bob: 5.2 },
-  { x: 870, y: 470, s: 1.43, reach: 390, dur: 29, delay: -13.5, bob: 4.8 },
+/** A harlequin rasbora facing right, about 46 units long: deep copper body with the black wedge, red-tinted fins. */
+function Harlequin() {
+  return (
+    <g>
+      <path d="M1 -7.6 L12 0 L1 7.6 Q4.5 0 1 -7.6 Z" fill="#f08c63" opacity="0.7" />
+      <ellipse cx="27" cy="0" rx="17" ry="7.6" fill="#f2a27f" />
+      <path d="M13 1 Q27 9 41 2" fill="#f7c3a4" opacity="0.7" />
+      {/* the black triangle from mid-body to the tail */}
+      <path d="M27 -5.6 L13 0.4 L27 6.2 Q29.5 0.6 27 -5.6 Z" fill="#231b1c" />
+      <path d="M20 -7.2 Q25 -12.6 31 -7.2" fill="#e8734d" opacity="0.85" />
+      <path d="M24 7 Q27 11 31 7" fill="#e8734d" opacity="0.7" />
+      <circle cx="39.5" cy="-1.4" r="2.2" fill="#fff4ee" />
+      <circle cx="39.8" cy="-1.4" r="1.3" fill="#1b1416" />
+    </g>
+  );
+}
+
+/**
+ * The two schools: where each fish starts, how far it swims across and back, and how long that takes - slow, so they
+ * glide rather than dart. Rummy-noses keep tight together up high; the harlequins drift lower, past the rocks.
+ */
+const RUMMY = [
+  { x: 430, y: 236, s: 1.9, reach: 560, dur: 48, delay: 0, bob: 4 },
+  { x: 476, y: 214, s: 1.8, reach: 570, dur: 48, delay: -0.5, bob: 4.6 },
+  { x: 506, y: 252, s: 1.86, reach: 550, dur: 48, delay: -0.9, bob: 3.8 },
+  { x: 398, y: 268, s: 1.74, reach: 580, dur: 49, delay: -0.3, bob: 4.2 },
+  { x: 546, y: 230, s: 1.68, reach: 540, dur: 48.5, delay: -1.3, bob: 5 },
+  { x: 452, y: 288, s: 1.8, reach: 560, dur: 49.5, delay: -0.7, bob: 4 },
+  { x: 520, y: 282, s: 1.7, reach: 545, dur: 49, delay: -1.1, bob: 4.4 },
+  { x: 372, y: 230, s: 1.66, reach: 585, dur: 48.5, delay: -0.2, bob: 4.8 },
+];
+const HARLEQUIN = [
+  { x: 860, y: 420, s: 1.62, reach: 420, dur: 42, delay: -12, bob: 4.4 },
+  { x: 910, y: 446, s: 1.55, reach: 400, dur: 42, delay: -12.6, bob: 5 },
+  { x: 832, y: 458, s: 1.58, reach: 430, dur: 43, delay: -11.5, bob: 4.2 },
+  { x: 952, y: 412, s: 1.5, reach: 390, dur: 42.5, delay: -13.2, bob: 4.8 },
+  { x: 884, y: 486, s: 1.52, reach: 410, dur: 43.5, delay: -12.2, bob: 4 },
+  { x: 980, y: 470, s: 1.46, reach: 380, dur: 42, delay: -13.8, bob: 5.2 },
+  { x: 806, y: 432, s: 1.48, reach: 440, dur: 43, delay: -11, bob: 4.6 },
 ];
 
+/** Fine CO2 bubbles rising from the diffuser. */
 const BUBBLES = [
-  { x: 1342, r: 4, delay: 0, dur: 7 },
-  { x: 1350, r: 3, delay: -1.6, dur: 6.4 },
-  { x: 1338, r: 5, delay: -3.1, dur: 7.6 },
-  { x: 1347, r: 2.6, delay: -4.4, dur: 6.1 },
-  { x: 1344, r: 3.6, delay: -5.7, dur: 7.2 },
+  { x: 1346, r: 2.6, delay: 0, dur: 6.2 },
+  { x: 1352, r: 2, delay: -0.9, dur: 5.8 },
+  { x: 1342, r: 3, delay: -1.8, dur: 6.6 },
+  { x: 1349, r: 1.8, delay: -2.7, dur: 5.6 },
+  { x: 1344, r: 2.4, delay: -3.6, dur: 6.4 },
+  { x: 1351, r: 2.2, delay: -4.5, dur: 6 },
+  { x: 1340, r: 1.6, delay: -5.2, dur: 5.4 },
 ];
+
+/** The filter's intake inside the tank: a clear pipe down the back glass, with a slotted strainer near the soil. */
+function Intake({ x }: { x: number }) {
+  return (
+    <g>
+      <rect x={x - 7} y={30} width={14} height={600} rx={6} fill="#ffffff" fillOpacity="0.35" stroke="#7fb3a9" strokeOpacity="0.8" strokeWidth="2" />
+      <rect x={x - 2} y={34} width={3} height={590} fill="#ffffff" opacity="0.55" />
+      <rect x={x - 11} y={612} width={22} height={86} rx={8} fill="#ffffff" fillOpacity="0.4" stroke="#7fb3a9" strokeWidth="2" />
+      {Array.from({ length: 6 }, (_, i) => (
+        <rect key={i} x={x - 7} y={622 + i * 12} width={14} height={4} rx={2} fill="#7fb3a9" opacity="0.7" />
+      ))}
+    </g>
+  );
+}
+
+/** The filter's outflow: a glass lily pipe hooked over the rim, its mouth turned into the tank. */
+function LilyPipe({ x }: { x: number }) {
+  return (
+    <g fill="none" strokeLinecap="round">
+      <path d={`M${x} 26 L${x} 160 Q${x} 196 ${x - 34} 200`} stroke="#7fb3a9" strokeWidth="16" opacity="0.55" />
+      <path d={`M${x} 26 L${x} 160 Q${x} 196 ${x - 34} 200`} stroke="#ffffff" strokeWidth="9" opacity="0.5" />
+      <path d={`M${x - 30} 186 Q${x - 52} 190 ${x - 60} 210 Q${x - 44} 214 ${x - 30} 214`} fill="#ffffff" fillOpacity="0.4" stroke="#7fb3a9" strokeWidth="2" />
+    </g>
+  );
+}
+
+/** The CO2 diffuser on the back glass (a glass cup with a ceramic disc) and its thin tube up over the rim. */
+function Diffuser({ x, y, airstone = false }: { x: number; y: number; airstone?: boolean }) {
+  return (
+    <g data-airstone={airstone || undefined}>
+      <path d={`M${x + 18} 26 L${x + 18} ${y - 14}`} stroke="#ffffff" strokeWidth="3" opacity="0.7" />
+      <path d={`M${x + 18} 26 L${x + 18} ${y - 14}`} stroke="#9cc2bb" strokeWidth="1.2" opacity="0.8" />
+      <path d={`M${x + 18} ${y - 14} Q${x + 18} ${y - 4} ${x + 6} ${y + 4}`} stroke="#ffffff" strokeWidth="3" fill="none" opacity="0.7" />
+      <ellipse cx={x} cy={y + 14} rx={16} ry={12} fill="#ffffff" fillOpacity="0.45" stroke="#8fbab2" strokeWidth="2" />
+      <ellipse cx={x} cy={y + 8} rx={12} ry={5} fill="#f1f4f2" stroke="#c9d6d2" strokeWidth="1.5" />
+    </g>
+  );
+}
+
+/** A CO2 drop checker on the glass: green liquid means the CO2 level is right. */
+function DropChecker({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <circle cx={x} cy={y} r={15} fill="#ffffff" fillOpacity="0.45" stroke="#8fbab2" strokeWidth="2" />
+      <path d={`M${x - 10} ${y + 4} Q${x} ${y + 15} ${x + 10} ${y + 4} Z`} fill="#6cc04a" opacity="0.9" />
+      <rect x={x - 4} y={y - 34} width={8} height={22} rx={3} fill="#ffffff" fillOpacity="0.5" stroke="#8fbab2" strokeWidth="1.5" />
+    </g>
+  );
+}
+
+/** The LED light resting on the tank's rim, with its glow on the water below. */
+export function Light({ dark, night = 0 }: { dark: boolean; night?: number }) {
+  return (
+    <svg viewBox="0 0 1600 64" preserveAspectRatio="none" className="pointer-events-none relative z-[1] -mb-[2px] block h-auto w-full" aria-hidden>
+      <defs>
+        <linearGradient id="pt-led-body" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={dark ? "#3a4743" : "#2b3a35"} />
+          <stop offset="1" stopColor={dark ? "#1d2522" : "#141d1a"} />
+        </linearGradient>
+      </defs>
+      {/* the legs that sit on the rim */}
+      <path d="M118 30 L96 64 M1482 30 L1504 64" stroke={dark ? "#9aa9a4" : "#55625e"} strokeWidth="7" strokeLinecap="round" />
+      <rect x="80" y="10" width="1440" height="24" rx="12" fill="url(#pt-led-body)" />
+      <rect x="96" y="14" width="1408" height="4" rx="2" fill="#ffffff" opacity="0.18" />
+      {/* the LEDs along the underside */}
+      {/* moonlight blue at night */}
+      <rect x="110" y="30" width="1380" height="6" rx="3" fill={night > 0.5 ? "#93c5fd" : "#fff8dc"} style={{ transition: "fill 2s" }} />
+      {Array.from({ length: 24 }, (_, i) => (
+        <circle key={i} cx={140 + i * 56} cy="33" r="3.2" fill={night > 0.5 ? "#dbeafe" : "#ffffff"} style={{ transition: "fill 2s" }} />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * The cabinet the tank stands on, open to show what lives in it: the canister filter (its hoses run up into the tank)
+ * and the CO2 cylinder with its regulator.
+ */
+export function Cabinet({ dark }: { dark: boolean }) {
+  const wood = dark ? "#0b261d" : "#113A2D";
+  return (
+    <svg viewBox="0 0 1600 190" preserveAspectRatio="xMidYMin meet" className="mx-[3%] block h-auto w-[94%]" aria-hidden>
+      <rect x="0" y="0" width="1600" height="190" rx="18" fill={wood} />
+      <rect x="0" y="0" width="1600" height="16" fill="#000000" opacity="0.25" />
+      {/* the open bay */}
+      <rect x="70" y="30" width="760" height="140" rx="10" fill="#071711" />
+      <rect x="70" y="30" width="760" height="140" rx="10" fill="#ffffff" opacity={dark ? 0.05 : 0.04} />
+      {/* canister filter: body, ribs, lid with handle, hoses up to the tank */}
+      <path d="M300 56 C 300 40, 300 34, 300 30 M346 56 C 346 40, 346 34, 346 30" stroke="#5c7c74" strokeWidth="10" fill="none" strokeLinecap="round" />
+      <rect x="250" y="60" width="150" height="104" rx="14" fill="#3f5651" />
+      <rect x="250" y="60" width="150" height="104" rx="14" fill="#ffffff" opacity="0.06" />
+      {[86, 106, 126, 146].map((y) => (
+        <rect key={y} x="258" y={y} width="134" height="3" rx="1.5" fill="#000000" opacity="0.3" />
+      ))}
+      <rect x="240" y="52" width="170" height="20" rx="8" fill="#3d514c" />
+      <path d="M262 52 Q325 18 388 52" stroke="#4d6560" strokeWidth="7" fill="none" />
+      <rect x="236" y="160" width="178" height="8" rx="4" fill="#1d2826" />
+      {/* CO2 cylinder: bottle, shoulder, regulator with gauge and solenoid, tubing up */}
+      <path d="M606 60 C 606 44, 606 36, 606 30" stroke="#c9d6d2" strokeWidth="3" fill="none" />
+      <rect x="540" y="78" width="56" height="88" rx="16" fill="#7d8a87" />
+      <rect x="548" y="84" width="9" height="74" rx="4" fill="#ffffff" opacity="0.35" />
+      <path d="M546 84 Q568 60 590 84 Z" fill="#c0392b" />
+      <rect x="560" y="58" width="16" height="16" rx="3" fill="#8f9b98" />
+      <circle cx="584" cy="52" r="13" fill="#d7dedc" stroke="#7d8a87" strokeWidth="3" />
+      <path d="M584 52 L590 44" stroke="#c0392b" strokeWidth="2.5" strokeLinecap="round" />
+      <rect x="598" y="58" width="16" height="14" rx="3" fill="#3a4a46" />
+      <rect x="528" y="164" width="80" height="6" rx="3" fill="#1d2826" />
+      {/* the closed door and its handle */}
+      <rect x="870" y="30" width="660" height="140" rx="10" fill="#ffffff" opacity={dark ? 0.08 : 0.07} />
+      <rect x="1180" y="88" width="40" height="8" rx="4" fill="#ffffff" opacity="0.35" />
+    </svg>
+  );
+}
+
+/**
+ * The planted scene itself - water and light, plants, driftwood, stones, soil and the equipment on the glass - drawn
+ * once, with nothing moving but the plants' sway. The static tank below and the interactive aquarium
+ * (components/aquarium) both stand their fish on it. `interactive` marks the CO2 diffuser for the aquarium's engine,
+ * which then sends its own bubbles up from it.
+ */
+export function PlantedScene({ id, interactive = false }: { id: string; interactive?: boolean }) {
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="xMidYMax slice"
+      className="pt-scene anim-zone absolute inset-0 size-full"
+      role="img"
+      aria-label="A planted aquarium under an LED light, with a canister filter and CO2 - rocks, driftwood, green plants, and schools of rummy-nose tetras and harlequin rasboras"
+    >
+      <defs>
+        <linearGradient id={`${id}-water`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f4fbfa" />
+          <stop offset="0.45" stopColor="#e1f3f0" />
+          <stop offset="1" stopColor="#c9e8e1" />
+        </linearGradient>
+        <linearGradient id={`${id}-ray`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.75" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${id}-rock`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#5d6468" />
+          <stop offset="0.55" stopColor="#3d4346" />
+          <stop offset="1" stopColor="#2a2f31" />
+        </linearGradient>
+        <linearGradient id={`${id}-rockshade`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0.45" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.35" />
+        </linearGradient>
+        <linearGradient id={`${id}-soilshade`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.45" />
+        </linearGradient>
+        <linearGradient id={`${id}-wood`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#6b4426" />
+          <stop offset="1" stopColor="#94653a" />
+        </linearGradient>
+        <pattern id={`${id}-soil`} width="36" height="36" patternUnits="userSpaceOnUse">
+          <rect width="36" height="36" fill="#1c1e1e" />
+          <circle cx="4" cy="5" r="3.2" fill="#2d3030" />
+          <circle cx="15" cy="3" r="2.6" fill="#141515" />
+          <circle cx="26" cy="7" r="3.4" fill="#343737" />
+          <circle cx="9" cy="15" r="2.8" fill="#272a2a" />
+          <circle cx="20" cy="17" r="3.6" fill="#101111" />
+          <circle cx="31" cy="18" r="2.6" fill="#2f3232" />
+          <circle cx="5" cy="27" r="3.4" fill="#141515" />
+          <circle cx="16" cy="29" r="2.4" fill="#383b3b" />
+          <circle cx="27" cy="29" r="3.2" fill="#232525" />
+          <circle cx="34" cy="33" r="1.8" fill="#3a3d3d" />
+        </pattern>
+      </defs>
+
+      {/* water, with soft light from the lamp above */}
+      <rect width={W} height={H} fill={`url(#${id}-water)`} />
+      <rect width={W} height="44" fill="#ffffff" opacity="0.55" />
+      <path d={`M0 44 H${W}`} stroke="#ffffff" strokeWidth="3" />
+      <path d={`M0 52 H${W}`} stroke="#bfe3dd" strokeWidth="1.5" strokeDasharray="60 40" opacity="0.6" />
+      {[
+        { d: "260,44 360,44 240,860 110,860", delay: 0 },
+        { d: "640,44 700,44 680,860 560,860", delay: -2.5 },
+        { d: "980,44 1060,44 1130,860 990,860", delay: -4.2 },
+        { d: "1300,44 1350,44 1470,860 1380,860", delay: -1.4 },
+      ].map((r, i) => (
+        <polygon key={i} className="pt-ray" points={r.d} fill={`url(#${id}-ray)`} style={{ animationDelay: `${r.delay}s` }} />
+      ))}
+
+      {/* back row: soft, faded stem plants */}
+      <Stems x={260} n={9} spread={22} h={430} tip="#8fcf63" greens={["#78b35b", "#8fc570"]} seed={3} opacity={0.5} />
+      <Stems x={760} n={10} spread={22} h={470} tip="#9fd46e" greens={["#76b25a", "#8cc46d"]} seed={4} opacity={0.45} />
+      <Stems x={1180} n={9} spread={22} h={440} tip="#e4895f" greens={["#79b45c", "#8ec66f"]} seed={5} opacity={0.5} />
+
+      {/* the filter's intake and outflow, and the CO2 drop checker, on the back glass */}
+      <Intake x={232} />
+      <LilyPipe x={1408} />
+      <DropChecker x={1486} y={330} />
+
+      {/* tall vallisneria in the back corners */}
+      <Blades from={0} to={200} n={18} hMin={420} hMax={640} seed={7} colors={["#4e9a3a", "#68b04a", "#3d8a33", "#7cc157"]} />
+      <Blades from={1430} to={1600} n={16} hMin={400} hMax={620} seed={8} colors={["#4e9a3a", "#68b04a", "#3d8a33", "#7cc157"]} />
+
+      {/* driftwood */}
+      <g strokeLinecap="round" fill="none">
+        <path d="M110 790 C 210 650, 300 565, 430 445 S 560 335, 610 300" stroke={`url(#${id}-wood)`} strokeWidth="46" />
+        <path d="M385 495 C 345 435, 322 390, 296 322" stroke={`url(#${id}-wood)`} strokeWidth="24" />
+        <path d="M300 330 C 285 300, 262 285, 240 280" stroke={`url(#${id}-wood)`} strokeWidth="12" />
+        <path d="M520 365 C 565 322, 640 300, 712 292" stroke={`url(#${id}-wood)`} strokeWidth="18" />
+        <path d="M650 298 C 680 270, 700 255, 730 248" stroke={`url(#${id}-wood)`} strokeWidth="9" />
+        <path d="M140 748 C 240 625, 330 548, 446 440 S 560 340, 600 312" stroke="#c19060" strokeWidth="7" opacity="0.55" />
+        <path d="M180 760 C 270 650, 350 575, 455 480" stroke="#4f3019" strokeWidth="6" opacity="0.5" />
+      </g>
+
+      {/* middle row: bushy stem plants, some with red tops */}
+      <Stems x={330} n={11} spread={20} h={360} tip="#d9473a" greens={["#3f8f35", "#5aa847"]} seed={11} />
+      <Stems x={880} n={9} spread={20} h={300} tip="#79c447" greens={["#3b8a33", "#56a645"]} seed={12} />
+      <Stems x={1270} n={11} spread={20} h={380} tip="#e36a3b" greens={["#3f8f35", "#5aa847"]} seed={13} />
+
+      {/* iwagumi stones */}
+      <Rock
+        id={id}
+        pts="470,770 505,600 560,470 640,392 700,402 752,500 790,620 812,770"
+        face="560,470 640,392 690,420 650,540 580,610 520,600"
+        lines={["M520 640 L610 560 L700 520", "M545 700 L650 620 L770 600", "M600 460 L680 430"]}
+      />
+      <Rock
+        id={id}
+        pts="985,772 1005,640 1060,525 1115,478 1170,500 1222,600 1252,772"
+        face="1060,525 1115,478 1150,494 1120,600 1060,650 1018,640"
+        lines={["M1030 700 L1110 640 L1210 640", "M1060 600 L1150 560"]}
+      />
+      <Rock id={id} pts="826,772 846,712 890,684 930,700 950,772" face="846,712 890,684 905,700 870,740" lines={["M850 745 L920 725"]} />
+      <Rock id={id} pts="1290,772 1310,726 1350,708 1382,734 1394,772" face="1310,726 1350,708 1360,724 1330,750" lines={[]} />
+      <Rock id={id} pts="400,772 412,738 446,726 470,746 474,772" face="412,738 446,726 452,738 428,756" lines={[]} />
+      <Anubias x={1112} y={484} />
+      {/* the CO2 diffuser behind the small rock: its fine bubbles rise on the moving layer */}
+      <Diffuser x={1346} y={668} airstone={interactive} />
+
+      <Sword x={1500} seed={17} />
+
+      {/* the soil, with the front glass showing its grains */}
+      <path d={SOIL_PATH} fill={`url(#${id}-soil)`} />
+      <path d={SOIL_PATH} fill={`url(#${id}-soilshade)`} />
+      <path d={SOIL_TOP} stroke="#4a4f4f" strokeWidth="5" fill="none" opacity="0.8" />
+      <Tufts xs={[460, 560, 700, 820, 960, 1060, 1240, 1400]} seed={21} />
+      <Carpet seed={23} />
+    </svg>
+  );
+}
 
 export function PlantedTank({ className, dark = false, caption }: { className?: string; dark?: boolean; caption?: React.ReactNode }) {
   const id = "pt" + useId().replace(/[^a-zA-Z0-9]/g, "");
   return (
     <figure className={cx("relative w-full", className)}>
+      <Light dark={dark} />
       <div
         className={cx(
           "relative overflow-hidden rounded-[22px] border-[3px] border-t-[9px] aspect-[4/3] sm:aspect-[16/9]",
           dark ? "border-[#cfe6e2]/70 border-t-[#0b261d] shadow-[0_30px_70px_-30px_rgba(0,0,0,0.65)]" : "border-[#d3e5e2] border-t-[#113A2D] shadow-[0_30px_60px_-34px_rgba(17,58,45,0.55)]",
         )}
       >
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" className="pt-scene anim-zone absolute inset-0 size-full" role="img" aria-label="A planted aquarium with rocks, driftwood, green plants and a school of neon tetras">
-          <defs>
-            <linearGradient id={`${id}-water`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#f4fbfa" />
-              <stop offset="0.45" stopColor="#e1f3f0" />
-              <stop offset="1" stopColor="#c9e8e1" />
-            </linearGradient>
-            <linearGradient id={`${id}-ray`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#ffffff" stopOpacity="0.75" />
-              <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id={`${id}-rock`} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#5d6468" />
-              <stop offset="0.55" stopColor="#3d4346" />
-              <stop offset="1" stopColor="#2a2f31" />
-            </linearGradient>
-            <linearGradient id={`${id}-rockshade`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0.45" stopColor="#000" stopOpacity="0" />
-              <stop offset="1" stopColor="#000" stopOpacity="0.35" />
-            </linearGradient>
-            <linearGradient id={`${id}-soilshade`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#000" stopOpacity="0" />
-              <stop offset="1" stopColor="#000" stopOpacity="0.45" />
-            </linearGradient>
-            <linearGradient id={`${id}-wood`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stopColor="#6b4426" />
-              <stop offset="1" stopColor="#94653a" />
-            </linearGradient>
-            <pattern id={`${id}-soil`} width="36" height="36" patternUnits="userSpaceOnUse">
-              <rect width="36" height="36" fill="#1c1e1e" />
-              <circle cx="4" cy="5" r="3.2" fill="#2d3030" />
-              <circle cx="15" cy="3" r="2.6" fill="#141515" />
-              <circle cx="26" cy="7" r="3.4" fill="#343737" />
-              <circle cx="9" cy="15" r="2.8" fill="#272a2a" />
-              <circle cx="20" cy="17" r="3.6" fill="#101111" />
-              <circle cx="31" cy="18" r="2.6" fill="#2f3232" />
-              <circle cx="5" cy="27" r="3.4" fill="#141515" />
-              <circle cx="16" cy="29" r="2.4" fill="#383b3b" />
-              <circle cx="27" cy="29" r="3.2" fill="#232525" />
-              <circle cx="34" cy="33" r="1.8" fill="#3a3d3d" />
-            </pattern>
-          </defs>
-
-          {/* water, with soft light from the lamp above */}
-          <rect width={W} height={H} fill={`url(#${id}-water)`} />
-          <rect width={W} height="44" fill="#ffffff" opacity="0.55" />
-          <path d={`M0 44 H${W}`} stroke="#ffffff" strokeWidth="3" />
-          <path d={`M0 52 H${W}`} stroke="#bfe3dd" strokeWidth="1.5" strokeDasharray="60 40" opacity="0.6" />
-          {[
-            { d: "260,44 360,44 240,860 110,860", delay: 0 },
-            { d: "640,44 700,44 680,860 560,860", delay: -2.5 },
-            { d: "980,44 1060,44 1130,860 990,860", delay: -4.2 },
-            { d: "1300,44 1350,44 1470,860 1380,860", delay: -1.4 },
-          ].map((r, i) => (
-            <polygon key={i} className="pt-ray" points={r.d} fill={`url(#${id}-ray)`} style={{ animationDelay: `${r.delay}s` }} />
-          ))}
-
-          {/* back row: soft, faded stem plants */}
-          <Stems x={260} n={9} spread={22} h={430} tip="#8fcf63" greens={["#78b35b", "#8fc570"]} seed={3} opacity={0.5} />
-          <Stems x={760} n={10} spread={22} h={470} tip="#9fd46e" greens={["#76b25a", "#8cc46d"]} seed={4} opacity={0.45} />
-          <Stems x={1180} n={9} spread={22} h={440} tip="#e4895f" greens={["#79b45c", "#8ec66f"]} seed={5} opacity={0.5} />
-
-          {/* tall vallisneria in the back corners */}
-          <Blades from={0} to={200} n={18} hMin={420} hMax={640} seed={7} colors={["#4e9a3a", "#68b04a", "#3d8a33", "#7cc157"]} />
-          <Blades from={1430} to={1600} n={16} hMin={400} hMax={620} seed={8} colors={["#4e9a3a", "#68b04a", "#3d8a33", "#7cc157"]} />
-
-          {/* driftwood */}
-          <g strokeLinecap="round" fill="none">
-            <path d="M110 790 C 210 650, 300 565, 430 445 S 560 335, 610 300" stroke={`url(#${id}-wood)`} strokeWidth="46" />
-            <path d="M385 495 C 345 435, 322 390, 296 322" stroke={`url(#${id}-wood)`} strokeWidth="24" />
-            <path d="M300 330 C 285 300, 262 285, 240 280" stroke={`url(#${id}-wood)`} strokeWidth="12" />
-            <path d="M520 365 C 565 322, 640 300, 712 292" stroke={`url(#${id}-wood)`} strokeWidth="18" />
-            <path d="M650 298 C 680 270, 700 255, 730 248" stroke={`url(#${id}-wood)`} strokeWidth="9" />
-            <path d="M140 748 C 240 625, 330 548, 446 440 S 560 340, 600 312" stroke="#c19060" strokeWidth="7" opacity="0.55" />
-            <path d="M180 760 C 270 650, 350 575, 455 480" stroke="#4f3019" strokeWidth="6" opacity="0.5" />
-          </g>
-
-          {/* middle row: bushy stem plants, some with red tops */}
-          <Stems x={330} n={11} spread={20} h={360} tip="#d9473a" greens={["#3f8f35", "#5aa847"]} seed={11} />
-          <Stems x={880} n={9} spread={20} h={300} tip="#79c447" greens={["#3b8a33", "#56a645"]} seed={12} />
-          <Stems x={1270} n={11} spread={20} h={380} tip="#e36a3b" greens={["#3f8f35", "#5aa847"]} seed={13} />
-
-          {/* iwagumi stones */}
-          <Rock
-            id={id}
-            pts="470,770 505,600 560,470 640,392 700,402 752,500 790,620 812,770"
-            face="560,470 640,392 690,420 650,540 580,610 520,600"
-            lines={["M520 640 L610 560 L700 520", "M545 700 L650 620 L770 600", "M600 460 L680 430"]}
-          />
-          <Rock
-            id={id}
-            pts="985,772 1005,640 1060,525 1115,478 1170,500 1222,600 1252,772"
-            face="1060,525 1115,478 1150,494 1120,600 1060,650 1018,640"
-            lines={["M1030 700 L1110 640 L1210 640", "M1060 600 L1150 560"]}
-          />
-          <Rock id={id} pts="826,772 846,712 890,684 930,700 950,772" face="846,712 890,684 905,700 870,740" lines={["M850 745 L920 725"]} />
-          <Rock id={id} pts="1290,772 1310,726 1350,708 1382,734 1394,772" face="1310,726 1350,708 1360,724 1330,750" lines={[]} />
-          <Rock id={id} pts="400,772 412,738 446,726 470,746 474,772" face="412,738 446,726 452,738 428,756" lines={[]} />
-          <Anubias x={1112} y={484} />
-
-          <Sword x={1500} seed={17} />
-
-          {/* the soil, with the front glass showing its grains */}
-          <path d={SOIL_PATH} fill={`url(#${id}-soil)`} />
-          <path d={SOIL_PATH} fill={`url(#${id}-soilshade)`} />
-          <path d={SOIL_TOP} stroke="#4a4f4f" strokeWidth="5" fill="none" opacity="0.8" />
-          <Tufts xs={[460, 560, 700, 820, 960, 1060, 1240, 1400]} seed={21} />
-          <Carpet seed={23} />
-        </svg>
+        <PlantedScene id={id} />
 
         {/* the fish, bubbles and glass on a layer of their own: on phones the planted scene underneath holds still
             (redrawing its thousands of leaves every frame made phones stutter), while these few shapes keep moving */}
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" className="pt-fx anim-zone pointer-events-none absolute inset-0 size-full" aria-hidden>
-          {/* neon tetras */}
-          {SCHOOL.map((f, i) => (
+          {/* the two schools: rummy-nose tetras up high, harlequin rasboras lower down */}
+          {[...RUMMY.map((f) => ({ ...f, Fish: RummyNose })), ...HARLEQUIN.map((f) => ({ ...f, Fish: Harlequin }))].map(({ Fish, ...f }, i) => (
             <g key={i} transform={`translate(${f.x} ${f.y}) scale(${f.s})`}>
               <g className="pt-swim" style={{ "--reach": `${f.reach / f.s}px`, "--dur": `${f.dur}s`, "--delay": `${f.delay}s` } as React.CSSProperties}>
                 <g className="pt-bob" style={{ "--bob": `${f.bob}px`, animationDelay: `${-i * 0.7}s` } as React.CSSProperties}>
                   <g className="pt-flip">
-                    <Tetra />
+                    <Fish />
                   </g>
                 </g>
               </g>
             </g>
           ))}
 
-          {/* a few bubbles from behind the rocks */}
+          {/* fine CO2 bubbles from the diffuser */}
           {BUBBLES.map((b, i) => (
-            <circle key={i} className="pt-bubble" cx={b.x} cy="720" r={b.r} fill="#ffffff" fillOpacity="0.35" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="1.2" style={{ animationDelay: `${b.delay}s`, animationDuration: `${b.dur}s` }} />
+            <circle key={i} className="pt-bubble" cx={b.x} cy="664" r={b.r} fill="#ffffff" fillOpacity="0.4" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="1" style={{ animationDelay: `${b.delay}s`, animationDuration: `${b.dur}s` }} />
           ))}
 
           {/* reflections on the front glass */}
@@ -413,8 +588,8 @@ export function PlantedTank({ className, dark = false, caption }: { className?: 
         {/* the glass edges */}
         <div className="pointer-events-none absolute inset-0 rounded-[19px] shadow-[inset_0_0_0_2px_rgba(255,255,255,0.55),inset_0_-10px_18px_-12px_rgba(0,0,0,0.5)]" />
       </div>
-      {/* the stand it sits on */}
-      <div className={cx("mx-[3%] h-2.5 rounded-b-xl", dark ? "bg-black/30" : "bg-[#113A2D]/85")} />
+      {/* the cabinet it stands on, with the canister filter and CO2 cylinder inside */}
+      <Cabinet dark={dark} />
       {caption && <figcaption className={cx("mt-4 text-center text-[13px] font-semibold", dark ? "text-white/80" : "opacity-70")}>{caption}</figcaption>}
     </figure>
   );

@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { ArrowRight, PackageCheck, Search, ShoppingBag, Store, Wallet } from "lucide-react";
-import { avgRating, inCategory, waLink, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
+import { ArrowRight, PackageCheck, Search, ShoppingBag, Sparkles, Store, Wallet } from "lucide-react";
+import { avgRating, heroShowcase, inCategory, waLink, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
 import { categoryIcon } from "@/lib/categoryIcons";
 import type { HomeSectionKey } from "@/lib/types";
 import type { PublicReview } from "@/lib/server/reviews";
@@ -38,7 +38,9 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
     // categories with nothing in them yet go last, in the shop's own order
     .sort((a, b) => Number(!a.count) - Number(!b.count));
   const brands = [...new Map(products.filter((p) => p.brand).map((p) => [p.brand.toLowerCase(), p.brand])).values()].sort((a, b) => a.localeCompare(b));
-  const heroPics = products.filter((p) => p.images.length).slice(0, 3);
+  // the photos beside the big title: what the admin chose (featured, on sale, new arrivals or a category) and its title
+  const showcase = heroShowcase(products, home.showcase);
+  const heroPics = showcase.pics;
 
   /** Space above a section; the first one after the hero tucks under the grass. */
   const top = (first: boolean, gap: string) => (first ? "mt-4" : gap);
@@ -318,18 +320,35 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
           <div className="relative hidden lg:block">
             <Bubbles className="sea-bob absolute -top-24 right-10 h-32 w-20" />
             {heroPics.length ? (
-              <div className="relative h-[420px]">
+              <div className="relative h-[460px]">
+                {/* the title above the photos */}
+                <div className="absolute inset-x-[4%] -top-2 z-20 flex items-center justify-between gap-3">
+                  <p className="inline-flex max-w-[70%] items-center gap-2 rounded-full bg-white/95 py-2 pl-3 pr-4 shadow-[0_14px_30px_-20px_rgba(17,58,45,0.6)] ring-1 ring-sea-line backdrop-blur">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-sea-ink text-white">
+                      <Sparkles className="size-3.5" />
+                    </span>
+                    <span className="truncate font-serif text-[19px] leading-none">{showcase.title}</span>
+                  </p>
+                  <Link href={L.store(showcase.link)} className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-2 text-[13px] font-bold text-sea-teal transition hover:bg-sea-teal-soft">
+                    See all <ArrowRight className="size-3.5" />
+                  </Link>
+                </div>
                 {heroPics.map((p, i) => (
                   <div
                     key={p.id}
                     className="sea-bob absolute hover:z-10"
-                    style={{ width: ["62%", "46%", "40%"][i], left: ["4%", "52%", "36%"][i], top: ["6%", "0%", "52%"][i], animationDelay: `${-i * 1.6}s` }}
+                    style={{ width: ["62%", "46%", "40%"][i], left: ["4%", "52%", "36%"][i], top: ["14%", "9%", "56%"][i], animationDelay: `${-i * 1.6}s` }}
                   >
                     <Link
                       href={L.store(productPath(p))}
-                      className={`block aspect-square overflow-hidden rounded-[28px] shadow-[0_30px_60px_-30px_rgba(17,58,45,0.6)] ring-1 ring-sea-line transition-[rotate,scale] duration-500 hover:rotate-0 hover:scale-[1.03] ${["-rotate-4", "rotate-5", "-rotate-2"][i]}`}
+                      className={`relative block aspect-square overflow-hidden rounded-[28px] shadow-[0_30px_60px_-30px_rgba(17,58,45,0.6)] ring-1 ring-sea-line transition-[rotate,scale] duration-500 hover:rotate-0 hover:scale-[1.03] ${["-rotate-4", "rotate-5", "-rotate-2"][i]}`}
                     >
                       <ProductImage src={p.images[0]} name={p.name} eager />
+                      {home.showcase.source === "sale" && p.regularPrice > p.price && (
+                        <span className="absolute left-3 top-3 rounded-full bg-sea-teal px-2.5 py-1 text-[12px] font-extrabold text-white shadow">
+                          {Math.round((1 - p.price / p.regularPrice) * 100)}% OFF
+                        </span>
+                      )}
                     </Link>
                   </div>
                 ))}

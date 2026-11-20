@@ -92,7 +92,8 @@ export interface Review {
   id: string;
   productId: string; // "" = about the shop in general
   productName?: string;
-  name: string;
+  name: string; // may be "" on an anonymous review
+  anonymous?: boolean; // shown on the website as "Anonymous" (the shop still sees any name given)
   rating: number; // 1-5
   text: string;
   approved: boolean; // shown on the website

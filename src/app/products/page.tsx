@@ -33,7 +33,8 @@ export default function ProductsPage() {
     <>
     <ListEditor<Product>
       section="products"
-      tableFrom="xl"
+      tableFrom="wide"
+      tableMin="900px"
       title="Products"
       subtitle="Your price list - used on receipts and on your website. Tap the photo button for the full product form: photos, description, specification, brand, category, prices, stock and weight."
       icon={<Package className="size-5" />}
@@ -85,14 +86,14 @@ export default function ProductsPage() {
         </span>
       )}
       columns={[
-        { key: "name", label: "Product name", placeholder: "e.g. Seachem Prime 325ml", width: "minmax(0,2fr)" },
-        { key: "unit", label: "Unit", placeholder: "e.g. pcs, bottle", width: "120px" },
-        { key: "inStock", label: "Status", type: "toggle", on: "In stock", off: "Out of stock", width: "150px" },
+        { key: "name", label: "Product name", placeholder: "e.g. Seachem Prime 325ml", width: "minmax(140px,2fr)" },
+        { key: "unit", label: "Unit", placeholder: "e.g. pcs, bottle", width: "minmax(66px,120px)" },
+        { key: "inStock", label: "Status", type: "toggle", on: "In stock", off: "Out of stock", width: "minmax(120px,150px)" },
         {
           key: "purchasePrice",
           label: "Purchase price (BDT)",
           type: "custom",
-          width: "210px",
+          width: "minmax(146px,210px)",
           // one figure, or a range when it varies ("1200 - 1500"); the "to" box only shows while editing or when set
           render: (p, update) => {
             const max = purchaseMax(p);
@@ -109,7 +110,7 @@ export default function ProductsPage() {
           key: "regularPrice",
           label: "Regular price (BDT)",
           type: "custom",
-          width: "150px",
+          width: "minmax(92px,150px)",
           // the price before any discount; the same as the unit price when there is none
           render: (p, update) => <PriceInput value={regularOf(p)} placeholder="0.00" ariaLabel="Regular price" className={cx("text-right font-semibold", isDiscounted(p) && "text-muted line-through")} onCommit={(v) => update(withRegular(p, v))} />,
         },
@@ -117,7 +118,7 @@ export default function ProductsPage() {
           key: "price",
           label: "Unit price (BDT)",
           type: "custom",
-          width: "150px",
+          width: "minmax(92px,150px)",
           // what the customer pays: the sale price when the product is on discount
           render: (p, update) => <PriceInput value={p.price} placeholder="0.00" ariaLabel="Unit price" className={cx("text-right font-semibold", isDiscounted(p) && "text-brand")} onCommit={(v) => update(withUnitPrice(p, v))} />,
         },

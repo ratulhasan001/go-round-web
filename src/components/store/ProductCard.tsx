@@ -5,10 +5,11 @@ import { Plus } from "lucide-react";
 import { tk, type PublicProduct } from "@/lib/site";
 import { ProductImage } from "./ProductImage";
 import { useShop } from "./StoreContext";
+import { productPath } from "@/lib/seo";
 
 export function ProductCard({ p }: { p: PublicProduct }) {
   const { add, links } = useShop();
-  const href = links.store(`/products/${encodeURIComponent(p.id)}`);
+  const href = links.store(productPath(p));
   return (
     <article className="group relative flex flex-col">
       <Link href={href} className="relative block aspect-square overflow-hidden rounded-[22px] bg-sea-sand ring-1 ring-sea-line">

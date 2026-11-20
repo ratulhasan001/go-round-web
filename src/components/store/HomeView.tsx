@@ -14,6 +14,7 @@ import { PlantedTank } from "../PlantedTank";
 import { WhatsAppIcon } from "./Icons";
 import { btn } from "./ui";
 import { HomeBlockView, LogoSection } from "./HomeBlocks";
+import { productPath } from "@/lib/seo";
 
 /**
  * The store's home page, drawn from the shop's Website settings. Shared by the live page (a server component) and the
@@ -296,7 +297,7 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
                     style={{ width: ["62%", "46%", "40%"][i], left: ["4%", "52%", "36%"][i], top: ["6%", "0%", "52%"][i], animationDelay: `${-i * 1.6}s` }}
                   >
                     <Link
-                      href={L.store(`/products/${encodeURIComponent(p.id)}`)}
+                      href={L.store(productPath(p))}
                       className={`block aspect-square overflow-hidden rounded-[28px] shadow-[0_30px_60px_-30px_rgba(17,58,45,0.6)] ring-1 ring-sea-line transition-[rotate,scale] duration-500 hover:rotate-0 hover:scale-[1.03] ${["-rotate-4", "rotate-5", "-rotate-2"][i]}`}
                     >
                       <ProductImage src={p.images[0]} name={p.name} eager />

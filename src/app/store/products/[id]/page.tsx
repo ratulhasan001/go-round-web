@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { loadCatalog } from "@/lib/server/catalog";
 import { storeLinks } from "@/lib/server/links";
 import { avgRating, plainText } from "@/lib/site";
+import { findProduct, productPath } from "@/lib/seo";
 import { ProductCard } from "@/components/store/ProductCard";
 import { ProductDetail } from "@/components/store/ProductDetail";
 import { ProductReviews } from "@/components/store/Reviews";
 import { loadReviews } from "@/lib/server/reviews";
 import { Reveal } from "@/components/store/Reveal";
 
-async function find(id: string) {
-  const { products } = await loadCatalog();
-  return { product: products.find((p) => p.id === id), products };
+// the address is /products/<name>-<short id> (see productPath); the original /products/<full id> still works
+async function find(segment: string) {
+  const { shop, products } = await loadCatalog();
+  return { ...findProduct(products, segment), products, shop };
 }
 
 export async function generateMetadata({ params }: PageProps<"/store/products/[id]">): Promise<Metadata> {
@@ -27,9 +29,12 @@ export async function generateMetadata({ params }: PageProps<"/store/products/[i
 }
 
 export default async function ProductPage({ params }: PageProps<"/store/products/[id]">) {
-  const { product, products } = await find((await params).id);
+  const { product, exact, products } = await find((await params).id);
   if (!product) notFound();
-  const [L, reviews] = await Promise.all([storeLinks(), loadReviews(product.id)]);
+  const L = await storeLinks();
+  // an old address (the full id, or the product's earlier name): send people and search engines to the current one
+  if (!exact) permanentRedirect(L.store(productPath(product)));
+  const reviews = await loadReviews(product.id);
   const related = products
     .filter((p) => p.id !== product.id && p.inStock)
     .sort((a, b) => Number(b.category === product.category) - Number(a.category === product.category))

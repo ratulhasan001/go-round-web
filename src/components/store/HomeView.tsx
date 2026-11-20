@@ -12,7 +12,7 @@ import { ProductImage } from "./ProductImage";
 import { Reveal } from "./Reveal";
 import { LazyAquarium } from "../aquarium/LazyAquarium";
 import { WhatsAppIcon } from "./Icons";
-import { btn } from "./ui";
+import { btn, cx } from "./ui";
 import { HomeBlockView, LogoSection } from "./HomeBlocks";
 import { productPath } from "@/lib/seo";
 
@@ -31,8 +31,12 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
       const inCat = products.filter((p) => inCategory(p.category, name));
       const names = [...new Set(inCat.map((p) => p.category))];
       // one product category: link with its exact spelling; a combined tile ("Filtration & Filter") links with its own name
-      return { name: name.trim(), link: names.length === 1 ? names[0]! : name.trim(), count: inCat.length, Icon: categoryIcon(name, shop.site.categoryIcons) };
-    });
+      // up to three of its photos (in-stock products first) for the tile
+      const pics = [...inCat.filter((p) => p.inStock), ...inCat.filter((p) => !p.inStock)].filter((p) => p.images.length).slice(0, 3);
+      return { name: name.trim(), link: names.length === 1 ? names[0]! : name.trim(), count: inCat.length, pics, Icon: categoryIcon(name, shop.site.categoryIcons) };
+    })
+    // categories with nothing in them yet go last, in the shop's own order
+    .sort((a, b) => Number(!a.count) - Number(!b.count));
   const brands = [...new Map(products.filter((p) => p.brand).map((p) => [p.brand.toLowerCase(), p.brand])).values()].sort((a, b) => a.localeCompare(b));
   const heroPics = products.filter((p) => p.images.length).slice(0, 3);
 
@@ -108,21 +112,46 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
                 Shop by <em className="text-sea-teal">category</em>
               </h2>
             </Reveal>
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+            {/* compact photo tiles: a collage of the category's own products, its icon, and how many there are */}
+            <div className="mt-8 grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-4 lg:grid-cols-6">
               {categories.map((c, i) => (
-                <Reveal key={c.name} delay={(i % 6) * 60}>
+                <Reveal key={c.name} delay={(i % 6) * 50}>
                   <Link
                     href={`${L.store("/products")}?category=${encodeURIComponent(c.link)}`}
-                    className="group relative block aspect-[5/4] overflow-hidden rounded-[22px] bg-[radial-gradient(120%_90%_at_30%_10%,#1f7fa8_0%,#113a2d_70%)] ring-1 ring-sea-line"
+                    className={cx(
+                      "group block h-full overflow-hidden rounded-[20px] bg-white ring-1 ring-sea-line transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_-24px_rgba(17,58,45,0.55)] hover:ring-sea-ink/25",
+                      !c.count && "opacity-70",
+                    )}
                   >
-                    <Grass blades={36} seed={7 + i * 5} height={120} className="absolute inset-x-0 bottom-0 h-1/2 w-full opacity-50" />
-                    <c.Icon className="absolute left-1/2 top-[36%] size-12 -translate-x-1/2 -translate-y-1/2 text-sea-cream/95 transition-transform duration-500 group-hover:scale-110 sm:size-16" strokeWidth={1.4} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-sea-ink/80 via-transparent to-transparent" />
-                    <span className="absolute inset-x-3.5 bottom-3 text-white sm:inset-x-4 sm:bottom-4">
-                      <span className="flex items-center justify-between gap-2 font-serif text-[17px] leading-tight sm:text-[21px]">
-                        {c.name} <ArrowRight className="size-5 shrink-0 -translate-x-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100" />
+                    <span className="relative block aspect-square overflow-hidden bg-gradient-to-br from-sea-teal-soft to-sea-paper">
+                      {c.pics.length >= 3 ? (
+                        <span className="grid size-full grid-cols-[2fr_1fr] grid-rows-2 gap-0.5">
+                          <span className="row-span-2 overflow-hidden">
+                            <ProductImage src={c.pics[0]!.images[0]} name={c.pics[0]!.name} className="transition-transform duration-500 group-hover:scale-105" />
+                          </span>
+                          <span className="overflow-hidden">
+                            <ProductImage src={c.pics[1]!.images[0]} name={c.pics[1]!.name} />
+                          </span>
+                          <span className="overflow-hidden">
+                            <ProductImage src={c.pics[2]!.images[0]} name={c.pics[2]!.name} />
+                          </span>
+                        </span>
+                      ) : c.pics.length ? (
+                        <ProductImage src={c.pics[0]!.images[0]} name={c.pics[0]!.name} className="transition-transform duration-500 group-hover:scale-105" />
+                      ) : (
+                        <c.Icon className="absolute left-1/2 top-1/2 size-10 -translate-x-1/2 -translate-y-1/2 text-sea-teal/70 sm:size-12" strokeWidth={1.4} />
+                      )}
+                      {/* the category's icon */}
+                      <span className="absolute bottom-1.5 left-1.5 grid size-8 place-items-center rounded-full bg-sea-ink text-white shadow-md ring-2 ring-white sm:bottom-2 sm:left-2 sm:size-9">
+                        <c.Icon className="size-4" strokeWidth={1.8} />
                       </span>
-                      <span className="mt-0.5 block text-[12px] font-semibold text-white/75">{c.count ? `${c.count} product${c.count === 1 ? "" : "s"}` : "Coming soon"}</span>
+                    </span>
+                    <span className="block px-2.5 pb-3 pt-2.5 sm:px-3">
+                      <span className="flex items-start justify-between gap-1">
+                        <span className="line-clamp-2 text-[13px] font-extrabold leading-snug text-sea-ink sm:text-[14px]">{c.name}</span>
+                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-sea-teal opacity-0 transition group-hover:opacity-100 max-sm:hidden" />
+                      </span>
+                      <span className="mt-0.5 block text-[11.5px] font-semibold text-sea-muted sm:text-[12px]">{c.count ? `${c.count} product${c.count === 1 ? "" : "s"}` : "Coming soon"}</span>
                     </span>
                   </Link>
                 </Reveal>

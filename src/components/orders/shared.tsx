@@ -94,6 +94,7 @@ export function updateMessage(o: Order, shop: Shop) {
     `${shop.name} order *${o.code}*: ${status[o.status]}`,
     ``,
     ...o.items.map((i) => `• ${i.qty} × ${i.name}`),
+    ...(o.coupon?.amount ? [`Coupon ${o.coupon.code}: −${tk(o.coupon.amount)}`] : []),
     `Total: *${tk(o.total)}*${paid ? " (paid)" : ""}`,
   ];
   if (!paid && o.status !== "cancelled" && (!o.payment.trxId || rejected)) lines.push(``, ...payInstructions(o, shop));

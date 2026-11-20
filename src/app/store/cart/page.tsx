@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { CartView } from "@/components/store/CartView";
 import { PageHead } from "@/components/store/ui";
 
-export const metadata: Metadata = { title: "Your cart" };
+// personal pages: never in search results
+export const metadata: Metadata = { title: "Your cart", robots: { index: false, follow: true } };
 
 export default function CartPage() {
   return (

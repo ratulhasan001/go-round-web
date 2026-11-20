@@ -203,6 +203,19 @@ const writeJSON = (key: string, value: unknown) => {
 /** The login page, coming back to this page afterwards (a session ends after a few hours). */
 const loginAgain = () => `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
 
+/**
+ * Deletes this device's copy of the shop's data. With the database it is never kept (the server has everything), so
+ * nobody who gets at this browser later - after the login ends - can read the customers, receipts and orders out of
+ * it. Changes not yet sent (OUTBOX) stay until they reach the server.
+ */
+export function forgetDeviceCopy() {
+  try {
+    if (localStorage.getItem(MIGRATED)) localStorage.removeItem(KEY);
+  } catch {
+    /* private mode */
+  }
+}
+
 export function StoreProvider({ area, children }: { area: Area; children: React.ReactNode }) {
   const path = usePathname();
   // the login page, the public customer form (/f/…) and the customer website never load the shop's data
@@ -419,10 +432,12 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
       if (result === "ok") setMode("cloud");
       else {
         // no database (or it can't be reached): keep working from this device's copy
-        const fromLocal = local ? { ...seed(), ...local, shop: withDefaults(local.shop) } : seed();
+        const wasCloud = !!localStorage.getItem(MIGRATED) && result === "failed";
+        // with the database there's no copy on this device any more: show nothing rather than the demo receipts
+        const empty: Data = { ...seed(), products: [], customers: [], coupons: [], invoices: [], letters: [], orders: [], employees: [], reviews: [] };
+        const fromLocal = local ? { ...seed(), ...local, shop: withDefaults(local.shop) } : wasCloud ? empty : seed();
         lastSeen.current = fromLocal;
         setData(fromLocal);
-        const wasCloud = !!localStorage.getItem(MIGRATED) && result === "failed";
         setMode(wasCloud ? "cloud" : "local");
         if (wasCloud) {
           setSync("offline");
@@ -445,10 +460,11 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
     };
   }, [offApp, loadFromServer]);
 
-  // keep this device's copy, and queue changes for the database
+  // keep this device's copy (only without a database - see forgetDeviceCopy), and queue changes for the database
   useEffect(() => {
     if (!ready) return;
-    writeJSON(KEY, data);
+    if (mode === "local") writeJSON(KEY, data);
+    else forgetDeviceCopy();
     if (mode === "cloud" && lastSeen.current) {
       const changes = diff(lastSeen.current, data);
       if (changes.length) edits.current++;
@@ -526,8 +542,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
 
   const logout = useCallback(async () => {
     await fetch("/api/logout", { method: "POST" }).catch(() => null);
-    // don't leave shop data on a logged-out device (unless some changes still need to be sent)
-    if (outbox.current.size === 0) localStorage.removeItem(KEY);
+    forgetDeviceCopy(); // no shop data left on a logged-out device (unsent changes stay in OUTBOX)
     window.location.href = "/login"; // eslint-disable-line @next/next/no-location-assign-relative-destination -- full reload clears the session state
   }, []);
 

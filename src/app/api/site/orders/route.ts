@@ -18,8 +18,9 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "bad request", message: "Please refresh the page and try again." }, { status: 400 });
   }
-  // bots fill the hidden trap field (gr_hp). The old trap was called "website", which browsers autofilled, so that name is no longer checked
-  if (typeof body.gr_hp === "string" && body.gr_hp.trim()) return NextResponse.json({ error: "bad request", message: "Please refresh the page and try again." }, { status: 400 });
+  // There is no hidden bot-trap field here any more: some phone browsers autofilled it ("website", later "gr_hp") and real
+  // orders were refused with "Please refresh the page and try again". Orders wait for a hand-checked payment anyway, and
+  // the limits below stop floods.
 
   // at most 5 orders an hour for one phone number, and 20 from one internet address (shared by many mobile users);
   // only orders that go through count, so a form sent back for a missing field doesn't use one up

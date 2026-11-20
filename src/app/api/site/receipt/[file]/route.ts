@@ -22,8 +22,8 @@ function notice(req: Request, status: number, text: string) {
 
 /**
  * Public: an approved order's receipt as a PDF file, from a signed link the order page gets from POST /api/site/receipt
- * (?o=<order code>&e=<expiry>&t=<signature>). The file name in the address is only for browsers that ignore the one
- * sent with the file.
+ * (?o=<order code>&e=<expiry>&t=<signature>, and &inline=1 to show it rather than save it). The file name in the address
+ * is only for browsers that ignore the one sent with the file.
  */
 export async function GET(req: Request) {
   if (!(await allow(`receipt:${clientIp(req)}`, 60, 10))) return notice(req, 429, "You've downloaded several receipts in a short time. Please wait a few minutes and try again.");
@@ -41,7 +41,8 @@ export async function GET(req: Request) {
     return new Response(new Uint8Array(pdf), {
       headers: {
         "content-type": "application/pdf",
-        "content-disposition": `attachment; filename="${fileBase(receipt.invoice)}.pdf"`,
+        // ?inline=1 shows it on screen instead (the iPhone browsers inside apps can show a PDF but not save one)
+        "content-disposition": `${q.get("inline") === "1" ? "inline" : "attachment"}; filename="${fileBase(receipt.invoice)}.pdf"`,
         "content-length": String(pdf.length),
         "cache-control": "private, no-store",
       },

@@ -35,9 +35,10 @@ export async function generateMetadata({ searchParams }: PageProps<"/store/produ
   const cat = categoryOf(products, q);
   if (!cat)
     return pageMetadata({ path: "/products", title: "Shop aquarium plants, fertilisers & accessories", description: `Shop ${products.length} aquarium plants, fertilisers, filters, lights and accessories in Bangladesh. Order online, pay with bKash or bank transfer, delivered anywhere in Bangladesh.` });
-  const { name, list, path, from } = cat;
+  const { name, list, path, from, brands } = cat;
   return pageMetadata({
     path,
+    keywords: [name, `${name} price in Bangladesh`, `${name} for aquarium`, `buy ${name} online BD`, ...brands.slice(0, 6)],
     title: `${name} Price in Bangladesh`,
     description: `${name} price in Bangladesh: ${list.length} product${list.length === 1 ? "" : "s"}${from ? ` from ${tk(from)}` : ""} at Go Round. Order online, pay with bKash or bank transfer.`,
   });

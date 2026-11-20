@@ -11,17 +11,41 @@ export const shopDescription = (shop: PublicShop) =>
   `${shop.tagline}. Importer and supplier of aquarium plants, fertilisers and accessories in Bangladesh - order online, pay with bKash or bank transfer.`;
 
 /**
+ * What people type to find a shop like this one - the `keywords` tag. Google ignores it, but Bing (and through it Yahoo,
+ * DuckDuckGo and ChatGPT search), Yandex and Naver still read it, so every page carries these plus its own.
+ */
+export const shopKeywords = (shop: PublicShop) => [
+  shop.name,
+  "aquarium plants Bangladesh",
+  "aquarium shop Bangladesh",
+  "aquarium shop Dhaka",
+  "planted tank",
+  "aquascaping Bangladesh",
+  "aquarium fertilizer",
+  "aquarium CO2",
+  "aquarium light",
+  "aquarium filter",
+  "aquarium soil",
+  "aquarium accessories BD",
+];
+
+/** A page's own keywords first, then the shop's - without repeats, at most 20. */
+export const keywordsFor = (shop: PublicShop, own: string[] = []) =>
+  [...new Map([...own, ...shopKeywords(shop)].map((k) => k.replace(/\s+/g, " ").trim()).filter(Boolean).map((k) => [k.toLowerCase(), k])).values()].slice(0, 20);
+
+/**
  * Search and sharing details of a store page: its title and description, its one true address (`path`, e.g. "/faq",
  * so the same page reached another way - with tracking codes, say - isn't counted twice), and the share picture.
  * `index: false` keeps a page out of search results (cart, checkout…).
  */
-export async function pageMetadata(o: { path: string; title?: string; description?: string; index?: boolean }): Promise<Metadata> {
+export async function pageMetadata(o: { path: string; title?: string; description?: string; index?: boolean; keywords?: string[] }): Promise<Metadata> {
   const { shop } = await loadCatalog();
   const description = o.description ?? shopDescription(shop);
   const title = o.title ? `${o.title} · ${shop.name}` : `${shop.name} · Importer & Supplier of Aquarium Plants & Accessories`;
   return {
     ...(o.title ? { title: o.title } : {}),
     description,
+    keywords: keywordsFor(shop, o.keywords),
     alternates: { canonical: o.path },
     ...(o.index === false ? { robots: { index: false, follow: true } } : {}),
     openGraph: { type: "website", siteName: shop.name, locale: "en_BD", url: o.path, title, description, images: [{ ...SHARE_IMAGE, alt: `${shop.name} - ${shop.tagline}` }] },

@@ -12,6 +12,7 @@ export const generateMetadata = (): Promise<Metadata> =>
     path: "/wholesale",
     title: "Wholesale aquarium plants & accessories",
     description: "Wholesale prices on aquarium plants, fertilisers and equipment for fish shops, aquascapers and resellers in Bangladesh. Send your list on WhatsApp or call us.",
+    keywords: ["aquarium wholesale Bangladesh", "aquarium plants wholesale", "aquarium accessories wholesale", "aquarium supplier Bangladesh", "aquarium importer Bangladesh"],
   });
 
 // what a wholesale buyer is asked to send, already typed into the WhatsApp message

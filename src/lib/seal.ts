@@ -1,7 +1,6 @@
-"use client";
-
 import type { Invoice, Shop } from "./types";
 import { computeTotals, fmtDate, money } from "./calc";
+import { type Gfx, browserGfx } from "./gfx";
 
 export type SealKind = "PAID" | "DUE";
 
@@ -25,10 +24,14 @@ export function sealFor(inv: Invoice, shop: Shop): SealSpec | null {
   return { kind: "DUE", shop: shop.name, number: inv.number, detail: `BDT ${money(t.due)}` };
 }
 
-const cssFont = (v: string, fallback: string) =>
-  (typeof document !== "undefined" && getComputedStyle(document.documentElement).getPropertyValue(v).trim()) || fallback;
-
+// finished pictures, so the preview doesn't redraw them on every keystroke. Bounded: on the server one copy of this
+// module draws every customer's receipt
 const cache = new Map<string, string>();
+const remember = (key: string, url: string) => {
+  if (cache.size >= 40) cache.clear();
+  cache.set(key, url);
+  return url;
+};
 
 /** Seal image size in px; it is a landscape rectangle (width : height = SEAL_W : SEAL_H). */
 export const SEAL_W = 720;
@@ -40,24 +43,17 @@ export const SEAL_H = 400;
  * rules, and the receipt number with the date or amount beneath.
  * Returns a transparent PNG data URL.
  */
-export async function drawSeal(spec: SealSpec): Promise<string> {
+export async function drawSeal(spec: SealSpec, gfx: Gfx = browserGfx): Promise<string> {
   const key = JSON.stringify(spec);
   const hit = cache.get(key);
   if (hit) return hit;
 
-  const display = cssFont("--font-bricolage", "'Bricolage Grotesque', sans-serif");
-  const body = cssFont("--font-manrope", "'Manrope', sans-serif");
-  try {
-    await Promise.all([document.fonts.load(`700 100px ${display}`), document.fonts.load(`700 30px ${body}`)]);
-  } catch {
-    /* fall back to whatever is available */
-  }
+  const { display, body } = gfx;
+  await gfx.fonts([`700 100px ${display}`, `700 30px ${body}`]);
 
   const W = SEAL_W;
   const H = SEAL_H;
-  const c = document.createElement("canvas");
-  c.width = W;
-  c.height = H;
+  const c = gfx.canvas(W, H);
   const g = c.getContext("2d")!;
   const ink = COLORS[spec.kind];
   g.globalAlpha = 0.88;
@@ -109,9 +105,7 @@ export async function drawSeal(spec: SealSpec): Promise<string> {
 
   tracked(`RECEIPT ${spec.number}  ·  ${spec.detail}`, 328, 28, inner, 3, body);
 
-  const url = c.toDataURL("image/png");
-  cache.set(key, url);
-  return url;
+  return remember(key, c.toDataURL("image/png"));
 }
 
 /** The authorised signatory printed on every receipt. */
@@ -131,9 +125,8 @@ const PEN_INK = "#101C4E"; // blue-black pen
  * Re-inks a logo in one stamp colour: dark lines and strong colours print solid, pale blue fills
  * (like water) print as a light tint, white and transparent areas stay blank.
  */
-function inkLogo(img: HTMLImageElement, size: number, ink: string) {
-  const c = document.createElement("canvas");
-  c.width = c.height = size;
+function inkLogo(gfx: Gfx, img: HTMLImageElement, size: number, ink: string) {
+  const c = gfx.canvas(size, size);
   const g = c.getContext("2d")!;
   g.drawImage(img, 0, 0, size, size);
   const data = g.getImageData(0, 0, size, size);
@@ -158,28 +151,20 @@ function inkLogo(img: HTMLImageElement, size: number, ink: string) {
  * blue inside a lettered ring), the CEO's signature running across it in pen ink, then a
  * signature line with name and title. Returns a transparent PNG data URL.
  */
-export async function drawSignature(shop: { name: string; logo: string }): Promise<string> {
+export async function drawSignature(shop: { name: string; logo: string }, gfx: Gfx = browserGfx): Promise<string> {
   const shopName = shop.name;
   const key = `sign:${shopName}:${shop.logo.length}:${shop.logo.slice(-64)}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
-  const display = cssFont("--font-bricolage", "'Bricolage Grotesque', sans-serif");
-  const body = cssFont("--font-manrope", "'Manrope', sans-serif");
-  const img = new Image();
-  img.src = SIGNATORY.image;
-  const logo = new Image();
-  logo.src = shop.logo || "/logo.png";
-  const [loaded, logoLoaded] = await Promise.allSettled([
-    img.decode(),
-    logo.decode(),
-    document.fonts.load(`700 34px ${display}`),
-    document.fonts.load(`700 30px ${body}`),
+  const { display, body } = gfx;
+  const [img, logo] = await Promise.all([
+    gfx.image(SIGNATORY.image),
+    gfx.image(shop.logo || "/logo.png"),
+    gfx.fonts([`700 34px ${display}`, `700 30px ${body}`]),
   ]);
 
-  const c = document.createElement("canvas");
-  c.width = SIGN_W;
-  c.height = SIGN_H;
+  const c = gfx.canvas(SIGN_W, SIGN_H);
   const g = c.getContext("2d")!;
   g.textAlign = "center";
   g.textBaseline = "middle";
@@ -232,7 +217,7 @@ export async function drawSignature(shop: { name: string; logo: string }): Promi
   // centre: the real logo in stamp ink (or the shop name if the logo cannot be loaded)
   let inked: HTMLCanvasElement | null = null;
   try {
-    if (logoLoaded.status === "fulfilled") inked = inkLogo(logo, 228, SEAL_INK);
+    if (logo) inked = inkLogo(gfx, logo, 228, SEAL_INK);
   } catch {
     /* e.g. a logo from another site that the canvas may not read */
   }
@@ -246,12 +231,10 @@ export async function drawSignature(shop: { name: string; logo: string }): Promi
   g.restore();
 
   // ---- signature across the seal, recoloured to pen ink ----
-  if (loaded.status === "fulfilled") {
+  if (img) {
     const sw = 520;
     const sh = Math.round((sw * img.naturalHeight) / img.naturalWidth);
-    const ink = document.createElement("canvas");
-    ink.width = sw;
-    ink.height = sh;
+    const ink = gfx.canvas(sw, sh);
     const ig = ink.getContext("2d")!;
     ig.drawImage(img, 0, 0, sw, sh);
     ig.globalCompositeOperation = "source-in";
@@ -274,7 +257,5 @@ export async function drawSignature(shop: { name: string; logo: string }): Promi
   g.font = `600 22px ${body}`;
   g.fillText(`${SIGNATORY.title} · ${shopName}`, 360, 440);
 
-  const url = c.toDataURL("image/png");
-  cache.set(key, url);
-  return url;
+  return remember(key, c.toDataURL("image/png"));
 }

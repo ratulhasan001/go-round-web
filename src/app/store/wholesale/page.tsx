@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ClipboardList, MessageCircleMore, Phone, Truck } from "lucide-react";
+import { ClipboardList, Mail, MessageCircleMore, Phone, Truck } from "lucide-react";
 import { loadCatalog } from "@/lib/server/catalog";
 import { prettyPhone, waLink } from "@/lib/site";
 import { WhatsAppIcon } from "@/components/store/Icons";
@@ -11,11 +11,11 @@ export const generateMetadata = (): Promise<Metadata> =>
   pageMetadata({
     path: "/wholesale",
     title: "Wholesale aquarium plants & accessories",
-    description: "Wholesale prices on aquarium plants, fertilisers and equipment for fish shops, aquascapers and resellers in Bangladesh. Send your list on WhatsApp or call us.",
+    description: "Wholesale prices on aquarium plants, fertilisers and equipment for fish shops, aquascapers and resellers in Bangladesh. Send your list on WhatsApp, call us or email us.",
     keywords: ["aquarium wholesale Bangladesh", "aquarium plants wholesale", "aquarium accessories wholesale", "aquarium supplier Bangladesh", "aquarium importer Bangladesh"],
   });
 
-// what a wholesale buyer is asked to send, already typed into the WhatsApp message
+// what a wholesale buyer is asked to send, already typed into the WhatsApp message and the email
 const MESSAGE = `Hi! I'd like wholesale prices.
 Business / shop name:
 Items and quantities:
@@ -27,11 +27,21 @@ const STEPS = [
   { icon: Truck, t: "Pay and receive", d: "Pay by bKash or bank transfer, and we pack and send your order anywhere in Bangladesh." },
 ];
 
-/** Wholesale: for shops, aquascapers and resellers - contact on WhatsApp or by phone (from the menu). */
+const CARD = "flex h-full gap-4 rounded-[24px] border border-sea-line bg-sea-paper p-5";
+const ICON = "grid size-14 shrink-0 place-items-center rounded-full bg-white ring-1 ring-sea-line";
+
+/** Wholesale: for shops, aquascapers and resellers - WhatsApp or a call on one number, or email (from the menu). */
 export default async function WholesalePage() {
   const { shop } = await loadCatalog();
   const s = shop.site;
-  const call = shop.phone ? `tel:${shop.phone.replace(/[^\d+]/g, "")}` : "";
+  const digits = (p: string) => p.replace(/[^\d]/g, "").slice(-10);
+  const phone = shop.phone.trim() || s.whatsapp;
+  const call = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : "";
+  // one number for both, unless the shop's phone and WhatsApp numbers differ
+  const sameNumber = !shop.phone.trim() || digits(shop.phone) === digits(s.whatsapp);
+  const hours = s.openingHours.trim().split("\n")[0] ?? "";
+  const email = shop.email.trim();
+  const mail = email ? `mailto:${email}?subject=${encodeURIComponent("Wholesale prices")}&body=${encodeURIComponent(MESSAGE)}` : "";
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6 sm:pt-14">
@@ -46,36 +56,40 @@ export default async function WholesalePage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
+        {/* WhatsApp and calls: the same number */}
         <Reveal>
-          <a
-            href={waLink(s.whatsapp, MESSAGE)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex h-full items-center gap-4 rounded-[24px] border border-sea-line bg-sea-paper p-5 transition hover:-translate-y-0.5 hover:border-sea-ink/30 hover:shadow-[0_18px_40px_-28px_rgba(17,58,45,0.6)]"
-          >
-            <span className="grid size-14 shrink-0 place-items-center rounded-full bg-white ring-1 ring-sea-line">
+          <div className={CARD}>
+            <span className={ICON}>
               <WhatsAppIcon className="size-6 text-wa" />
             </span>
-            <span className="min-w-0">
-              <span className="store-eyebrow block">WhatsApp</span>
-              <span className="mt-1 block truncate text-[17px] font-extrabold group-hover:text-sea-teal">{prettyPhone(s.whatsapp)}</span>
-              <span className="block text-[13px] text-sea-muted">Send your list - the fastest way to get prices</span>
+            <span className="min-w-0 flex-1">
+              <span className="store-eyebrow block">WhatsApp &amp; call</span>
+              <span className="mt-1 block truncate text-[17px] font-extrabold">{prettyPhone(s.whatsapp)}</span>
+              {!sameNumber && <span className="block truncate text-[13px] font-semibold text-sea-body">Calls: {prettyPhone(shop.phone)}</span>}
+              <span className="block text-[13px] text-sea-muted">{hours || "Send your list - the fastest way to get prices"}</span>
+              <span className="mt-3 flex flex-wrap gap-2">
+                <a href={waLink(s.whatsapp, MESSAGE)} target="_blank" rel="noopener noreferrer" className={btn("primary", "sm")}>
+                  <WhatsAppIcon className="size-4" /> WhatsApp
+                </a>
+                {call && (
+                  <a href={call} className={btn("outline", "sm")}>
+                    <Phone className="size-4" /> Call
+                  </a>
+                )}
+              </span>
             </span>
-          </a>
+          </div>
         </Reveal>
-        {call && (
+        {mail && (
           <Reveal delay={70}>
-            <a
-              href={call}
-              className="group flex h-full items-center gap-4 rounded-[24px] border border-sea-line bg-sea-paper p-5 transition hover:-translate-y-0.5 hover:border-sea-ink/30 hover:shadow-[0_18px_40px_-28px_rgba(17,58,45,0.6)]"
-            >
-              <span className="grid size-14 shrink-0 place-items-center rounded-full bg-white ring-1 ring-sea-line">
-                <Phone className="size-6 text-sea-teal" />
+            <a href={mail} className={`group ${CARD} items-center transition hover:-translate-y-0.5 hover:border-sea-ink/30 hover:shadow-[0_18px_40px_-28px_rgba(17,58,45,0.6)]`}>
+              <span className={ICON}>
+                <Mail className="size-6 text-sea-teal" />
               </span>
               <span className="min-w-0">
-                <span className="store-eyebrow block">Phone call</span>
-                <span className="mt-1 block truncate text-[17px] font-extrabold group-hover:text-sea-teal">{shop.phone}</span>
-                <span className="block text-[13px] text-sea-muted">{s.openingHours.trim() ? s.openingHours.trim().split("\n")[0] : "Talk to us about larger orders"}</span>
+                <span className="store-eyebrow block">Email</span>
+                <span className="mt-1 block truncate text-[17px] font-extrabold group-hover:text-sea-teal">{email}</span>
+                <span className="block text-[13px] text-sea-muted">Send your list and we&apos;ll email your price list back</span>
               </span>
             </a>
           </Reveal>

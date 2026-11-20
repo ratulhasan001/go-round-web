@@ -158,6 +158,14 @@ export interface LogoItem {
 }
 
 /** The store home page, edited on the admin "Website" page. */
+/** What the photos beside the home page's big title show. */
+export type ShowcaseSource = "featured" | "sale" | "new" | "category";
+export interface HeroShowcase {
+  source: ShowcaseSource;
+  category: string; // the category, for "category"
+  title: string; // shown above the photos; "" = the source's own name ("Featured products", the category…)
+}
+
 export interface HomeSettings {
   eyebrow: string; // small line above the big title
   title1: string; // big title, first line
@@ -167,6 +175,7 @@ export interface HomeSettings {
   search: boolean; // search box in the hero
   shopTitle: string; // the Shop button block
   shopText: string;
+  showcase: HeroShowcase; // the three product photos beside the big title, and their title
   blocks: HomeBlock[]; // text boxes; each has a "block:<id>" entry in sections
   partnersTitle: string;
   partners: LogoItem[];

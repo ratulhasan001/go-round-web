@@ -1,5 +1,5 @@
 // Shared by the customer website, its API routes and the admin panel. Nothing here touches the browser or the server.
-import { DELIVERY_AREAS, type DeliveryArea, type DeliveryZone, type Faq, type HomeBlockStyle, type HomeSectionId, type HomeSectionKey, type HomeSettings, type Order, type OrderStatus, type Product, type Shop, type SiteSettings } from "./types";
+import { DELIVERY_AREAS, type DeliveryArea, type DeliveryZone, type Faq, type HomeBlockStyle, type HomeSectionId, type HomeSectionKey, type HeroShowcase, type HomeSettings, type Order, type OrderStatus, type Product, type Shop, type SiteSettings } from "./types";
 
 // ---------- where everything lives ----------
 //
@@ -211,6 +211,7 @@ export const DEFAULT_HOME: HomeSettings = {
   search: true,
   shopTitle: "Everything for your planted tank",
   shopText: "Plants, soil, fertilizer, lights, CO2 and filtration - all in one shop.",
+  showcase: { source: "featured", category: "", title: "" },
   blocks: [],
   partnersTitle: "Our partners",
   partners: [],
@@ -220,7 +221,43 @@ export const DEFAULT_HOME: HomeSettings = {
 };
 
 /** The hero texts (what the Home page card's Reset puts back - it never touches text boxes or logos). */
-export const HERO_KEYS = ["eyebrow", "title1", "titleHighlight", "title2", "intro", "search", "shopTitle", "shopText"] as const;
+export const HERO_KEYS = ["eyebrow", "title1", "titleHighlight", "title2", "intro", "search", "shopTitle", "shopText", "showcase"] as const;
+
+/** What the admin can put in the photos beside the big title. */
+export const SHOWCASE_SOURCES: { id: HeroShowcase["source"]; label: string; hint: string }[] = [
+  { id: "featured", label: "Featured products", hint: "Products marked Featured - the newest fill in when fewer than three are" },
+  { id: "sale", label: "On sale", hint: "Discounted products, the biggest discount first" },
+  { id: "new", label: "New arrivals", hint: "The newest products" },
+  { id: "category", label: "A category", hint: "Products from one category" },
+];
+
+/**
+ * The three products beside the big title, the title above them, and where "See all" goes (a store path). A choice
+ * with nothing to show (no discounts, an empty category) falls back to the newest products under their own title,
+ * so the title never promises what the photos don't show.
+ */
+export function heroShowcase(products: PublicProduct[], sc: HeroShowcase): { title: string; pics: PublicProduct[]; link: string } {
+  const withPhoto = products.filter((p) => p.images.length);
+  // in-stock products first, keeping each list's own order
+  const pick = (list: PublicProduct[]) => [...list.filter((p) => p.inStock), ...list.filter((p) => !p.inStock)].slice(0, 3);
+  const label = (id: HeroShowcase["source"]) => SHOWCASE_SOURCES.find((x) => x.id === id)!.label;
+  const own = sc.title.trim();
+  const newest = { title: own || label("new"), pics: pick(withPhoto), link: "/products" };
+  if (sc.source === "featured") {
+    const featured = pick(withPhoto.filter((p) => p.featured));
+    return { title: own || label("featured"), pics: [...featured, ...pick(withPhoto.filter((p) => !featured.includes(p)))].slice(0, 3), link: featured.length ? "/products?show=featured" : "/products" };
+  }
+  if (sc.source === "sale") {
+    const off = (p: PublicProduct) => (p.regularPrice > p.price ? 1 - p.price / p.regularPrice : 0);
+    const sale = pick(withPhoto.filter((p) => off(p) > 0).sort((a, b) => off(b) - off(a)));
+    return sale.length ? { title: own || label("sale"), pics: sale, link: "/products?show=sale" } : { ...newest, title: label("new") };
+  }
+  if (sc.source === "category" && sc.category.trim()) {
+    const inCat = pick(withPhoto.filter((p) => inCategory(p.category, sc.category)));
+    return inCat.length ? { title: own || sc.category.trim(), pics: inCat, link: `/products?category=${encodeURIComponent(sc.category.trim())}` } : { ...newest, title: label("new") };
+  }
+  return newest;
+}
 
 /**
  * Saved home settings with anything missing filled in. A built-in section added later goes in after the section it
@@ -237,7 +274,13 @@ function homeSettings(h?: Partial<HomeSettings>): HomeSettings {
     sections.splice(prev ? sections.findIndex((y) => y.id === prev) + 1 : 0, 0, { id, on: true });
   });
   for (const b of blocks) if (!sections.some((y) => y.id === blockKey(b.id))) sections.unshift({ id: blockKey(b.id), on: true });
-  return { ...DEFAULT_HOME, ...h, blocks, partners: h?.partners ?? [], experience: h?.experience ?? [], sections };
+  const sc = h?.showcase;
+  const showcase: HeroShowcase = {
+    source: SHOWCASE_SOURCES.some((x) => x.id === sc?.source) ? sc!.source : DEFAULT_HOME.showcase.source,
+    category: typeof sc?.category === "string" ? sc.category : "",
+    title: typeof sc?.title === "string" ? sc.title : "",
+  };
+  return { ...DEFAULT_HOME, ...h, showcase, blocks, partners: h?.partners ?? [], experience: h?.experience ?? [], sections };
 }
 
 /**

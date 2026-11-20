@@ -29,7 +29,7 @@ export default function WebsitePage() {
   const setHome = (fn: (h: HomeSettings) => HomeSettings) => set({ home: fn(siteSettings(latest.current).home) });
   const [tab, setTab] = useState<"design" | "settings">("design");
   const cloud = mode === "cloud";
-  const heroChanged = HERO_KEYS.some((k) => s.home[k] !== DEFAULT_HOME[k]);
+  const heroChanged = HERO_KEYS.some((k) => JSON.stringify(s.home[k]) !== JSON.stringify(DEFAULT_HOME[k]));
 
   // the store's full address, read after mount (it depends on where the app is opened from)
   const [origin, setOrigin] = useState("");

@@ -6,6 +6,7 @@ import { StoreProvider } from "@/components/store/StoreContext";
 import { Header } from "@/components/store/Header";
 import { Footer } from "@/components/store/Footer";
 import { Floating } from "@/components/store/Floating";
+import { CookieBanner } from "@/components/store/CookieBanner";
 import { SITE_URL } from "@/lib/seo";
 import { SHARE_IMAGE, shopDescription } from "@/lib/server/seo";
 
@@ -39,6 +40,7 @@ export default async function StoreLayout({ children }: LayoutProps<"/store">) {
         <main className="flex-1">{children}</main>
         <Footer shop={shop} links={links} />
         <Floating />
+        <CookieBanner />
       </div>
     </StoreProvider>
   );

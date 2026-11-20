@@ -4,8 +4,8 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { loadCatalog } from "@/lib/server/catalog";
 import { storeLinks } from "@/lib/server/links";
-import { avgRating, plainText } from "@/lib/site";
-import { findProduct, productPath } from "@/lib/seo";
+import { type PublicProduct, avgRating, plainText, tk } from "@/lib/site";
+import { absoluteUrl, cleanName, findProduct, productPath } from "@/lib/seo";
 import { ProductCard } from "@/components/store/ProductCard";
 import { ProductDetail } from "@/components/store/ProductDetail";
 import { ProductReviews } from "@/components/store/Reviews";
@@ -18,13 +18,26 @@ async function find(segment: string) {
   return { ...findProduct(products, segment), products, shop };
 }
 
+/** One line under the title in search results: name, price, then the start of the description. */
+const summary = (p: PublicProduct) => {
+  const lead = `${cleanName(p.name)} price in Bangladesh: ${tk(p.price)}${p.inStock === false ? " (out of stock)" : ""}.`;
+  const text = plainText(p.description).replace(/\s+/g, " ").trim();
+  const all = text ? `${lead} ${text}` : `${lead} Order online, pay with bKash or bank transfer.`;
+  return all.length > 160 ? `${all.slice(0, 157).replace(/\s+\S*$/, "")}...` : all;
+};
+
 export async function generateMetadata({ params }: PageProps<"/store/products/[id]">): Promise<Metadata> {
-  const { product } = await find((await params).id);
-  if (!product) return { title: "Product not found" };
+  const { product, shop } = await find((await params).id);
+  if (!product) return { title: "Product not found", robots: { index: false } };
+  const title = `${cleanName(product.name)} Price in Bangladesh`;
+  const description = summary(product);
+  const url = productPath(product);
   return {
-    title: product.name,
-    description: plainText(product.description).replace(/\s+/g, " ").slice(0, 160) || `${product.name} - order online, pay with bKash or bank transfer.`,
-    openGraph: product.images[0] ? { images: [product.images[0]] } : undefined,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { type: "website", siteName: shop.name, locale: "en_BD", url, title, description, images: product.images.slice(0, 1).map((i) => absoluteUrl(i)) },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 

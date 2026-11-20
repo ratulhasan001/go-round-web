@@ -5,7 +5,9 @@ import { ChevronLeft } from "lucide-react";
 import { loadCatalog } from "@/lib/server/catalog";
 import { storeLinks } from "@/lib/server/links";
 import { type PublicProduct, avgRating, plainText, tk } from "@/lib/site";
-import { absoluteUrl, cleanName, findProduct, productPath } from "@/lib/seo";
+import { SITE_URL, absoluteUrl, cleanName, findProduct, productPath } from "@/lib/seo";
+import type { PublicReview } from "@/lib/server/reviews";
+import { JsonLd } from "@/components/store/JsonLd";
 import { ProductCard } from "@/components/store/ProductCard";
 import { ProductDetail } from "@/components/store/ProductDetail";
 import { ProductReviews } from "@/components/store/Reviews";
@@ -41,8 +43,59 @@ export async function generateMetadata({ params }: PageProps<"/store/products/[i
   };
 }
 
+/** What Google shows for a product: price and stock, rating stars, the shop it's from, where it sits in the shop. */
+function productData(p: PublicProduct, url: string, shopName: string, reviews: PublicReview[]) {
+  const rated = reviews.filter((r) => r.rating >= 1 && r.rating <= 5);
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Product",
+        "@id": `${url}#product`,
+        name: cleanName(p.name),
+        url,
+        image: p.images.map(absoluteUrl),
+        description: plainText(p.description).replace(/\s+/g, " ").trim().slice(0, 5000) || cleanName(p.name),
+        ...(p.sku ? { sku: p.sku } : {}),
+        ...(p.brand ? { brand: { "@type": "Brand", name: p.brand } } : {}),
+        ...(p.category ? { category: [p.category, p.subcategory, p.subsubcategory].filter(Boolean).join(" > ") } : {}),
+        offers: {
+          "@type": "Offer",
+          url,
+          price: p.price,
+          priceCurrency: "BDT",
+          availability: p.inStock === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+          itemCondition: "https://schema.org/NewCondition",
+          seller: { "@type": "Organization", name: shopName, url: SITE_URL },
+        },
+        ...(rated.length
+          ? {
+              aggregateRating: { "@type": "AggregateRating", ratingValue: Number(avgRating(rated).toFixed(1)), reviewCount: rated.length, bestRating: 5, worstRating: 1 },
+              review: rated.slice(0, 5).map((r) => ({
+                "@type": "Review",
+                author: { "@type": "Person", name: r.name },
+                reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+                ...(r.text ? { reviewBody: r.text } : {}),
+                datePublished: new Date(r.createdAt).toISOString().slice(0, 10),
+              })),
+            }
+          : {}),
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
+          { "@type": "ListItem", position: 2, name: "Shop", item: `${SITE_URL}/products` },
+          ...(p.category ? [{ "@type": "ListItem", position: 3, name: p.category, item: `${SITE_URL}/products?category=${encodeURIComponent(p.category)}` }] : []),
+          { "@type": "ListItem", position: p.category ? 4 : 3, name: cleanName(p.name), item: url },
+        ],
+      },
+    ],
+  };
+}
+
 export default async function ProductPage({ params }: PageProps<"/store/products/[id]">) {
-  const { product, exact, products } = await find((await params).id);
+  const { product, exact, products, shop } = await find((await params).id);
   if (!product) notFound();
   const L = await storeLinks();
   // an old address (the full id, or the product's earlier name): send people and search engines to the current one
@@ -58,6 +111,7 @@ export default async function ProductPage({ params }: PageProps<"/store/products
       <Link href={L.store("/products")} className="mb-6 inline-flex items-center gap-1 text-[13.5px] font-bold text-sea-muted hover:text-sea-ink">
         <ChevronLeft className="size-4" /> Back to shop
       </Link>
+      <JsonLd data={productData(product, `${SITE_URL}${productPath(product)}`, shop.name, reviews)} />
       <ProductDetail p={product} rating={{ avg: avgRating(reviews), count: reviews.length }} />
       <ProductReviews productId={product.id} initial={reviews} />
       {related.length > 0 && (

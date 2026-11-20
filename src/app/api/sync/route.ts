@@ -4,6 +4,8 @@ import { adminAuthed } from "@/lib/server/auth";
 import { KINDS, type Kind, db, dbEnabled, ensureSchema } from "@/lib/server/db";
 import { couponForOrderChange, mergeOrder, mergeProduct, stockForOrderChange } from "@/lib/server/orders";
 import { syncAccount } from "@/lib/server/customers";
+import { refreshCatalog } from "@/lib/server/catalog";
+import { refreshReviews } from "@/lib/server/reviews";
 import { submitToIndexNow } from "@/lib/server/indexNow";
 import { productPath } from "@/lib/seo";
 import { onSite } from "@/lib/site";
@@ -98,6 +100,10 @@ export async function POST(req: Request) {
             on conflict (kind, id) do update set data = excluded.data, updated_at = now()`;
       }
     });
+    // the website's cached catalogue and reviews: products and settings show at once, and orders move stock
+    const kinds = new Set((changes as Change[]).map((c) => c.kind));
+    if (kinds.has("product") || kinds.has("shop") || kinds.has("order")) refreshCatalog();
+    if (kinds.has("review")) refreshReviews();
     // products added or changed on the website: tell Bing & co. now rather than waiting for their crawlers
     const shown = (changes as Change[]).filter((c) => c.kind === "product" && c.data && onSite(c.data as unknown as Product)).map((c) => productPath(c.data as unknown as Product));
     if (shown.length) after(() => submitToIndexNow([...shown, "/products"]));

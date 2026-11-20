@@ -5,6 +5,7 @@ import { OrderError, orderView, placeOrder } from "@/lib/server/orders";
 import { phoneKey } from "@/lib/phone";
 import { clientIp } from "@/lib/server/auth";
 import { record, reached, tooMany } from "@/lib/server/rateLimit";
+import { couponAttempt } from "@/lib/server/couponLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,10 @@ export async function POST(req: Request) {
   const phone = phoneKey(String(body.phone ?? "")) || "none";
   if ((await reached(`order:ip:${ip}`, 20, 60)) || (await reached(`order:phone:${phone}`, 5, 60)))
     return tooMany("You've placed several orders in the last hour. Please wait a little, or message us on WhatsApp.");
+
+  // an order with a coupon counts as a coupon try (so codes can't be guessed by placing orders either)
+  if (typeof body.coupon === "string" && body.coupon.trim() && !(await couponAttempt(req)))
+    return tooMany("You've tried several coupon codes. Please wait a few minutes and try again.");
 
   try {
     await ensureSchema();

@@ -1,12 +1,14 @@
-"use client";
-
-import { Circle, Document, Font, Image, Page, Path, StyleSheet, Svg, Text, View, pdf } from "@react-pdf/renderer";
+// The receipt PDF. Built in the browser for the admin panel, and on the server for customers' downloads
+// (src/lib/server/receiptPdf.ts) - so nothing here may touch the page except through the defaults below.
+import type { ReactElement } from "react";
+import { Circle, Document, type DocumentProps, Font, Image, Page, Path, StyleSheet, Svg, Text, View, pdf } from "@react-pdf/renderer";
 import type { Invoice, Shop } from "./types";
 import { amountInWords, bdt, computeTotals, courierName, filledItems, fmtDate, lineAmount, money, rewardNote } from "./calc";
 import { STATUS_LABEL, T, initials, logoUrl } from "./theme";
 import { AQ, TOP_H } from "./aquascape";
-import { billLines } from "./letter";
+import { billLines } from "./contact";
 import { PdfFishBand, PdfGrassBand } from "./pdfArt";
+import type { Gfx } from "./gfx";
 import { drawSeal, drawSignature, sealFor } from "./seal";
 import { WATERMARK_OPACITY, makeWatermark } from "./watermark";
 
@@ -16,9 +18,9 @@ type Style = Parameters<typeof StyleSheet.create>[0][string];
 export const withBangla = (family: string) => [family, "NotoBengali"];
 
 let fontsReady = false;
-export function registerFonts() {
+/** Fonts come from the site's /fonts in the browser, or from a folder (public/fonts) on the server. */
+export function registerFonts(base = `${window.location.origin}/fonts`) {
   if (fontsReady) return;
-  const base = `${window.location.origin}/fonts`;
   Font.register({
     family: "Manrope",
     fonts: [400, 500, 600, 700, 800].map((w) => ({ src: `${base}/Manrope-${w}.ttf`, fontWeight: w })),
@@ -194,14 +196,20 @@ const FIT = [
 ] satisfies Partial<Record<keyof typeof s, Style>>[];
 const LAST_FIT = FIT.length; // FIT.length itself = tightest layout, allowed to run onto a second page
 
-export function ReceiptDocument({
-  inv, shop, seal, sign, watermark, fit = 0, onPages,
-}: {
-  inv: Invoice;
-  shop: Shop;
+/** The pictures drawn onto a receipt: its PAID / DUE seal, the signature block and the logo watermark. */
+export interface ReceiptArt {
   seal?: string;
   sign?: string;
   watermark?: string | null;
+  /** The logo as react-pdf should load it; the browser works it out from the shop's logo when left out. */
+  logoSrc?: string;
+}
+
+export function ReceiptDocument({
+  inv, shop, seal, sign, watermark, logoSrc, fit = 0, onPages,
+}: ReceiptArt & {
+  inv: Invoice;
+  shop: Shop;
   fit?: number;
   onPages?: (n: number) => void;
 }) {
@@ -212,7 +220,7 @@ export function ReceiptDocument({
   const payments = inv.payments.filter((p) => p.amount);
   const st = T.status[t.status];
   const contact = billLines(shop);
-  const logo = logoUrl(shop.logo);
+  const logo = logoSrc ?? logoUrl(shop.logo);
 
   return (
     <Document title={`Invoice ${inv.number}`} author={shop.name} subject={`Invoice for ${inv.customer.name}`} creator={shop.name}>
@@ -417,20 +425,30 @@ function Row({ k, v, style }: { k: string; v: string; style?: Style }) {
   );
 }
 
-export async function renderPdfBlob(inv: Invoice, shop: Shop) {
-  registerFonts();
+/** Draws the receipt's seal, signature block and watermark (with the browser's canvas unless `gfx` says otherwise). */
+export async function receiptArt(inv: Invoice, shop: Shop, gfx?: Gfx): Promise<ReceiptArt> {
   const spec = sealFor(inv, shop);
   const [seal, sign, watermark] = await Promise.all([
-    spec ? drawSeal(spec) : undefined,
-    drawSignature(shop),
-    shop.watermark ? makeWatermark(shop.logo) : null,
+    spec ? drawSeal(spec, gfx) : undefined,
+    drawSignature(shop, gfx),
+    shop.watermark ? makeWatermark(shop.logo, undefined, gfx) : null,
   ]);
-  // keep it to one page: re-render tighter until it fits
+  return { seal, sign, watermark };
+}
+
+/**
+ * Renders the receipt with `render` (to a Blob in the browser, a Buffer on the server). Keeps it to one page: when it
+ * runs over, it renders again with a tighter layout until it fits.
+ */
+export async function fitReceipt<T>(inv: Invoice, shop: Shop, art: ReceiptArt, render: (doc: ReactElement<DocumentProps>) => Promise<T>): Promise<T> {
   for (let fit = 0; ; fit++) {
     let pages = 1;
-    const blob = await pdf(
-      <ReceiptDocument inv={inv} shop={shop} seal={seal} sign={sign} watermark={watermark} fit={fit} onPages={(n) => (pages = n)} />,
-    ).toBlob();
-    if (pages <= 1 || fit >= LAST_FIT) return blob;
+    const out = await render(<ReceiptDocument inv={inv} shop={shop} {...art} fit={fit} onPages={(n) => (pages = n)} />);
+    if (pages <= 1 || fit >= LAST_FIT) return out;
   }
+}
+
+export async function renderPdfBlob(inv: Invoice, shop: Shop) {
+  registerFonts();
+  return fitReceipt(inv, shop, await receiptArt(inv, shop), (doc) => pdf(doc).toBlob());
 }

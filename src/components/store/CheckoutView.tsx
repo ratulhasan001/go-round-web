@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, Landmark, Loader2, Lock, ShoppingBag, Smartphone, TicketPercent, X } from "lucide-react";
+import { Clock, Landmark, Loader2, Lock, Minus, Plus, ShoppingBag, Smartphone, TicketPercent, Trash2, X } from "lucide-react";
 import { deliveryFee, extraKg, needsTrxAtCheckout, splitPoliceStation, tk, waLink } from "@/lib/site";
 import { POLICIES } from "@/lib/policies";
 import { couponAmount } from "@/lib/couponRules";
@@ -27,7 +27,7 @@ interface Me {
 }
 
 export function CheckoutView() {
-  const { shop, online, lines, subtotal, ready, clear, refresh, links } = useShop();
+  const { shop, online, lines, subtotal, ready, clear, refresh, links, setQty, remove } = useShop();
   const router = useRouter();
   const note = useFreshCart();
   const s = shop.site;
@@ -382,19 +382,55 @@ export function CheckoutView() {
       <aside className="lg:sticky lg:top-24 lg:self-start">
         <div className="rounded-[28px] border border-sea-line bg-sea-paper p-6">
           <h2 className="font-serif text-[22px]">Order summary</h2>
-          <ul className="mt-4 grid max-h-72 gap-3 overflow-y-auto pr-1">
+          {/* the cart can still be changed here: more or fewer of an item, or take it out - the totals follow */}
+          <ul className="mt-4 grid max-h-[22rem] gap-3.5 overflow-y-auto pr-1">
             {lines.map((l) => (
-              <li key={l.id} className="flex items-center gap-3">
+              <li key={l.id} className="flex gap-3">
                 <span className="relative size-12 shrink-0 overflow-hidden rounded-xl ring-1 ring-sea-line">
                   <ProductImage src={l.image} name={l.name} />
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="line-clamp-1 text-[13.5px] font-bold">{l.name}</span>
-                  <span className="text-[12.5px] text-sea-muted">
-                    {l.qty} × {tk(l.price)}
-                  </span>
-                </span>
-                <span className="text-[13.5px] font-extrabold tabular-nums">{tk(l.price * l.qty)}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="line-clamp-2 text-[13.5px] font-bold leading-snug">{l.name}</span>
+                    <span className="shrink-0 text-[13.5px] font-extrabold tabular-nums">{tk(l.price * l.qty)}</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <div className="flex h-8 items-center rounded-full border border-sea-line bg-white">
+                      <button
+                        type="button"
+                        onClick={() => setQty(l.id, l.qty - 1)}
+                        disabled={busy || l.qty <= 1}
+                        className="grid size-8 place-items-center rounded-full text-sea-ink hover:bg-sea-sand/60 disabled:opacity-35 disabled:hover:bg-transparent"
+                        aria-label={`One less ${l.name}`}
+                      >
+                        <Minus className="size-3.5" />
+                      </button>
+                      <span className="w-6 text-center text-[13px] font-extrabold tabular-nums" aria-live="polite">
+                        {l.qty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQty(l.id, l.qty + 1)}
+                        disabled={busy || l.qty >= 99}
+                        className="grid size-8 place-items-center rounded-full text-sea-ink hover:bg-sea-sand/60 disabled:opacity-35 disabled:hover:bg-transparent"
+                        aria-label={`One more ${l.name}`}
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
+                    </div>
+                    <span className="text-[12px] text-sea-muted tabular-nums">× {tk(l.price)}</span>
+                    <button
+                      type="button"
+                      onClick={() => remove(l.id)}
+                      disabled={busy}
+                      className="ml-auto grid size-8 place-items-center rounded-full text-sea-muted transition hover:bg-red-50 hover:text-red-600 disabled:opacity-35"
+                      aria-label={`Remove ${l.name}`}
+                      title="Remove"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>

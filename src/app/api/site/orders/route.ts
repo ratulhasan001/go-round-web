@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentAccount, startSession, hashPassword, newAccountId } from "@/lib/server/accounts";
 import { db, dbEnabled, ensureSchema } from "@/lib/server/db";
 import { OrderError, orderView, placeOrder } from "@/lib/server/orders";
+import { refreshCatalog } from "@/lib/server/catalog";
 import { phoneKey } from "@/lib/phone";
 import { clientIp } from "@/lib/server/auth";
 import { record, reached, tooMany } from "@/lib/server/rateLimit";
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
       if (taken) throw new OrderError(422, { error: "invalid", fields: { password: "This number already has an account - log in instead, or untick “Create an account”." } });
     }
     const order = await placeOrder(body, account?.id ?? null);
+    refreshCatalog(); // the order took stock: the shop shows the new counts
     await record(`order:ip:${ip}`);
     await record(`order:phone:${phoneKey(order.customer.phone) || phone}`);
     if (!account && password) {

@@ -10,6 +10,8 @@ import { PaymentInfo } from "./PaymentInfo";
 import { ProductImage } from "./ProductImage";
 import { WhatsAppIcon } from "./Icons";
 import { Panel, SeaField, SeaInput, btn, cx } from "./ui";
+import { useClientValue } from "@/components/ui";
+import { type BrowserKind, browserKind, inChrome } from "@/lib/inAppBrowser";
 
 /** Order status for guests: type the mobile number the order was placed with to see its orders, open one, get the receipt. */
 export function TrackView() {
@@ -459,9 +461,7 @@ function ReceiptBlock({ order, phone }: { order: OrderView; phone?: string }) {
       {ready &&
         link !== "missing" &&
         (typeof link === "object" ? (
-          <a href={link.url} className={btn("primary", "lg", "w-full sm:w-auto")}>
-            <Download className="size-4" /> Download receipt
-          </a>
+          <ReceiptLink url={link.url} />
         ) : link === "error" ? (
           <button onClick={retry} className={btn("primary", "lg", "w-full sm:w-auto")}>
             <Download className="size-4" /> Try again
@@ -471,6 +471,51 @@ function ReceiptBlock({ order, phone }: { order: OrderView; phone?: string }) {
             <Loader2 className="size-4 animate-spin" /> Download receipt
           </button>
         ))}
+    </div>
+  );
+}
+
+/**
+ * The receipt's download button. The browsers inside Messenger, Facebook or Instagram can't save files, so there the
+ * button opens the download in Chrome (Android) or shows the receipt to save from the share button (iPhone).
+ */
+function ReceiptLink({ url }: { url: string }) {
+  const kind = useClientValue(() => browserKind(navigator.userAgent), "normal" as BrowserKind);
+  const full = useClientValue(() => new URL(url, window.location.origin).href, url);
+  const cls = btn("primary", "lg", "w-full sm:w-auto");
+  if (kind === "normal")
+    return (
+      <a href={url} className={cls}>
+        <Download className="size-4" /> Download receipt
+      </a>
+    );
+  return (
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:max-w-[260px]">
+      {kind === "android-in-app" ? (
+        <a href={inChrome(full)} className={cls}>
+          <Download className="size-4" /> Download in Chrome
+        </a>
+      ) : (
+        <a href={`${url}&inline=1`} className={cls}>
+          <FileText className="size-4" /> Open receipt
+        </a>
+      )}
+      <p className="text-[12.5px] leading-snug text-sea-muted">
+        {kind === "android-in-app" ? (
+          <>
+            This app&apos;s browser can&apos;t save files, so the receipt downloads in Chrome. If nothing happens, tap{" "}
+            <b className="text-sea-ink">⋮ → Open in browser</b>, or{" "}
+            <a href={url} className="font-bold text-sea-teal underline underline-offset-2">
+              try here
+            </a>
+            .
+          </>
+        ) : (
+          <>
+            The receipt opens on screen - tap the <b className="text-sea-ink">share button</b> to save it to Files or send it.
+          </>
+        )}
+      </p>
     </div>
   );
 }

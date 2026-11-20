@@ -1,5 +1,3 @@
-"use client";
-
 // The card's fish (top) and grass (bottom) for react-pdf pages - mirrors src/components/AquascapeArt.tsx.
 import { Circle, Path, Svg } from "@react-pdf/renderer";
 import { AQ, BUBBLES, FISH, GRASS, GRASS_H, TOP_H } from "./aquascape";

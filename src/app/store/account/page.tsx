@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { AccountView } from "@/components/store/AccountView";
 import { PageHead } from "@/components/store/ui";
 
-export const metadata: Metadata = { title: "My account" };
+// personal pages: never in search results
+export const metadata: Metadata = { title: "My account", robots: { index: false, follow: true } };
 
 export default function AccountPage() {
   return (

@@ -4,7 +4,7 @@ import { loadCatalog } from "@/lib/server/catalog";
 import { VerifyHub } from "@/components/store/VerifyHub";
 import { PageHead } from "@/components/store/ui";
 
-export const metadata: Metadata = { title: "Verify", description: "Check a purchase, an order's status or a staff member." };
+export const metadata: Metadata = { title: "Verify", description: "Check a purchase, an order's status or a staff member.", robots: { index: false, follow: false } };
 
 /** verify.goroundbd.com (or /store/verify on a dev address). */
 export default async function VerifyPage() {

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { CheckoutView } from "@/components/store/CheckoutView";
 import { PageHead } from "@/components/store/ui";
 
-export const metadata: Metadata = { title: "Checkout" };
+// personal pages: never in search results
+export const metadata: Metadata = { title: "Checkout", robots: { index: false, follow: true } };
 
 export default function CheckoutPage() {
   return (

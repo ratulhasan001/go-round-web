@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { TrackView } from "@/components/store/TrackView";
 import { PageHead } from "@/components/store/ui";
 
-export const metadata: Metadata = { title: "Order status" };
+// personal pages: never in search results
+export const metadata: Metadata = { title: "Order status", robots: { index: false, follow: true } };
 
 export default function OrderStatusPage() {
   return (

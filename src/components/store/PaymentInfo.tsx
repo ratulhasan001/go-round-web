@@ -54,7 +54,11 @@ export function PaymentInfo({ shop, method, amount, code }: { shop: PublicShop; 
                 {/* eslint-disable-next-line @next/next/no-img-element -- the shop's uploaded QR code */}
                 <img src={bkash.qr} alt={`bKash QR code for ${prettyPhone(bkash.number)}`} className="aspect-square w-full object-contain" />
               </a>
-              <figcaption className="mt-1.5 text-center text-[11.5px] font-bold text-[#b0105a]">Scan with the bKash app</figcaption>
+              <figcaption className="mt-1.5 flex items-center justify-center gap-2 text-[11.5px] font-bold text-[#b0105a]">
+                {/* eslint-disable-next-line @next/next/no-img-element -- the Bangla QR mark (public/pay/bangla-qr.webp) */}
+                <img src="/pay/bangla-qr.webp" alt="Bangla QR" width={23} height={28} className="h-7 w-auto" />
+                Scan to pay
+              </figcaption>
             </figure>
           )}
           <div className="mt-1 divide-y divide-[#e2136e]/10">

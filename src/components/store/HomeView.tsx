@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { ArrowRight, PackageCheck, Search, ShoppingBag, Sparkles, Store, Wallet } from "lucide-react";
+import { ArrowRight, BadgePercent, LayoutGrid, PackageCheck, Search, ShoppingBag, Sparkles, Store, Wallet, Zap } from "lucide-react";
 import { avgRating, heroShowcase, inCategory, waLink, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
 import { categoryIcon } from "@/lib/categoryIcons";
 import type { HomeSectionKey } from "@/lib/types";
@@ -41,6 +41,7 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
   // the photos beside the big title: what the admin chose (featured, on sale, new arrivals or a category) and its title
   const showcase = heroShowcase(products, home.showcase);
   const heroPics = showcase.pics;
+  const ShowcaseIcon = { featured: Sparkles, sale: BadgePercent, new: Zap, category: LayoutGrid }[showcase.kind];
 
   /** Space above a section; the first one after the hero tucks under the grass. */
   const top = (first: boolean, gap: string) => (first ? "mt-4" : gap);
@@ -323,11 +324,16 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
               <div className="relative h-[460px]">
                 {/* the title above the photos */}
                 <div className="absolute inset-x-[4%] -top-2 z-20 flex items-center justify-between gap-3">
-                  <p className="inline-flex max-w-[70%] items-center gap-2 rounded-full bg-white/95 py-2 pl-3 pr-4 shadow-[0_14px_30px_-20px_rgba(17,58,45,0.6)] ring-1 ring-sea-line backdrop-blur">
-                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-sea-ink text-white">
-                      <Sparkles className="size-3.5" />
+                  {/* a band of colour that keeps flowing, with a blinking dot - it should catch the eye */}
+                  <p className="hero-pill relative inline-flex max-w-[72%] items-center gap-2.5 overflow-hidden rounded-full py-1.5 pl-1.5 pr-4 text-white ring-2 ring-white">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white/18 ring-1 ring-white/30">
+                      <ShowcaseIcon className="size-4" />
                     </span>
-                    <span className="truncate font-serif text-[19px] leading-none">{showcase.title}</span>
+                    <span className="truncate text-[13px] font-extrabold uppercase leading-none tracking-[0.14em]">{showcase.title}</span>
+                    <span className="relative flex size-2.5 shrink-0" aria-hidden>
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-lime-300 opacity-80" />
+                      <span className="relative inline-flex size-2.5 rounded-full bg-lime-300" />
+                    </span>
                   </p>
                   <Link href={L.store(showcase.link)} className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-2 text-[13px] font-bold text-sea-teal transition hover:bg-sea-teal-soft">
                     See all <ArrowRight className="size-3.5" />

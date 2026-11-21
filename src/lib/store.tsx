@@ -236,6 +236,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flushing = useRef(false);
   const edits = useRef(0); // bumps on every local change, so a slow reload can't put older data back
+  const version = useRef<string | null>(null); // the server's version of the records last loaded (see /api/data)
 
   const schedule = useRef<(ms: number) => void>(() => {});
 
@@ -365,13 +366,16 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
 
   const loadFromServer = useCallback(async (): Promise<"ok" | "nodb" | "failed"> => {
     const startedAt = edits.current;
-    const res = await fetch("/api/data", { cache: "no-store" }).catch(() => null);
+    // with the version of the records shown, the server answers "unchanged" instead of sending everything again
+    const known = version.current;
+    const res = await fetch(known ? `/api/data?v=${encodeURIComponent(known)}` : "/api/data", { cache: "no-store" }).catch(() => null);
     if (res?.status === 401) {
       window.location.href = loginAgain(); // full reload clears the session state
       return "failed";
     }
     const body = res?.ok ? await res.json().catch(() => null) : null;
     if (!body) return "failed";
+    if (body.unchanged) return "ok";
     // something was changed on this device while loading: keep it (the next reload picks up the server copy)
     if (edits.current !== startedAt) return "ok";
     setAuthEnabled(!!body.auth);
@@ -420,6 +424,7 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
     pending.push(...unsent);
 
     noBase.current = false; // the real data is here now
+    version.current = typeof body.version === "string" ? body.version : null;
     lastSeen.current = merged;
     setData(merged);
     queue(pending);

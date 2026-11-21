@@ -34,17 +34,17 @@ const ROW_OUT_MS = 280;
 // Screen width from which rows are laid out as a table (below it each row is a card).
 // Written out in full so Tailwind sees every class.
 const LAYOUT = {
-  // one line per row from 900px (56.25rem - in rem like Tailwind's own breakpoints, so it's ordered after sm: in px it
-  // landed before it and sm:grid-cols-2 won): a phone's "desktop site" mode (about 980px) and small laptops; columns
-  // that can't fit scroll sideways inside the card (tableMin)
+  // one line per row from 640px (sm): a phone's "desktop site" mode (about 700-900px wide - it showed two-column cards
+  // there) and small laptops get the table; a row too wide for the screen scrolls sideways inside the card (tableMin).
+  // Phones held upright (under 640px) keep one card per row.
   wide: {
-    head: "min-[56.25rem]:grid",
-    list: "min-[56.25rem]:gap-1.5",
-    row: "sm:grid-cols-2 min-[56.25rem]:border-transparent min-[56.25rem]:p-1 min-[56.25rem]:-mx-1 min-[56.25rem]:[grid-template-columns:var(--g)] min-[56.25rem]:hover:bg-canvas",
-    label: "min-[56.25rem]:hidden",
-    lead: "min-[56.25rem]:grid",
-    scroll: "min-[56.25rem]:overflow-x-auto",
-    inner: "min-[56.25rem]:min-w-[var(--table-min)]",
+    head: "sm:grid",
+    list: "sm:gap-1.5",
+    row: "sm:border-transparent sm:p-1 sm:-mx-1 sm:[grid-template-columns:var(--g)] sm:hover:bg-canvas",
+    label: "sm:hidden",
+    lead: "sm:grid",
+    scroll: "sm:overflow-x-auto",
+    inner: "sm:min-w-[var(--table-min)]",
   },
   md: {
     head: "md:grid",

@@ -1,4 +1,4 @@
-import { type Area, HOSTS } from "./site";
+import { type Area, HOSTS, PHOTO_BASE } from "./site";
 
 /**
  * The one inline script of the site (src/app/layout.tsx). The policy allows it by its hash, so editing it here keeps
@@ -21,6 +21,7 @@ export function newNonce() {
 
 const TURNSTILE = "https://challenges.cloudflare.com"; // Cloudflare's "verify you are human" box (logins, sign-up)
 const EMOJI = "https://cdnjs.cloudflare.com"; // emoji pictures react-pdf draws into the admin's PDFs
+const PHOTOS = new URL(PHOTO_BASE).origin; // uploaded photos (Cloudflare R2): the ID-card builder reads team photos
 
 /**
  * The Content-Security-Policy of a page: the browser runs only the scripts this page view's nonce allows (Next.js puts
@@ -45,7 +46,7 @@ export async function contentSecurityPolicy(o: { nonce: string; area: Area; dev:
     "font-src": ["'self'", "data:"],
     // data: / blob: - the admin's Word, Excel and ID-card files read their own pictures (signature, logo, photos) back
     // as bytes this way; such an address already holds its data, so nothing can be sent anywhere through it
-    "connect-src": ["'self'", "data:", "blob:", TURNSTILE, admin && EMOJI],
+    "connect-src": ["'self'", "data:", "blob:", TURNSTILE, admin && EMOJI, admin && PHOTOS],
     "frame-src": ["'self'", TURNSTILE, admin && `https://${HOSTS.store}`],
     "worker-src": ["'self'", "blob:"],
     "object-src": ["'none'"],

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, BriefcaseBusiness, Check, Clock, Copy, ExternalLink, Handshake, HelpCircle, ImagePlus, Landmark, LayoutGrid, LayoutTemplate, Loader2, Megaphone, MessageCircle, Palette, Pencil, Plus, QrCode, Rows3, Settings2, SquarePen, Star, Store, Trash2, Truck, BookOpen, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BriefcaseBusiness, ChartColumn, Check, Clock, Copy, ExternalLink, Handshake, HelpCircle, ImagePlus, Landmark, LayoutGrid, LayoutTemplate, Loader2, Megaphone, MessageCircle, Palette, Pencil, Plus, QrCode, Rows3, Settings2, SquarePen, Star, Store, Trash2, Truck, BookOpen, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { DEFAULT_ABOUT, DEFAULT_FAQ, DEFAULT_HOME, DEFAULT_HOURS, DEFAULT_ZONES, FEATURE_CATEGORY_IDEAS, HERO_KEYS, SHOWCASE_SOURCES, sameName, siteSettings, absolute, publicLinks } from "@/lib/site";
 import { CATEGORY_ICONS, categoryIconId, iconKey } from "@/lib/categoryIcons";
@@ -10,6 +10,7 @@ import { uid } from "@/lib/calc";
 import { DELIVERY_AREAS, type DeliveryZone, type HeroShowcase, type HomeSettings, type Review, type SiteSettings } from "@/lib/types";
 import { SectionIcon } from "@/components/nav";
 import { BlocksEditor, HeadlinesEditor, LayoutEditor, LogoListEditor, PreviewPanel } from "@/components/website/HomeDesign";
+import { VisitorsPanel } from "@/components/website/Visitors";
 import { Button, Card, Field, Input, SectionTitle, Select, Switch, Textarea, cx, useToast } from "@/components/ui";
 
 export default function WebsitePage() {
@@ -27,7 +28,7 @@ export default function WebsitePage() {
   };
   /** Home page changes always build on the newest settings (photo uploads finish late). */
   const setHome = (fn: (h: HomeSettings) => HomeSettings) => set({ home: fn(siteSettings(latest.current).home) });
-  const [tab, setTab] = useState<"design" | "settings">("design");
+  const [tab, setTab] = useState<"design" | "settings" | "visitors">("design");
   const cloud = mode === "cloud";
   const heroChanged = HERO_KEYS.some((k) => JSON.stringify(s.home[k]) !== JSON.stringify(DEFAULT_HOME[k]));
 
@@ -60,8 +61,9 @@ export default function WebsitePage() {
       <div className="mb-5 flex gap-1 rounded-2xl border border-line bg-white p-1 sm:inline-flex" role="tablist" aria-label="Website sections">
         {(
           [
-            { id: "design", label: "Home page design", Icon: Palette },
-            { id: "settings", label: "Store settings", Icon: Settings2 },
+            { id: "design", label: "Home page design", short: "Design", Icon: Palette },
+            { id: "settings", label: "Store settings", short: "Settings", Icon: Settings2 },
+            { id: "visitors", label: "Visitors", short: "Visitors", Icon: ChartColumn },
           ] as const
         ).map((t) => (
           <button
@@ -72,12 +74,15 @@ export default function WebsitePage() {
             onClick={() => setTab(t.id)}
             className={cx("flex h-10 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-bold transition sm:flex-none", tab === t.id ? "bg-deep text-lime shadow" : "text-muted hover:bg-canvas hover:text-ink")}
           >
-            <t.Icon className="size-4" /> {t.label}
+            <t.Icon className="size-4" /> <span className="sm:hidden">{t.short}</span>
+            <span className="hidden sm:inline">{t.label}</span>
           </button>
         ))}
       </div>
 
-      {tab === "design" ? (
+      {tab === "visitors" ? (
+        <VisitorsPanel cloud={cloud} />
+      ) : tab === "design" ? (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
           <div className="order-first xl:order-last">
             <Card className="p-4 sm:p-5 xl:sticky xl:top-[calc(var(--nav-h,0px)+1rem)]">

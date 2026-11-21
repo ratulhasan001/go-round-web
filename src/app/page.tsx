@@ -15,6 +15,7 @@ import { Aquarium } from "@/components/Aquarium";
 import { LazyAquarium } from "@/components/aquarium/LazyAquarium";
 import { Fish, Grass } from "@/components/store/Art";
 import { CalendarTile } from "@/components/CalendarTile";
+import { useVisits } from "@/components/website/Visitors";
 
 const greeting = () => {
   const hour = new Date().getHours();
@@ -40,6 +41,8 @@ export default function Home() {
   const { shop, invoices, products, customers, coupons, orders, employees, mode, sync, authEnabled, logout } = useStore();
   const router = useRouter();
   const greet = useClientValue(greeting, "Welcome back");
+  const visits = useVisits(mode === "cloud");
+  const today = visits.data && visits.data !== "error" && visits.data.db ? visits.data.days.at(-1) : undefined;
 
   const month = todayISO().slice(0, 7);
   const stats = useMemo(() => {
@@ -59,7 +62,7 @@ export default function Home() {
   const toShip = orders.filter((o) => o.status === "confirmed").length;
   const meta: Record<string, string> = {
     orders: orders.length ? `${newOrders} to approve · ${toShip} to ship` : "No website orders yet",
-    website: `${siteSettings(shop).open ? "Taking orders" : "Orders paused"} · ${plural(products.filter(onSite).length, "product")} on the site`,
+    website: `${siteSettings(shop).open ? "Taking orders" : "Orders paused"} · ${today ? `${plural(today.visitors, "visitor")} today` : `${plural(products.filter(onSite).length, "product")} on the site`}`,
     receipts: `${plural(invoices.length, "receipt")} · ${stats.unpaid} not fully paid`,
     new: `Next number ${shop.invoicePrefix}${String(shop.nextNumber).padStart(4, "0")}`,
     letterhead: "Print, PDF or Word · blank or written",

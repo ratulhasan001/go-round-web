@@ -4,7 +4,8 @@ import postgres from "postgres";
  * Everything (shop settings, products, customers, coupons, receipts, letters, website orders, reviews) is stored as JSON
  * documents in one table: gr_docs(kind, id, data). PDFs / Excel files are never
  * stored - they are generated in the browser on demand. Product photos live in gr_images, and the customer
- * website's accounts in gr_accounts / gr_sessions (kept out of gr_docs so password hashes never reach a browser).
+ * website's accounts in gr_accounts / gr_sessions (kept out of gr_docs so password hashes never reach a browser). The
+ * store's daily visitor totals are in gr_visits, also outside gr_docs: a visit mustn't make the admin panel reload.
  */
 export const KINDS = ["shop", "product", "customer", "invoice", "coupon", "letter", "order", "employee", "review"] as const;
 export type Kind = (typeof KINDS)[number];
@@ -34,7 +35,7 @@ export function db(): Sql {
  * Until then a starting server only reads the stored number - one quick query instead of the whole list, which
  * also took table locks (ALTER TABLE locks its table even when the column is already there).
  */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 /** Whether the database already has this version of the tables (or a newer one, from a newer deployment). */
 async function schemaUpToDate(): Promise<boolean> {
@@ -165,6 +166,13 @@ const migrate = () =>
         at timestamptz not null default now()
       )`;
     await sql`create index if not exists gr_rate_hits_key_at on gr_rate_hits (key, at)`;
+    // the store's visitor counter: totals per Bangladesh day, nothing about any one visitor (see visits.ts)
+    await sql`
+      create table if not exists gr_visits (
+        day date primary key,
+        visitors int not null default 0,
+        visits int not null default 0
+      )`;
     // the version of all of the above (see SCHEMA_VERSION)
     await sql`create table if not exists gr_schema (v int not null)`;
     await sql`delete from gr_schema`;

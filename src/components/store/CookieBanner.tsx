@@ -14,7 +14,8 @@ export type CookieChoice = "accepted" | "declined";
 /**
  * The visitor's answer to the cookie banner (null until they answer). The store only sets the cookies it needs to work
  * (the login) and keeps the cart in the browser; anything optional added later - analytics, ads - must ask this first
- * and stay off unless it says "accepted".
+ * and stay off unless it says "accepted". (The visitor counter, VisitCounter.tsx, needs no answer: it sets no cookie and
+ * sends nothing that tells one visitor from another, only "a visit started".)
  */
 export function cookieChoice(): CookieChoice | null {
   try {

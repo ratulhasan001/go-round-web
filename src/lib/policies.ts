@@ -34,6 +34,7 @@ export const POLICIES: Policy[] = [
           "Cookies are files with small amounts of data, which may include an anonymous unique identifier. Cookies are sent to your browser from a website and stored on your computer's hard drive.",
           'Like many sites, we use "cookies" to collect information. You can instruct your browser to refuse all cookies or to indicate when a cookie is being sent. However, if you do not accept cookies, you may not be able to use some portions of our site.',
           "In practice our website only uses the cookies it needs to work - the one that keeps you logged in to your account - and keeps your cart in your browser. We do not use advertising or tracking cookies. The first time you visit, a banner lets you accept or decline cookies; declining keeps only the ones the website needs to work.",
+          "We also count how many people visit the website each day, for our own use. This count keeps no cookie and no internet address or anything else that could tell you apart from another visitor: your browser only remembers the day and time of your last visit, so that you are counted once a day.",
         ],
       },
       {

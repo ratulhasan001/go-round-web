@@ -8,6 +8,7 @@ import { Footer } from "@/components/store/Footer";
 import { Floating } from "@/components/store/Floating";
 import { CookieBanner } from "@/components/store/CookieBanner";
 import { CartDrawer } from "@/components/store/CartDrawer";
+import { VisitCounter } from "@/components/store/VisitCounter";
 import { SITE_URL } from "@/lib/seo";
 import { SHARE_IMAGE, shopDescription } from "@/lib/server/seo";
 
@@ -43,6 +44,7 @@ export default async function StoreLayout({ children }: LayoutProps<"/store">) {
         <Floating />
         <CartDrawer />
         <CookieBanner />
+        <VisitCounter />
       </div>
     </StoreProvider>
   );

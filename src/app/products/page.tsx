@@ -34,7 +34,7 @@ export default function ProductsPage() {
     <ListEditor<Product>
       section="products"
       tableFrom="wide"
-      tableMin="900px"
+      tableMin="880px"
       title="Products"
       subtitle="Your price list - used on receipts and on your website. Tap the photo button for the full product form: photos, description, specification, brand, category, prices, stock and weight."
       icon={<Package className="size-5" />}

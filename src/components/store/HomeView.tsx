@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { ArrowRight, BadgePercent, LayoutGrid, PackageCheck, Search, ShoppingBag, Sparkles, Store, Wallet, Zap } from "lucide-react";
-import { avgRating, heroShowcase, inCategory, tk, waLink, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
+import { avgRating, heroShowcase, inCategory, tk, waLink, type CardProduct, type Links, type PublicShop } from "@/lib/site";
 import { categoryIcon } from "@/lib/categoryIcons";
 import type { HomeSectionKey } from "@/lib/types";
 import type { PublicReview } from "@/lib/server/reviews";
@@ -20,7 +20,7 @@ import { productPath } from "@/lib/seo";
  * The store's home page, drawn from the shop's Website settings. Shared by the live page (a server component) and the
  * admin panel's live preview (in the browser), so it holds no state of its own.
  */
-export function HomeView({ shop, products, reviews, links: L }: { shop: PublicShop; products: PublicProduct[]; reviews: PublicReview[]; links: Links }) {
+export function HomeView({ shop, products, reviews, links: L }: { shop: PublicShop; products: CardProduct[]; reviews: PublicReview[]; links: Links }) {
   const inStock = products.filter((p) => p.inStock);
   const featured = [...products.filter((p) => p.featured && p.inStock), ...inStock.filter((p) => !p.featured)].slice(0, 8);
   const home = shop.site.home;

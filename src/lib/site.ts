@@ -236,10 +236,10 @@ export const SHOWCASE_SOURCES: { id: HeroShowcase["source"]; label: string; hint
  * with nothing to show (no discounts, an empty category) falls back to the newest products under their own title,
  * so the title never promises what the photos don't show.
  */
-export function heroShowcase(products: PublicProduct[], sc: HeroShowcase): { kind: HeroShowcase["source"]; title: string; pics: PublicProduct[]; link: string } {
+export function heroShowcase<P extends CardProduct>(products: P[], sc: HeroShowcase): { kind: HeroShowcase["source"]; title: string; pics: P[]; link: string } {
   const withPhoto = products.filter((p) => p.images.length);
   // in-stock products first, keeping each list's own order
-  const pick = (list: PublicProduct[]) => [...list.filter((p) => p.inStock), ...list.filter((p) => !p.inStock)].slice(0, 3);
+  const pick = (list: P[]) => [...list.filter((p) => p.inStock), ...list.filter((p) => !p.inStock)].slice(0, 3);
   const label = (id: HeroShowcase["source"]) => SHOWCASE_SOURCES.find((x) => x.id === id)!.label;
   const own = sc.title.trim();
   const newest = { kind: "new" as const, title: own || label("new"), pics: pick(withPhoto), link: "/products" };
@@ -248,7 +248,7 @@ export function heroShowcase(products: PublicProduct[], sc: HeroShowcase): { kin
     return { kind: "featured", title: own || label("featured"), pics: [...featured, ...pick(withPhoto.filter((p) => !featured.includes(p)))].slice(0, 3), link: featured.length ? "/products?show=featured" : "/products" };
   }
   if (sc.source === "sale") {
-    const off = (p: PublicProduct) => (p.regularPrice > p.price ? 1 - p.price / p.regularPrice : 0);
+    const off = (p: P) => (p.regularPrice > p.price ? 1 - p.price / p.regularPrice : 0);
     const sale = pick(withPhoto.filter((p) => off(p) > 0).sort((a, b) => off(b) - off(a)));
     return sale.length ? { kind: "sale", title: own || label("sale"), pics: sale, link: "/products?show=sale" } : { ...newest, title: label("new") };
   }
@@ -430,6 +430,37 @@ export const publicProduct = (p: Product): PublicProduct => ({
   warranty: p.warranty?.trim() ?? "",
   featured: !!p.featured,
 });
+
+/**
+ * What a product card (and the cart's "add") needs. The home page and the shop send only this for each product, not
+ * the full record: descriptions and specifications stay on the product's own page.
+ */
+export type CardProduct = Pick<
+  PublicProduct,
+  "id" | "name" | "price" | "unit" | "inStock" | "images" | "category" | "subcategory" | "subsubcategory" | "brand" | "regularPrice" | "stock" | "weight" | "featured"
+>;
+
+export const cardProduct = (p: PublicProduct): CardProduct => ({
+  id: p.id,
+  name: p.name,
+  price: p.price,
+  unit: p.unit,
+  inStock: p.inStock,
+  images: p.images,
+  category: p.category,
+  subcategory: p.subcategory,
+  subsubcategory: p.subsubcategory,
+  brand: p.brand,
+  regularPrice: p.regularPrice,
+  stock: p.stock,
+  weight: p.weight,
+  featured: p.featured,
+});
+
+/** A product in the shop's list: its card, plus what the search box looks through (the description as plain text). */
+export type ListedProduct = CardProduct & { sku: string; text: string };
+
+export const listedProduct = (p: PublicProduct): ListedProduct => ({ ...cardProduct(p), sku: p.sku, text: plainText(p.description) });
 
 /** Average star rating (0 when there are no reviews). */
 export const avgRating = (list: { rating: number }[]) => (list.length ? list.reduce((s, r) => s + r.rating, 0) / list.length : 0);

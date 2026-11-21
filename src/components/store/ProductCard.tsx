@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { tk, type PublicProduct } from "@/lib/site";
+import { tk, type CardProduct } from "@/lib/site";
 import { ProductImage } from "./ProductImage";
 import { useShop } from "./StoreContext";
 import { productPath } from "@/lib/seo";
 
-export function ProductCard({ p }: { p: PublicProduct }) {
+export function ProductCard({ p }: { p: CardProduct }) {
   const { add, links } = useShop();
   const href = links.store(productPath(p));
   return (

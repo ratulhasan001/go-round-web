@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, SearchX, X } from "lucide-react";
-import { inCategory, plainText, type PublicProduct } from "@/lib/site";
+import { inCategory, type ListedProduct } from "@/lib/site";
 import { ProductCard } from "./ProductCard";
 import { cx } from "./ui";
 
@@ -16,7 +16,7 @@ const SORTS = [
   { key: "az", label: "Name A–Z" },
 ] as const;
 
-export function ShopBrowser({ products }: { products: PublicProduct[] }) {
+export function ShopBrowser({ products }: { products: ListedProduct[] }) {
   const params = useSearchParams();
   const router = useRouter();
   const path = usePathname();
@@ -79,9 +79,9 @@ export function ShopBrowser({ products }: { products: PublicProduct[] }) {
         (show !== "sale" || p.regularPrice > p.price) &&
         (show !== "featured" || p.featured) &&
         (!inStockOnly || p.inStock) &&
-        words.every((w) => `${p.name} ${p.brand} ${p.sku} ${p.category} ${p.subcategory} ${p.subsubcategory} ${plainText(p.description)}`.toLowerCase().includes(w)),
+        words.every((w) => `${p.name} ${p.brand} ${p.sku} ${p.category} ${p.subcategory} ${p.subsubcategory} ${p.text}`.toLowerCase().includes(w)),
     );
-    const byName = (a: PublicProduct, b: PublicProduct) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    const byName = (a: ListedProduct, b: ListedProduct) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
     if (sort === "low") list.sort((a, b) => a.price - b.price || byName(a, b));
     else if (sort === "high") list.sort((a, b) => b.price - a.price || byName(a, b));
     else if (sort === "az") list.sort(byName);

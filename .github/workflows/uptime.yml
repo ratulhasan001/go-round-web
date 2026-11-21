@@ -1,0 +1,52 @@
+# Is the shop up? GitHub runs these checks on a schedule and emails the repository owner when one fails.
+# - every 15 minutes: the store, its product list, the admin login page and a product photo. These come from caches,
+#   so they don't wake the database.
+# - every hour (and when started by hand): also whether the site can reach its database (/api/site/health). Each
+#   question wakes the database for a few minutes, so it isn't asked more often.
+# Every request is retried, so one slow moment on the network doesn't send an email. Pages are saved first and then
+# searched (grep stopping early would cut curl off and look like a failure).
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  CURL: curl --fail --silent --show-error --location --max-time 25 --retry 3 --retry-delay 20 --retry-all-errors
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Store home page
+        run: |
+          $CURL --output home.html https://goroundbd.com/
+          grep -q "Go Round" home.html
+      - name: Product list shows products
+        run: |
+          $CURL --output products.html https://goroundbd.com/products
+          grep -q "<article" products.html
+      - name: Admin login page
+        run: $CURL --output /dev/null https://admin.goroundbd.com/login
+      - name: Product photos (Cloudflare R2)
+        run: |
+          photo=$(grep -oE 'https://img\.goroundbd\.com/p/[A-Za-z0-9_-]+' products.html | head -1)
+          test -n "$photo"
+          type=$($CURL --output /dev/null --write-out "%{content_type}" "$photo")
+          echo "$photo: $type"
+          case "$type" in image/*) ;; *) exit 1 ;; esac
+
+  database:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '7 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: The site can reach its database
+        run: |
+          $CURL --output health.json https://goroundbd.com/api/site/health
+          grep -q '"ok":true' health.json

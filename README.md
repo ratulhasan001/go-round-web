@@ -7,12 +7,12 @@ An online store and a receipt and customer-ledger app for **Go Round**, an aquar
 | Address | What it is |
 |---|---|
 | https://goroundbd.com | The customer store |
-| https://admin.goroundbd.com | The admin panel (receipts, orders, products, staff…), behind the shop password |
-| https://verify.goroundbd.com | Check a purchase or order status with the payment's transaction ID (and download the receipt), or verify a staff member; staff QR codes open here |
+| https://admin.goroundbd.com | The admin panel (receipts, orders, products, staff…), behind the admin login |
+| https://verify.goroundbd.com | Check a purchase or order status, download the receipt, or verify a staff member; staff QR codes open here |
 
 All three are served by this one Next.js app: `src/proxy.ts` routes each address to its pages. Any other address (localhost, the `*.vercel.app` one) serves everything on one address: the admin panel at `/`, the store at `/store` and the verify page at `/store/verify`.
 
-Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/renderer`, ExcelJS and Postgres (Neon). The app is mobile-first and can be installed to the home screen.
+Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/renderer`, ExcelJS and Postgres (Neon), hosted on Vercel, with product photos on Cloudflare R2. The app is mobile-first and can be installed to the home screen.
 
 ---
 
@@ -20,9 +20,11 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 
 - [Features](#features)
 - [How it works](#how-it-works)
+- [Architecture](#architecture)
 - [Getting started](#getting-started)
 - [Environment variables](#environment-variables)
-- [Deploying to Vercel](#deploying-to-vercel)
+- [Deploying](#deploying)
+- [Testing and monitoring](#testing-and-monitoring)
 - [Using the app](#using-the-app)
 - [Importing spreadsheets](#importing-spreadsheets)
 - [How totals are calculated](#how-totals-are-calculated)
@@ -37,29 +39,32 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 ## Features
 
 ### Customer website (goroundbd.com)
-- A public online store in the style of the Go Round visiting card (Aquascape Editorial): cream paper, Fraunces serif, swaying aquatic grass, line-drawn fish and gentle scroll motion. It is built for phones first.
-- **Pages:** Home (featured products, categories and the interactive aquarium in guest mode), Shop (search, category chips, sort, in-stock filter), product pages, Cart, Checkout, Order status, About us, Contact us, FAQ and My account.
-- **Ordering:** as a guest or with an account (an account can also be created at checkout). Checkout starts with the **customer form** (name, WhatsApp number, address), which also saves the customer to the Customers list. Payment is **bKash** or **bank transfer**, checked by hand: the customer pays the total shown and types the transaction ID at checkout. The ID is optional only for a bank transfer when no bank details are set, since the customer has to ask for them first. Prices, stock and delivery are always worked out on the server.
+- A public online store in the style of the Go Round visiting card (Aquascape Editorial): Fraunces serif headings, swaying aquatic grass, line-drawn fish and gentle scroll motion. It is built for phones first.
+- **Pages:** Home (hero photos, featured products, categories, brands, reviews), Shop (search, category chips, brand filter, sort, in-stock filter), product pages, Cart (a panel that slides in, and a cart page), Checkout, Order status, Reviews, Wholesale, About us, Contact us, FAQ, the policy pages and My account.
+- **Ordering:** as a guest or with an account (an account can also be created at checkout). Returning customers get their saved details filled in from their mobile number. Payment is **bKash** or **bank transfer**, checked by hand: the customer pays the total shown and types the transaction ID at checkout. The ID is optional only for a bank transfer when no bank details are set, since the customer has to ask for them first. Prices, stock, delivery and coupons are always worked out on the server.
+- **Coupons at checkout:** a coupon given to a customer works only with their mobile number (or name). The order summary shows the discount, and the coupon is reserved when the order is placed.
 - **Approval, then receipt:** the order waits as *Waiting for approval* until the shop approves the payment. The order page checks for the approval every 30 seconds. Once approved, the customer gets **Download receipt**, the same A4 PDF the shop prints, stamped PAID. If the shop marks the payment *not found*, the customer is asked to check the transaction ID and send it again.
-- **Order status** (`/order-status`, no account needed): the customer types the **transaction ID** of their bKash or bank payment to see the order's progress (placed → approved → shipped → delivered), payment status and courier info, and to download the receipt. Before paying, they can use the order code (e.g. `GR7K3F9Q`) plus their WhatsApp number instead. The old `/store/track` link redirects here.
+- **Order status** (`/order-status`, no account needed): the customer types the **mobile number** they ordered with to see their orders' progress (placed → approved → shipped → delivered), payment status and courier info, and to download the receipt. Links in the shop's WhatsApp updates open one order directly. The old `/store/track` link redirects here.
 - **Accounts:** log in with phone number and password. Customers see their orders and edit their details. A forgotten password is reset by the shop from Customers → Website accounts.
+- **Reviews:** customers rate products and write reviews, optionally without showing their name. Reviews can be approved automatically or by the shop.
 - A floating WhatsApp button, plus Facebook and WhatsApp links throughout. Products without a photo get a drawn aquascape placeholder.
 
 ### Admin panel (admin.goroundbd.com)
-- Same look as the store: cream paper, ink green, teal accents and Fraunces headings.
-- **Orders:** to approve / to ship / shipped / delivered / cancelled tabs with a badge for unseen orders. Open an order and check the bKash TrxID. **Approve payment** marks it paid, moves the order to *Approved*, and makes the receipt the customer downloads from the website. **Payment not found** asks the customer to resend the ID, and **Undo** takes an approval back. From there: one button for each next step, courier info, a private note, and a ready-made WhatsApp update for the customer. New orders appear within a minute.
-- **Website:** taking-orders switch, announcement bar, WhatsApp and Facebook links, bKash number and type, bank details, delivery areas and fees, free-delivery threshold, About us text and FAQ.
-- **Products:** *Photos & details* on each product: photos (resized in the browser), description, category, *Show on website* and *Feature on home page*.
+- Same look as the store: ink green, teal accents and Fraunces headings.
+- **Orders:** to approve / to ship / shipped / delivered / cancelled tabs with a badge for unseen orders. Open an order and check the bKash TrxID. **Approve payment** marks it paid, moves the order to *Approved*, and makes the receipt the customer downloads from the website. **Payment not found** asks the customer to resend the ID, and **Undo** takes an approval back. From there: one button for each next step, courier info, a private note, and a ready-made WhatsApp update for the customer. New orders appear within a minute. Cancelling an order gives its stock and coupon back.
+- **Website:** *Home page design* (hero photos, sections, text blocks, partners, live preview) and *Store settings* (taking-orders switch, announcement bar, WhatsApp and Facebook links, bKash number and type, bank details, delivery services and fees, free-delivery threshold, About us text and FAQ).
+- **Products:** *Photos & details* on each product: photos (resized in the browser), description, specification, category, brand, prices (purchase, regular, selling), stock, weight, *Show on website* and *Feature on home page*.
+- **Login & security** (Settings): password, two-step login, passkeys, logged-in devices, login history and alerts. See [Security](#security).
 - **Visit store** button in the navbar and on the home page.
 
 ### Employees
 - Staff records: name, phone, role, joining date, monthly salary, notes and an active / former switch, with the active headcount and monthly salary total at the top.
-- Every new employee automatically gets a private random code and a **verification QR code**. Download the QR on its own, or a printable **ID card** (card size, in the visiting card's style).
+- Every new employee automatically gets a private random code and a **verification QR code**. Download the QR on its own, or a printable **ID card** (card size, front and back).
 - Scanning the QR opens `verify.goroundbd.com/<code>`: **Verified staff** with their name, role and start month, **No longer with us** once they're marked as former, or **Not verified** for an unknown code. Phone, salary and notes are never shown.
 
 ### Receipts
 - **Live A4 preview** that matches the downloaded PDF. On a phone, you switch between Edit and Preview.
-- **PDF export**: A4 portrait with the Bricolage Grotesque and Manrope fonts embedded, the shop logo, an optional faint logo watermark, and the signature. The layout tightens step by step until the receipt fits on one page, and only very long receipts run onto a second page.
+- **PDF export**: A4 portrait with the fonts embedded (Bangla included), the shop logo, an optional faint logo watermark, and the signature. The layout tightens step by step until the receipt fits on one page, and only very long receipts run onto a second page.
 - **Automatic PAID / DUE stamp**: a "PAID" stamp with the date of the last payment, or a "DUE" stamp with the balance still owed.
 - **Excel export**: an A4 portrait workbook, fit to page width, with the logo and live formulas for amounts, totals, paid and balance due. It uses Arial so it prints the same on any computer.
 - **Amount in words** using the Bangladeshi lakh / crore system ("Taka Five Thousand Seven Hundred Only").
@@ -72,6 +77,7 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 - **Status** (Paid / Partial / Unpaid) is worked out from the payments.
 - **Auto-save** while editing an existing receipt. **Ctrl/⌘ + S** saves and **Ctrl/⌘ + P** prints. You are warned before leaving a new receipt you haven't saved.
 - **Duplicate** any receipt as a starting point for a new one.
+- **Letters** on the shop letterhead, downloaded as PDF or Word.
 
 ### Sharing
 - **WhatsApp**: on a phone, share the PDF itself through the system share menu (WhatsApp, Messenger, Gmail and so on). On a computer, open WhatsApp with a ready-made receipt summary.
@@ -80,8 +86,8 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 ### Lists
 - **Receipts**: totals billed, collected and outstanding, a list you can search and filter, and a **ledger export** that puts every receipt in one Excel sheet with totals.
 - **Products**: your price list, with an in-stock / out-of-stock switch and best-sellers.
-- **Customers**: contacts with their number of receipts, total spent and amount still owed. You can copy a customer's details or import customers from Excel / CSV.
-- **Coupons**: your coupon sheet, showing who has each code, its validity dates, and when and on which receipt it was used. You can import the sheet from Excel / CSV.
+- **Customers**: contacts with their number of receipts, total spent and amount still owed. You can copy a customer's details or import customers from Excel / CSV. The customer list and website accounts stay in step by phone number.
+- **Coupons**: your coupon sheet, showing who has each code, its validity dates, and when and on which receipt or order it was used. You can import the sheet from Excel / CSV.
 - Every list has search (press `/` to jump to it), filter tabs, sorting and inline editing that saves instantly.
 
 ### Customer form links
@@ -91,7 +97,7 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 
 ### Home and app shell
 - A dashboard with this month's billed and collected amounts, the total still due, and the receipt count, plus a calendar and flip clock.
-- An interactive **aquarium** on the home page, with fish, games, weather, seasonal visitors and a treasure chest that bubbles up with today's sales. Guests on the customer form see a version without any shop data.
+- An interactive **aquarium** on the home page: a planted tank with neon tetras, rummy-nose tetras and harlequin rasboras to explore, feed, play with and keep clean. Receipts and customers add fish. Guests on the customer form see a version without any shop data.
 - Number keys **1–6** jump straight to a section. Pages slide between sections with view transitions.
 - Mobile layout: a bottom navigation bar, a thumb-friendly action bar, and "Add to Home Screen" support through the PWA manifest.
 - **Backup / restore** to a JSON file, and a reset to sample data, in Settings.
@@ -104,13 +110,44 @@ The app runs in one of two modes, depending on whether a database is configured:
 
 | Mode | When | Where data lives |
 |---|---|---|
-| **Cloud** | `DATABASE_URL` is set | Postgres, shared across every device. The browser keeps a copy and a queue of unsent changes, so the app keeps working offline and syncs when the connection is back. |
-| **Local** | No `DATABASE_URL` | Only in this browser's `localStorage`. The sidebar shows "Saved on this device". Customer form links are unavailable. |
+| **Cloud** | `DATABASE_URL` is set | Postgres, shared across every device. The admin panel loads the shop data from the server; only changes that haven't reached the server yet wait in the browser (the outbox), so the panel keeps working through a dropped connection. No copy of the shop data is kept on the device. |
+| **Local** | No `DATABASE_URL` | Only in this browser's `localStorage`. The sidebar shows "Saved on this device". Customer form links and the store's ordering are unavailable. |
 
-- **PDFs and Excel files are never stored.** They are generated in the browser when you ask for them.
-- All shop data (settings, products, customers, coupons, receipts) is stored as JSON documents in one table, `gr_docs(kind, id, data)`. Customer form links live in `gr_forms`, which keeps only a SHA-256 hash of each link's token. Both tables are **created automatically** on first use, so there are no migrations to run.
-- Changes are sent in batches to `/api/sync`. When the app comes back into view, it pulls the latest data so you see changes made on other devices or through a customer form.
+- **PDFs and Excel files are never stored.** Receipts, letters and exports are generated in the browser when you ask for them; the receipt a customer downloads is drawn on the server.
+- All shop data (settings, products, customers, coupons, receipts, letters, orders, staff, reviews) is stored as JSON documents in one table, `gr_docs(kind, id, data)`. Customer form links, website accounts and their logins, admin logins and security settings, and rate-limit counters have tables of their own, so password hashes and tokens never travel with the shop data.
+- Tables are **created automatically**. A starting server checks one stored schema version (`SCHEMA_VERSION` in `src/lib/server/db.ts`) and runs the table steps only when it is behind; bump it when you add a table, column or index.
+- Changes are sent in batches to `/api/sync`. Every minute (and when the app comes back into view) the panel asks whether anything changed since its last load, by a fingerprint of every record, and downloads the data only if something did - a website order, a review, or an edit on another device.
 - **First login on a device that already has receipts in its browser** moves them into the database automatically. Log in first on the device that has your existing receipts.
+
+---
+
+## Architecture
+
+```
+ Customers / admin (phones in Bangladesh)
+        │ HTTPS
+        ▼
+ Vercel edge: CDN + firewall ─────────── rate limit on public APIs, logins and form links
+        │
+        ▼
+ Next.js on Vercel (functions in Singapore, sin1)
+   ├─ store pages ───────► Next data cache (catalogue, reviews) ──► database only after a change
+   ├─ checkout / logins ─► checks first ─► one database transaction
+   └─ admin panel ───────► "anything changed?" ─► the records, only when they did
+        │
+        ▼
+ Neon Postgres (Singapore, pooled connections, autoscaling, scales to zero when idle)
+
+ Product photos: Cloudflare R2 ─► img.goroundbd.com (Cloudflare CDN, cached for a year)
+```
+
+- **Hosting.** Vercel runs the app; `vercel.json` places the server functions in Singapore (`sin1`), next to the database and close to customers in Bangladesh. **Keep the database in the same region as the functions**: every query crosses the distance between them. DNS is on Cloudflare.
+- **Database.** Neon Postgres, connected through the Vercel integration with its pooled connection string (`prepare: false` in `src/lib/server/db.ts` for pgbouncer). Each server instance keeps a small connection pool. Neon keeps a restore history for undoing mistakes.
+- **Caching.** The store's catalogue (shop settings + products) and reviews come from Next's data cache (`unstable_cache` with the tags `catalog` and `reviews`, plus a 10-minute backstop). Saving in the admin panel, placing an order or writing a review refreshes the tag, so changes show at once while ordinary browsing never reads the database. Store and admin pages are rendered per request because every page gets its own security nonce (see [Security](#security)), but they read the cache, not the database. New store pages and APIs should read the catalogue through `loadCatalog` / `cachedProducts` in `src/lib/server/catalog.ts`.
+- **Product photos.** Uploads are resized in the browser (a full size and a thumbnail) and stored in Cloudflare R2 as `p/<id>` and `p/<id>-t`, served from `img.goroundbd.com` through Cloudflare's CDN. Photo addresses never change, so they are cached for a year. A Cloudflare cache rule makes these extensionless files cacheable, and a response-header rule adds `Access-Control-Allow-Origin: *` (the admin's ID-card builder reads team photos as bytes) and `X-Content-Type-Options: nosniff`. Older `/api/img/<id>` addresses keep working: they redirect to the same photo on R2. Without the R2 settings, photos are stored in the database (`gr_images`) instead.
+- **Light store pages.** The home page and the shop send each product's card fields only - full descriptions and specifications stay on the product's own page (`cardProduct` / `listedProduct` in `src/lib/site.ts`). The shop builds 24 cards and adds 24 more as the customer scrolls; search, filters and sorting always cover every product. Coming back from a product shows the same cards at the same place. `?all=1` builds every card, for browsers without JavaScript (Opera Mini) and search engines.
+- **Protection at the edge.** A Vercel Firewall rule rate-limits each internet address on the public APIs (`/api/site/…`), the admin login and the customer-form links before requests reach the server. The server keeps its own finer limits per phone number and per address (`src/lib/server/rateLimit.ts`).
+- **Search engines.** A sitemap, structured data (JSON-LD) on store pages, and IndexNow pings (sent after the response, with `after()`) when products change.
 
 ---
 
@@ -125,11 +162,11 @@ npm run dev       # http://localhost:3000
 
 Without a `.env` file the app runs in **local mode**: no login, sample data, everything saved in the browser. That is enough to try the receipt editor, PDF / Excel export and the lists.
 
-To test cloud mode and customer form links locally, create `.env.local`:
+To test cloud mode, the store's ordering and customer form links locally, create `.env.local`:
 
 ```bash
 DATABASE_URL=postgres://user:pass@localhost:5432/goround   # any Postgres; SSL is turned off for localhost
-APP_PASSWORD=choose-a-password                              # optional, switches on the login screen
+APP_PASSWORD=choose-a-pin                                   # optional: switches on the admin login
 ```
 
 **Tip:** local-mode data is tied to the address in the browser (`localStorage` is per origin). To try things out without touching your usual data, run on a spare port, for example `npx next dev -p 3123`.
@@ -139,50 +176,65 @@ APP_PASSWORD=choose-a-password                              # optional, switches
 | Command | What it does |
 |---|---|
 | `npm run dev` | Development server with hot reload |
-| `npm run build` | Production build |
+| `npm run build` | Runs the tests, then the production build (a failing test stops the build) |
 | `npm start` | Serve the production build |
 | `npm run lint` | ESLint (Next.js config) |
+| `npm test` | The tests (see [Testing and monitoring](#testing-and-monitoring)) |
 
 ---
 
 ## Environment variables
 
-Set these in Vercel → Project → Settings → Environment Variables (or in `.env.local` for development). Both are optional.
+Set these in Vercel → Project → Settings → Environment Variables (or in `.env.local` for development). Mark everything secret as **Sensitive** in Vercel so it can't be read back from the dashboard or the CLI, and never commit values to the repository.
 
 | Variable | What it does |
 |---|---|
-| `DATABASE_URL` | Postgres connection string. It is added automatically when you connect a Neon database in Vercel. Neon's pooled (pgbouncer) URL works. Without it the app runs in local mode. |
-| `APP_PASSWORD` | Shop password. When set, every page asks for it on a "Confidential" login screen, and a device stays logged in for a year. **Changing it logs every device out.** |
+| `DATABASE_URL` | Postgres connection string (pooled). Set automatically when a Neon database is connected in Vercel. Without it the app runs in local mode. |
+| `APP_PASSWORD` | Turns the admin login on. It works once, as a starting PIN: the first login with it asks for a real password, and from then on only that password works. |
+| `SESSION_SECRET` | A long random secret (32+ characters). Protects the two-step login secret and signs customers' receipt download links. **Don't change it**: two-step login would have to be set up again. |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile ("Verify you are human") on the admin login and on customer login and sign-up. |
+| `RESEND_API_KEY`, `ALERT_EMAIL`, `ALERT_FROM` | Security alerts and email login codes, sent through Resend to the owner's address. `ALERT_FROM` is optional. |
+| `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Product photos on Cloudflare R2. Use an API token limited to the photo bucket (object read & write). Without all four, photos are stored in the database. |
+
+Only for development: `DEV_PRINT_ALERTS=1` prints email codes in the server log instead of sending them, `TEST_DATABASE_URL` points the database tests at a throwaway local database, and `R2_ENDPOINT` points the photo storage at a stand-in server.
 
 ---
 
-## Deploying to Vercel
+## Deploying
 
-**Option A: GitHub (recommended)**
-1. Push this folder to a GitHub repository.
-2. On vercel.com, choose **Add New… → Project** and import the repository.
-3. Keep the defaults (Framework: Next.js) and click **Deploy**.
-4. Optional: under **Storage**, connect a Neon Postgres database (this sets `DATABASE_URL`), add `APP_PASSWORD`, then redeploy.
+1. Push the repository to GitHub, and on vercel.com choose **Add New… → Project** and import it (Framework: Next.js). Every push to `main` deploys to production.
+2. Under **Storage**, connect a Neon Postgres database **in the same region as the functions** (`vercel.json` sets Singapore; change both together). This sets `DATABASE_URL`.
+3. Add the [environment variables](#environment-variables) you need, then redeploy (a push does it).
+4. Optional, for photos on R2: in Cloudflare, create an R2 bucket, connect a custom domain to it, add a cache rule that makes that host eligible for caching and a response-header rule for `Access-Control-Allow-Origin` and `X-Content-Type-Options`, and create an API token limited to the bucket. Set `PHOTO_BASE` in `src/lib/site.ts` to the custom domain and add the four `R2_*` variables. Existing photos can then be moved from the database with `POST /api/images/move` (admin only), and their database copies cleared afterwards with `?clear=1`.
+5. Optional: a Vercel Firewall rate-limit rule for `/api/site/`, `/api/login` and `/api/f/` (see [Architecture](#architecture)).
 
-**Option B: Vercel CLI**
-```bash
-npx vercel          # first time: log in and link the project
-npx vercel --prod   # deploy to production
-```
+The app deploys and works without any environment variables, saving to each browser only. Add a database to share data across devices, take website orders and use customer form links.
 
-The app deploys and works without any environment variables, saving to each browser only. Add a database to share data across devices and to use customer form links.
+---
+
+## Testing and monitoring
+
+**Tests** (`npm test`, Vitest, in `tests/`):
+- `tests/money.test.ts` checks the money rules with numbers worked out by hand: receipt totals, discounts and coupons, payments, amount in words, website coupon rules and Bangladesh dates, delivery and per-kg charges, discounted prices, saving orders and stock from the admin panel, and that the website's product data never carries the purchase price.
+- `tests/orders.db.test.ts` places website orders against a real Postgres: prices come from the database, delivery and the coupon are applied, stock and the coupon are taken; used coupons, sold-out items and short stock are refused; cancelling, restoring and deleting move stock and the coupon back; and an order waits while another one is buying the same last item. It runs only when `TEST_DATABASE_URL` points at a **local throwaway database**, because it wipes the `gr_*` tables first; otherwise it is skipped.
+- `npm run build` runs the tests first, so a broken money rule stops the Vercel build and never goes live (the database tests skip there).
+
+**GitHub Actions** (`.github/workflows/`):
+- **Checks** (`checks.yml`), on every push to `main` and every pull request: generates Next.js's route types, type-checks, lints and runs all tests, the database tests against a throwaway Postgres started for the run.
+- **Uptime** (`uptime.yml`): every 15 minutes it checks that the store, its product list, the admin login page and a product photo load; every hour it also asks `/api/site/health` whether the site can reach its database (only hourly, because each question wakes the database). Requests are retried so a network blip doesn't count.
+- GitHub emails the repository owner when a workflow fails (GitHub → Settings → Notifications → Actions). GitHub pauses scheduled workflows in a repository with no commits for 60 days, and emails before it does.
 
 ---
 
 ## Using the app
 
-1. **Settings first.** Enter the shop name, tagline, contact details and logo, the invoice prefix and next number, the default delivery charge, the thank-you and terms text, the watermark setting, and the additional-charge rates.
+1. **Settings first.** Enter the shop name, tagline, contact details and logo, the invoice prefix and next number, the default delivery charge, the thank-you and terms text, the watermark setting, and the additional-charge rates. Then set up **Login & security**.
 2. **New receipt.** Pick or type a customer, add items (or tap a quick-add chip), and set delivery, discount, coupon and charges. Record payments, then **Save**, **PDF**, **Excel**, **Print** or **Share**.
 3. **Receipts.** See who owes you, send reminders, edit, duplicate or delete receipts, and export the ledger.
 4. **Customer form.** From Customers, create a one-time link and send it to the customer. They fill it in, and their details appear in your list (refreshed automatically).
-5. **Coupons.** Import your coupon sheet or add codes by hand. When a receipt uses a code or gives it as a gift, the sheet is updated automatically, and released again if the receipt changes or is deleted.
+5. **Coupons.** Import your coupon sheet or add codes by hand. When a receipt or website order uses a code, or a receipt gives it as a gift, the sheet is updated automatically, and released again if the receipt changes or the order is cancelled.
 
-Receipt numbers run on from **Next number** in Settings (for example `GR-0001`). Deleting the newest receipt frees its number for the next one.
+Receipt numbers run on from **Next number** in Settings (for example `GR-0001`). Deleting the newest receipt frees its number for the next one. If two devices save a receipt with the same number at the same moment, the second one gets the next free number.
 
 ---
 
@@ -202,13 +254,13 @@ GR00-00-00-02fd,,,,
 
 Dates such as `21-04-26`, `21/04/2026` and `2026-04-21` are all understood. A code that is already saved only gets its missing details filled in.
 
-A coupon can't be used if it was already used on another receipt, has expired, isn't valid yet, or was given to a different customer. A gift coupon with no end date in the sheet is valid for two months from the receipt date.
+A coupon can't be used if it was already used on another receipt or order, has expired, isn't valid yet, or was given to a different customer. A gift coupon with no end date in the sheet is valid for two months from the receipt date.
 
 ---
 
 ## How totals are calculated
 
-All maths lives in `src/lib/calc.ts` (amounts are rounded to 2 decimals):
+All maths lives in `src/lib/calc.ts` (amounts are rounded to 2 decimals), and website coupons in `src/lib/couponRules.ts`, so the store, the server and the receipt always agree:
 
 ```
 subtotal       = Σ price × qty
@@ -222,6 +274,8 @@ grand total    = base + charges
 balance due    = grand total − Σ payments
 ```
 
+Website delivery is the chosen service's fee plus its charge for every started kilogram over the first one (`deliveryFee` in `src/lib/site.ts`); services quoted after the order charge nothing up front, and orders over the free-delivery threshold deliver free.
+
 A coupon given as a gift takes nothing off the current receipt. Charge rates are copied into the receipt when chosen, so changing a rate in Settings never changes old receipts.
 
 ---
@@ -230,21 +284,17 @@ A coupon given as a gift takes nothing off the current receipt. Charge rates are
 
 ```
 src/
-├── proxy.ts                    # Login gate for every page and API route (Next 16 "proxy", formerly middleware)
+├── proxy.ts                    # Routes each address to its pages; admin login gate; per-page security policy (Next 16 "proxy", formerly middleware)
 ├── app/
 │   ├── page.tsx                # Home dashboard + aquarium
 │   ├── new/                    # Receipt editor (?id=… edits, ?copy=… duplicates)
-│   ├── receipts/ products/ customers/ coupons/ settings/
-│   ├── login/                  # Password screen
+│   ├── receipts/ products/ customers/ coupons/ orders/ employees/ letterhead/ website/
+│   ├── settings/               # Shop settings; settings/security = Login & security
+│   ├── login/                  # Admin login, two-step login, password reset
 │   ├── f/[token]/              # Public one-time customer form
-│   ├── manifest.ts             # PWA manifest
-│   └── api/
-│       ├── data/               # GET all shop data
-│       ├── sync/               # POST batched upserts / deletes
-│       ├── forms/              # Create, check, list and cancel customer form links
-│       ├── f/[token]/          # Public form submission
-│       ├── shop-logo/          # Public logo for the customer form
-│       └── login/ logout/
+│   ├── store/                  # The customer website (home, shop, product, cart, checkout, order status, account, policies…)
+│   ├── sitemap.ts, robots.ts, manifest.ts
+│   └── api/                    # See the API reference
 ├── components/
 │   ├── Editor.tsx              # Receipt form, live summary and actions
 │   ├── ReceiptPreview.tsx      # On-screen A4 preview
@@ -253,67 +303,92 @@ src/
 │   ├── CustomerFormView.tsx    # The page customers fill in
 │   ├── ImportDialog.tsx        # Excel / CSV import with preview
 │   ├── AppShell.tsx, nav.tsx   # Navigation, sync status
-│   └── aquarium/               # Interactive tank: engine, art, scenery, sound
+│   ├── orders/                 # The admin's order panel
+│   ├── security/               # Login & security page parts
+│   ├── store/                  # Customer website components (shop browser, product card, cart, checkout…)
+│   ├── website/                # Home page design editor
+│   └── aquarium/               # Interactive tank
 └── lib/
     ├── types.ts                # Data model
-    ├── store.tsx               # Client store: localStorage copy, outbox, sync, coupon linking
+    ├── store.tsx               # Admin client store: outbox, sync, change check, coupon linking
+    ├── site.ts                 # Shared store logic: addresses, public product shapes, delivery fees, photo addresses
     ├── calc.ts                 # Totals, charges, formatting, amount in words
-    ├── pdf.tsx                 # PDF receipt (@react-pdf/renderer)
-    ├── excel.ts                # Excel receipt (ExcelJS)
-    ├── ledger.ts               # All-receipts Excel export
-    ├── seal.ts, watermark.ts   # PAID / DUE stamp, signature, logo watermark
-    ├── coupons.ts              # Coupon rules and coupon-sheet import
-    ├── customerImport.ts       # Customer import
-    ├── sheet.ts                # CSV / XLSX reader
-    ├── phone.ts                # Bangladeshi phone normalising
-    ├── download.ts             # File download and share helpers
-    ├── theme.ts                # Receipt colours and logo
-    ├── seed.ts                 # Default shop settings and sample data
-    └── server/                 # auth, db, forms, logo (server-only)
+    ├── couponRules.ts          # Website coupon rules (shared by checkout, server and panel)
+    ├── csp.ts                  # Content-Security-Policy for each page
+    ├── pdf.tsx, excel.ts, ledger.ts, letterPdf.tsx, letterDocx.ts, idCard.tsx
+    ├── coupons.ts, customerImport.ts, sheet.ts, phone.ts, photos.ts, seo.ts, seed.ts
+    └── server/                 # Server-only: db (schema), catalog (cache), orders, auth, accounts, twoFactor,
+                                #   passkeys, loginGuard, rateLimit, r2 (photos), customers, reviews, adminEvents…
+tests/                          # Vitest: money rules, website orders against Postgres
+.github/workflows/              # checks.yml (types, lint, tests), uptime.yml (scheduled checks)
+vercel.json                     # Function region
 public/
-├── fonts/                      # TTF fonts embedded in the PDF
+├── fonts/                      # Fonts embedded in the PDF (Bangla included)
 ├── logo.png, sign.png          # Default logo and signature
-└── icon-192.png, icon-512.png  # App icons
+└── id-card/                    # ID card design
 ```
 
 ---
 
 ## API reference
 
-Every route needs the shop session cookie, except where marked **public**. When `APP_PASSWORD` isn't set, every request counts as logged in.
+Every route needs the admin login, except where marked **public**. When `APP_PASSWORD` isn't set (local development), every request counts as logged in.
 
 | Method & path | Purpose |
 |---|---|
-| `POST /api/login` | **Public.** `{ password }` → sets the `gr_session` cookie. Wrong passwords are slowed down. |
-| `POST /api/logout` | Clears the session cookie. |
-| `GET /api/data` | `{ db, auth, shop, products, customers, coupons, invoices }`, or `{ db: false }` in local mode. |
-| `POST /api/sync` | `{ changes: [{ kind, id, data \| null }] }`. Up to 5000 upserts / deletes in one transaction. `kind` is one of `shop`, `product`, `customer`, `invoice`, `coupon`, `letter`, `order`, `employee`. |
-| `POST /api/forms` | Creates a customer form link → `{ token, expiresAt }`. |
-| `GET /api/forms?token=…` | Link status: `active`, `used` (with the customer's name), `expired` or `missing`. |
-| `GET /api/forms?list=1` | The 25 most recent links. |
-| `DELETE /api/forms?token=…` or `?id=…` | Cancels a link that hasn't been used. |
-| `POST /api/f/[token]` | **Public.** `{ name, phone, address }`. Claims the link and saves the customer in one transaction. Returns `422` with field errors or `410` once the link is used or expired. |
+| `GET/POST /api/login` | **Public.** Login steps: password (+ human check), choosing the first real password, the two-step code. |
+| `POST /api/login/passkey` | **Public.** Log in with a passkey. |
+| `POST /api/login/forgot`, `POST /api/login/reset` | **Public.** Email a one-time reset link to the owner's alert address; use it (with the two-step code when that is on). |
+| `POST /api/logout` | Logs this device out. |
+| `/api/security/…` | Login & security: `status`, `password`, `2fa`, `passkeys`, `sessions` (devices), `history`, `alerts`. |
+| `GET /api/data` | All shop data, or `{ db: false }` in local mode. `?v=<version>` answers `{ unchanged: true }` when nothing changed since that version. |
+| `POST /api/sync` | `{ changes: [{ kind, id, data \| null }] }`. Up to 5000 upserts / deletes in one transaction; orders move stock and coupons; clashing receipt numbers are renumbered. |
+| `POST/GET/DELETE /api/forms` | Create, check (`?token=`), list (`?list=1`) and cancel customer form links. |
+| `POST /api/f/[token]` | **Public.** `{ name, phone, address }`. Claims the link and saves the customer in one transaction. `422` with field errors, `410` once used or expired. |
 | `GET /api/shop-logo` | **Public.** The shop logo image (raster only), cached by version. |
-| `POST /api/site/orders` | **Public.** Places a website order (`name, phone, address, email?, note?, zone, method, trxId?, sender?, password?, items: [{id, qty}]`). |
-| `POST /api/site/track` | **Public.** `{ trxId }` (6+ characters; case, spaces and dashes ignored) or `{ code, phone }` → the order (without the shop's private note). |
+| `POST/DELETE /api/images` | Upload (`full` + `thumb` form fields) or remove a photo. |
+| `POST /api/images/move` | Moves photos from the database to R2, checked by size; `?clear=1` then deletes the database copies R2 has. |
+| `GET /api/img/[id]` | **Public.** A photo stored in the database (`-t` = thumbnail); redirects to R2 once its database copy is cleared. |
+| `GET/POST /api/accounts` | List website accounts; `{ id, action: "reset" \| "delete" }`. |
+| `POST /api/site/orders` | **Public.** Places a website order (`name, phone, address, ps, email?, note?, zone, method, trxId?, sender?, coupon?, password?, accept, items: [{id, qty}]`). |
+| `POST /api/site/track` | **Public.** `{ phone }` → that number's orders; `{ code, phone }` → one order (without the shop's private note). |
 | `POST /api/site/pay` | **Public.** `{ code, phone, method, trxId, sender? }` adds payment details to an unpaid order. |
+| `POST /api/site/coupon` | **Public.** `{ code, phone, name }` → the coupon's offer for the order summary (nothing is reserved). |
+| `POST /api/site/customer` | **Public.** `{ phone }` → a returning guest's saved details (numbers with an account only get `{ account: true }`). |
 | `GET/POST /api/site/account` | **Public.** The logged-in customer and their orders; `action`: `register`, `login`, `logout`, `update`, `password`. |
 | `GET /api/site/products` | **Public.** Current prices and stock for the cart. |
-| `POST /api/site/receipt` | **Public.** `{ code, phone }` → the receipt and the shop details it prints, once the payment is approved (`409` before). |
-| `GET /api/img/[id]` | **Public.** A product photo (`-t` on the end = thumbnail). |
-| `POST/DELETE /api/images` | Upload (`full` + `thumb` form fields) or remove a product photo. |
-| `GET/POST /api/accounts` | List website accounts; `{ id, action: "reset" \| "delete" }`. |
+| `GET/POST /api/site/reviews` | **Public.** Approved reviews; write a review. |
+| `POST /api/site/receipt`, `GET /api/site/receipt/[file]` | **Public.** `{ code, phone }` → a signed, expiring link to the approved order's receipt PDF; the link itself. |
+| `GET /api/site/health` | **Public.** `{ ok: true }` when the site can reach its database (for the uptime check). |
+| `POST /api/site/csp-report` | **Public.** Browsers report what the security policy blocked; logged as "CSP blocked". |
 
 ---
 
 ## Security
 
-- **Login:** `src/proxy.ts` sends every page to `/login` (and returns `401` for API routes) until the password is entered. The session cookie is an HMAC derived from `APP_PASSWORD`. It is `httpOnly`, `sameSite=lax`, and `secure` in production, and is compared in constant time.
-- **Customer form links** are random 18-byte tokens. Only their SHA-256 hash is stored, they expire after 30 minutes (timed by the database clock), and each can be used once. Old links are cleaned up after a day.
-- The public form only ever sees the shop name, tagline and logo. It never sees customers, receipts or prices.
-- The customer website (`/store`, `/api/site/…`, `/api/img/…`) is public. It only ever sees shop name, contact details, website settings and products marked *Show on website*. Customer passwords are hashed with scrypt and live in `gr_accounts`, never in `gr_docs`, so they never reach the admin browser. Login tokens are stored hashed in `gr_sessions`.
-- Only PNG / JPEG / WebP / GIF logos are served from the app's own domain (an SVG could carry script).
-- Logging out removes the shop data from that browser, unless changes are still waiting to sync.
+**Admin login**
+- The first login uses `APP_PASSWORD` as a starting PIN and asks for a real password (12+ characters); after that the PIN no longer works.
+- Every attempt passes Cloudflare Turnstile, and wrong passwords lead to growing lockouts, per address and overall. Passkeys still work during a lockout.
+- **Two-step login** with an authenticator app and/or email codes, with recovery codes. The authenticator secret is stored encrypted with a key made from `SESSION_SECRET`.
+- A login lasts 2 hours, and ends after 30 minutes without use. The session cookie (`__Host-` prefixed, `httpOnly`, `secure`) is bound to the browser and country it logged in from: used from somewhere else, the session ends and the owner gets an alert.
+- Only a hash of each session token is stored. The owner can see and log out every device, see the login history, and gets email alerts for new-device logins, lockouts and security changes.
+- A forgotten password is reset through a one-time link sent to the owner's alert address, never to an address typed on the page; with two-step login on, the reset also needs the code.
+
+**Every page**
+- A Content-Security-Policy with a fresh nonce per page view: only the page's own scripts run (`src/lib/csp.ts`, applied in `src/proxy.ts`). Violations are reported to `/api/site/csp-report`.
+- `nosniff`, a strict referrer policy and a permissions policy on every response; no other site may frame the pages; the admin and verify addresses are kept out of search results.
+
+**Customers and the store**
+- Customer passwords are hashed with scrypt and live in `gr_accounts`, never in `gr_docs`, so they never reach the admin browser. Login tokens are stored hashed; the customer cookie is `__Host-` prefixed and lasts 30 days. Customer login and sign-up pass Turnstile and have their own lockouts.
+- The public site only ever sees shop details, website settings and products marked *Show on website*, in a public shape that never includes purchase prices (checked by the tests). Prices, stock, delivery and coupons are worked out on the server.
+- Public forms are rate-limited at the edge and per phone number / address on the server.
+- Customer form links are random tokens stored only as a SHA-256 hash; they expire after 30 minutes (timed by the database clock) and work once.
+- Receipt download links are signed and expire.
+
+**Data and keys**
+- With a database, no copy of the shop data is kept in the browser - only changes that haven't reached the server yet (the outbox), until they do.
+- Only PNG / JPEG / WebP / GIF logos are served from the app's own domain (an SVG could carry script); photo uploads accept JPEG, PNG and WebP only.
+- Secrets live only in Vercel environment variables, marked Sensitive. The R2 key can read and write the photo bucket and nothing else.
 
 ---
 
@@ -322,6 +397,7 @@ Every route needs the shop session cookie, except where marked **public**. When 
 | What | Where |
 |---|---|
 | Shop name, tagline, contact details, logo, watermark, invoice prefix, next number, delivery charge, footer text, charge rates | **Settings** page |
+| Store settings, delivery services, home page design | **Website** page |
 | Receipt colours, default logo | `src/lib/theme.ts` |
 | Website colours and fonts | `src/app/globals.css` |
 | Receipt layout | `src/lib/pdf.tsx` (PDF), `src/components/ReceiptPreview.tsx` (preview), `src/lib/excel.ts` (Excel) |
@@ -330,8 +406,11 @@ Every route needs the shop session cookie, except where marked **public**. When 
 | Default settings and sample data | `src/lib/seed.ts` |
 | Coupon code legend | `DEFAULT_LEGEND` in `src/lib/coupons.ts` |
 | Customer form link lifetime | `FORM_TTL_MINUTES` in `src/lib/server/forms.ts` |
+| Admin login length and idle limit | `SESSION_HOURS` in `src/lib/server/auth.ts`, `ADMIN_IDLE_MINUTES` in `src/lib/site.ts` |
+| Photo address | `PHOTO_BASE` in `src/lib/site.ts` |
+| Server region | `vercel.json` (keep the database in the same region) |
 
-> **Note for contributors:** this project uses Next.js 16, which renames and changes several APIs (for example `middleware.ts` → `proxy.ts`, and typed `PageProps` / `RouteContext`). Check the guides in `node_modules/next/dist/docs/` before changing framework code. See `AGENTS.md`.
+> **Note for contributors:** this project uses Next.js 16, which renames and changes several APIs (for example `middleware.ts` → `proxy.ts`, and typed `PageProps` / `RouteContext`, generated with `npx next typegen`). Check the guides in `node_modules/next/dist/docs/` before changing framework code. See `AGENTS.md`.
 
 ---
 
@@ -342,6 +421,9 @@ Every route needs the shop session cookie, except where marked **public**. When 
 | Sidebar says "Saved on this device" on the live site | `DATABASE_URL` is missing or the database can't be reached. Check the Vercel environment variables and redeploy. |
 | "Offline · will sync when back online" | Changes are queued in the browser and are sent automatically when the connection returns. Don't clear the browser data until it shows "Synced". |
 | Customer form button doesn't work | Customer form links need a database (cloud mode). |
-| Customers can open the form link on Wi-Fi but not on mobile data | Some mobile carriers have trouble reaching `*.vercel.app` addresses. Add a custom domain to the Vercel project and open the app from that domain, because form links use the address the app is opened from. |
-| Everyone got logged out | `APP_PASSWORD` was changed. Log in again with the new password. |
+| Customers can open the form link on Wi-Fi but not on mobile data | Some mobile carriers have trouble reaching `*.vercel.app` addresses. Open the app from the custom domain, because form links use the address the app is opened from. |
+| Logged out of the admin panel | Logins last 2 hours and end after 30 minutes without use, or when the session is used from another browser or country (an alert email says so). Log in again. |
+| Forgot the admin password | Use **Forgot password** on the login page: a reset link goes to the owner's alert address. |
+| An email from GitHub says the Uptime workflow failed | Open the run on GitHub to see which check failed (store, product list, admin login, photos or database), then check the Vercel logs, Neon or Cloudflare for that part. |
+| A Vercel build failed in "vitest run" | A test caught a change in the money rules. Run `npm test` locally to see which. |
 | Old receipts missing after first login | Log in on the device that had them. They are moved into the database on that device's first login. |

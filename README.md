@@ -52,7 +52,7 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 ### Admin panel (admin.goroundbd.com)
 - Same look as the store: ink green, teal accents and Fraunces headings.
 - **Orders:** to approve / to ship / shipped / delivered / cancelled tabs with a badge for unseen orders. Open an order and check the bKash TrxID. **Approve payment** marks it paid, moves the order to *Approved*, and makes the receipt the customer downloads from the website. **Payment not found** asks the customer to resend the ID, and **Undo** takes an approval back. From there: one button for each next step, courier info, a private note, and a ready-made WhatsApp update for the customer. New orders appear within a minute. Cancelling an order gives its stock and coupon back.
-- **Website:** *Home page design* (hero photos, sections, text blocks, partners, live preview) and *Store settings* (taking-orders switch, announcement bar, WhatsApp and Facebook links, bKash number and type, bank details, delivery services and fees, free-delivery threshold, About us text and FAQ).
+- **Website:** *Home page design* (hero photos, sections, text blocks, partners, live preview), *Store settings* (taking-orders switch, announcement bar, WhatsApp and Facebook links, bKash number and type, bank details, delivery services and fees, free-delivery threshold, About us text and FAQ) and *Visitors* (today's visitors and visits, the last 30 days as a chart and day by day; today's visitors also show on the home page's Website tile).
 - **Products:** *Photos & details* on each product: photos (resized in the browser), description, specification, category, brand, prices (purchase, regular, selling), stock, weight, *Show on website* and *Feature on home page*.
 - **Login & security** (Settings): password, two-step login, passkeys, logged-in devices, login history and alerts. See [Security](#security).
 - **Visit store** button in the navbar and on the home page.
@@ -147,6 +147,7 @@ The app runs in one of two modes, depending on whether a database is configured:
 - **Product photos.** Uploads are resized in the browser (a full size and a thumbnail) and stored in Cloudflare R2 as `p/<id>` and `p/<id>-t`, served from `img.goroundbd.com` through Cloudflare's CDN. Photo addresses never change, so they are cached for a year. A Cloudflare cache rule makes these extensionless files cacheable, and a response-header rule adds `Access-Control-Allow-Origin: *` (the admin's ID-card builder reads team photos as bytes) and `X-Content-Type-Options: nosniff`. Older `/api/img/<id>` addresses keep working: they redirect to the same photo on R2. Without the R2 settings, photos are stored in the database (`gr_images`) instead.
 - **Light store pages.** The home page and the shop send each product's card fields only - full descriptions and specifications stay on the product's own page (`cardProduct` / `listedProduct` in `src/lib/site.ts`). The shop builds 24 cards and adds 24 more as the customer scrolls; search, filters and sorting always cover every product. Coming back from a product shows the same cards at the same place. `?all=1` builds every card, for browsers without JavaScript (Opera Mini) and search engines.
 - **Protection at the edge.** A Vercel Firewall rule rate-limits each internet address on the public APIs (`/api/site/…`), the admin login and the customer-form links before requests reach the server. The server keeps its own finer limits per phone number and per address (`src/lib/server/rateLimit.ts`).
+- **Visitor counter.** A store page that starts a visit sends one small request (`navigator.sendBeacon`, after the page has shown) and the server adds it to that day's totals in `gr_visits` - one row per Bangladesh day, kept outside `gr_docs` so a visit never makes the admin panel reload. Later page views in the same visit send nothing. The browser only remembers the day and time of its last page view (no cookie, no id), and the server keeps no address or anything about the visitor. Bots and automated browsers, other sites, the verify address and the admin's home page preview aren't counted. The admin panel reads the totals only when the Visitors tab or home page is opened, never on a timer, so an open panel doesn't keep the database awake.
 - **Search engines.** A sitemap, structured data (JSON-LD) on store pages, and IndexNow pings (sent after the response, with `after()`) when products change.
 
 ---
@@ -217,6 +218,7 @@ The app deploys and works without any environment variables, saving to each brow
 **Tests** (`npm test`, Vitest, in `tests/`):
 - `tests/money.test.ts` checks the money rules with numbers worked out by hand: receipt totals, discounts and coupons, payments, amount in words, website coupon rules and Bangladesh dates, delivery and per-kg charges, discounted prices, saving orders and stock from the admin panel, and that the website's product data never carries the purchase price.
 - `tests/orders.db.test.ts` places website orders against a real Postgres: prices come from the database, delivery and the coupon are applied, stock and the coupon are taken; used coupons, sold-out items and short stock are refused; cancelling, restoring and deleting move stock and the coupon back; and an order waits while another one is buying the same last item. It runs only when `TEST_DATABASE_URL` points at a **local throwaway database**, because it wipes the `gr_*` tables first; otherwise it is skipped.
+- `tests/visits.test.ts` checks the visitor counter's rules (when a page view starts a visit or a new visitor, which browsers are bots, the 30 days), and `tests/visits.db.test.ts` the daily totals in Postgres (same local-database rule).
 - `npm run build` runs the tests first, so a broken money rule stops the Vercel build and never goes live (the database tests skip there).
 
 **GitHub Actions** (`.github/workflows/`):
@@ -306,7 +308,7 @@ src/
 │   ├── orders/                 # The admin's order panel
 │   ├── security/               # Login & security page parts
 │   ├── store/                  # Customer website components (shop browser, product card, cart, checkout…)
-│   ├── website/                # Home page design editor
+│   ├── website/                # Home page design editor, visitor counter
 │   └── aquarium/               # Interactive tank
 └── lib/
     ├── types.ts                # Data model
@@ -314,12 +316,13 @@ src/
     ├── site.ts                 # Shared store logic: addresses, public product shapes, delivery fees, photo addresses
     ├── calc.ts                 # Totals, charges, formatting, amount in words
     ├── couponRules.ts          # Website coupon rules (shared by checkout, server and panel)
+    ├── visits.ts               # Visitor counter rules (when a visit starts, bots, the 30 days)
     ├── csp.ts                  # Content-Security-Policy for each page
     ├── pdf.tsx, excel.ts, ledger.ts, letterPdf.tsx, letterDocx.ts, idCard.tsx
     ├── coupons.ts, customerImport.ts, sheet.ts, phone.ts, photos.ts, seo.ts, seed.ts
     └── server/                 # Server-only: db (schema), catalog (cache), orders, auth, accounts, twoFactor,
-                                #   passkeys, loginGuard, rateLimit, r2 (photos), customers, reviews, adminEvents…
-tests/                          # Vitest: money rules, website orders against Postgres
+                                #   passkeys, loginGuard, rateLimit, r2 (photos), customers, reviews, visits, adminEvents…
+tests/                          # Vitest: money rules, visitor counter, website orders and visits against Postgres
 .github/workflows/              # checks.yml (types, lint, tests), uptime.yml (scheduled checks)
 vercel.json                     # Function region
 public/
@@ -350,6 +353,7 @@ Every route needs the admin login, except where marked **public**. When `APP_PAS
 | `POST /api/images/move` | Moves photos from the database to R2, checked by size; `?clear=1` then deletes the database copies R2 has. |
 | `GET /api/img/[id]` | **Public.** A photo stored in the database (`-t` = thumbnail); redirects to R2 once its database copy is cleared. |
 | `GET/POST /api/accounts` | List website accounts; `{ id, action: "reset" \| "delete" }`. |
+| `GET /api/visits` | The store's visitors and visits per day for the last 30 days, today last. |
 | `POST /api/site/orders` | **Public.** Places a website order (`name, phone, address, ps, email?, note?, zone, method, trxId?, sender?, coupon?, password?, accept, items: [{id, qty}]`). |
 | `POST /api/site/track` | **Public.** `{ phone }` → that number's orders; `{ code, phone }` → one order (without the shop's private note). |
 | `POST /api/site/pay` | **Public.** `{ code, phone, method, trxId, sender? }` adds payment details to an unpaid order. |
@@ -359,6 +363,7 @@ Every route needs the admin login, except where marked **public**. When `APP_PAS
 | `GET /api/site/products` | **Public.** Current prices and stock for the cart. |
 | `GET/POST /api/site/reviews` | **Public.** Approved reviews; write a review. |
 | `POST /api/site/receipt`, `GET /api/site/receipt/[file]` | **Public.** `{ code, phone }` → a signed, expiring link to the approved order's receipt PDF; the link itself. |
+| `POST /api/site/visit` | **Public.** A store page starts a visit (`{ first: true }` on the browser's first visit today). Counted only from the store's own pages and not from bots; always answers `204`. |
 | `GET /api/site/health` | **Public.** `{ ok: true }` when the site can reach its database (for the uptime check). |
 | `POST /api/site/csp-report` | **Public.** Browsers report what the security policy blocked; logged as "CSP blocked". |
 
@@ -384,6 +389,7 @@ Every route needs the admin login, except where marked **public**. When `APP_PAS
 - Public forms are rate-limited at the edge and per phone number / address on the server.
 - Customer form links are random tokens stored only as a SHA-256 hash; they expire after 30 minutes (timed by the database clock) and work once.
 - Receipt download links are signed and expire.
+- The visitor counter keeps daily totals only: no cookie, no internet address, nothing that tells one visitor from another (the privacy policy says so).
 
 **Data and keys**
 - With a database, no copy of the shop data is kept in the browser - only changes that haven't reached the server yet (the outbox), until they do.

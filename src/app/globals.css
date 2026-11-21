@@ -1127,6 +1127,12 @@ input[type="number"] {
   color: color-mix(in srgb, var(--color-sea-ink) 62%, transparent);
 }
 
+/* still grass (Art.tsx): the blades keep their line width however wide the meadow is stretched - said here once
+   instead of on each blade */
+.grass-still path {
+  vector-effect: non-scaling-stroke;
+}
+
 /* grass (Art.tsx): three stacked layers of blades, each swaying from the ground as a whole - a transform the
    graphics card applies, so nothing is redrawn while it moves */
 .sea-grass {

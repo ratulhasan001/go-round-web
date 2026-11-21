@@ -509,8 +509,18 @@ export function plainText(desc: string): string {
     .trim();
 }
 
+/**
+ * Where uploaded photos live: Cloudflare R2, served through Cloudflare's CDN on this address. Each photo is
+ * `<PHOTO_BASE><id>` and its smaller copy `<PHOTO_BASE><id>-t`. Photos uploaded before the move are `/api/img/<id>`
+ * (stored in the database); that address keeps working.
+ */
+export const PHOTO_BASE = `https://img.${DOMAIN}/p/`;
+
+/** A photo uploaded from the admin panel (as opposed to a data URL or a web address typed in). */
+export const isUploadedPhoto = (src: string) => src.startsWith("/api/img/") || src.startsWith(PHOTO_BASE);
+
 /** Smaller copy of an uploaded photo for grids and thumbnails (data URLs have only one size). */
-export const thumb = (src: string) => (src.startsWith("/api/img/") && !src.endsWith("-t") ? `${src}-t` : src);
+export const thumb = (src: string) => (isUploadedPhoto(src) && !src.endsWith("-t") ? `${src}-t` : src);
 
 /** Extra kilograms charged for: every started kg over the first one. */
 export const extraKg = (weight: number) => Math.max(0, Math.ceil(Math.round(weight * 1000) / 1000 - 1));

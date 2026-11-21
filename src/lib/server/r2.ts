@@ -29,11 +29,11 @@ const objectUrl = (id: string) => {
 
 /** Stores one photo (a new id every upload, so it can be cached for good). */
 export async function putPhoto(id: string, bytes: Uint8Array<ArrayBuffer>, type: string) {
-  const res = await client().fetch(objectUrl(id), {
-    method: "PUT",
-    body: bytes,
-    headers: { "content-type": type, "cache-control": "public, max-age=31536000, immutable" },
-  });
+  const init = { method: "PUT", body: bytes, headers: { "content-type": type, "cache-control": "public, max-age=31536000, immutable" } };
+  // signed by aws4fetch, but sent with the bytes themselves: its own fetch passes the body on as a stream, without the
+  // Content-Length that R2 requires (it answers 411)
+  const signed = await client().sign(objectUrl(id), init);
+  const res = await fetch(signed.url, { method: "PUT", headers: signed.headers, body: bytes });
   if (!res.ok) throw new Error(`R2 upload of ${id} failed: ${res.status}`);
 }
 

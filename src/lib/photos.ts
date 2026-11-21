@@ -1,4 +1,6 @@
-// Photo uploads from the admin panel: scaled in the browser, then saved to the database (or kept as a data URL).
+// Photo uploads from the admin panel: scaled in the browser, then saved to the server (or kept as a data URL).
+
+import { isUploadedPhoto } from "./site";
 
 /**
  * Reads an image file of any size. createImageBitmap is fast but can't read SVG logos (or, in some browsers, very
@@ -68,6 +70,7 @@ export async function storePhoto(file: File, cloud: boolean): Promise<string> {
   return body.url;
 }
 
+/** Deletes an uploaded photo that is no longer used (both sizes, wherever it is kept). */
 export const forget = (url: string) => {
-  if (url.startsWith("/api/img/")) void fetch(`/api/images?url=${encodeURIComponent(url)}`, { method: "DELETE" }).catch(() => null);
+  if (isUploadedPhoto(url)) void fetch(`/api/images?url=${encodeURIComponent(url)}`, { method: "DELETE" }).catch(() => null);
 };

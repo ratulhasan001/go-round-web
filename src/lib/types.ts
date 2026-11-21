@@ -244,7 +244,7 @@ export interface Product {
   inStock?: boolean; // missing (older saved products) means in stock
   updatedAt?: number; // ms timestamp of the last edit; missing on older saved products
   // customer website (all optional, so older saved products keep working)
-  images?: string[]; // photo addresses (/api/img/<id>, or data URLs when there is no database); none = placeholder
+  images?: string[]; // photo addresses (PHOTO_BASE<id> on R2, older /api/img/<id>, or data URLs without a database); none = placeholder
   description?: string;
   category?: string;
   subcategory?: string; // within the category, e.g. Filter › Filter media
@@ -278,7 +278,7 @@ export interface Employee {
   joined: string; // yyyy-mm-dd, "" = not set
   salary?: number; // monthly, BDT - no longer asked for; kept on older saved records
   head?: boolean; // team head: gets a photo on their ID card and verification page (attendants don't)
-  photo?: string; // team head's photo (/api/img/<id>, or a data URL when there is no database)
+  photo?: string; // team head's photo (PHOTO_BASE<id> on R2, older /api/img/<id>, or a data URL without a database)
   notes: string;
   active?: boolean; // missing means still working here
   code: string; // random, unguessable: the address of their public verification page (what their QR code opens)

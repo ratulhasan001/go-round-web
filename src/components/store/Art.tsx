@@ -45,10 +45,16 @@ export function Grass({ blades = 70, seed = 7, height = 220, className, still = 
     list.map((p, i) => (
       <path key={i} d={p.d} fill="none" stroke={p.color} strokeWidth={p.width} strokeLinecap="round" opacity={p.opacity} vectorEffect="non-scaling-stroke" />
     ));
+  // a still meadow is drawn into the page itself (product cards without a photo, the footer), so what every blade
+  // shares is said once: fill and line ends on the group, the stroke that doesn't stretch in globals.css (.grass-still)
   if (still)
     return (
-      <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" className={className} aria-hidden>
-        {draw(paths)}
+      <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" className={`grass-still ${className ?? ""}`} aria-hidden>
+        <g fill="none" strokeLinecap="round">
+          {paths.map((p, i) => (
+            <path key={i} d={p.d} stroke={p.color} strokeWidth={p.width} opacity={p.opacity} />
+          ))}
+        </g>
       </svg>
     );
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { linksFor, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
+import { linksFor, type CardProduct, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
 import type { SiteSettings } from "@/lib/types";
 
 export interface CartLine {
@@ -22,7 +22,7 @@ interface Ctx {
   count: number;
   subtotal: number;
   ready: boolean;
-  add: (p: PublicProduct, qty?: number) => void;
+  add: (p: CardProduct, qty?: number) => void;
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
   clear: () => void;
@@ -86,7 +86,7 @@ export function StoreProvider({ shop: saved, online, host, children }: { shop: P
     }
   }, [lines, ready]);
 
-  const add = useCallback((p: PublicProduct, qty = 1) => {
+  const add = useCallback((p: CardProduct, qty = 1) => {
     setLines((ls) => {
       const hit = ls.find((l) => l.id === p.id);
       const max = p.stock ?? 99;

@@ -4,7 +4,7 @@ import { loadCatalog } from "@/lib/server/catalog";
 import { ShopBrowser } from "@/components/store/ShopBrowser";
 import { PageHead } from "@/components/store/ui";
 import { pageMetadata } from "@/lib/server/seo";
-import { type PublicProduct, sameName, tk } from "@/lib/site";
+import { listedProduct, type PublicProduct, sameName, tk } from "@/lib/site";
 
 /**
  * The whole shop, or one category of it (?category=…&sub=…&type=…, as the shop's filters link it). A real category gets
@@ -62,7 +62,8 @@ export default async function ShopPage({ searchParams }: PageProps<"/store/produ
         <PageHead eyebrow="The shop" title={<>Everything for a <em>planted tank</em></>} />
       )}
       <Suspense>
-        <ShopBrowser products={products} />
+        {/* the cards and what search looks through: no full descriptions or specifications */}
+        <ShopBrowser products={products.map(listedProduct)} />
       </Suspense>
     </div>
   );

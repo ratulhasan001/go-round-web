@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, SearchX, X } from "lucide-react";
 import { inCategory, type ListedProduct } from "@/lib/site";
@@ -8,6 +8,34 @@ import { ProductCard } from "./ProductCard";
 import { cx } from "./ui";
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/**
+ * Cards built at first, and added each time the customer scrolls near the end. Every product is in the page's data
+ * already - search, filters and sorting always cover the whole shop; a phone just doesn't build every card up front.
+ */
+const STEP = 24;
+/** sessionStorage: how many cards each list showed, so "back" from a product returns to the same place. */
+const SEEN = "gr-shop-seen";
+/**
+ * False until the first page is on screen: that first render must match the server's (STEP cards). Lists opened
+ * later - e.g. coming back from a product - are built in the browser and may show as many cards as before.
+ */
+let hydrated = false;
+
+const seenCount = (key: string) => {
+  try {
+    return Math.max(STEP, Number(JSON.parse(sessionStorage.getItem(SEEN) ?? "{}")[key]) || 0);
+  } catch {
+    return STEP;
+  }
+};
+const rememberCount = (key: string, n: number) => {
+  try {
+    sessionStorage.setItem(SEEN, JSON.stringify({ ...JSON.parse(sessionStorage.getItem(SEEN) ?? "{}"), [key]: n }));
+  } catch {
+    /* private mode */
+  }
+};
 
 const SORTS = [
   { key: "new", label: "Newest" },
@@ -88,6 +116,34 @@ export function ShopBrowser({ products }: { products: ListedProduct[] }) {
     // sold-out items go last, whatever the order
     return list.sort((a, b) => Number(b.inStock) - Number(a.inStock));
   }, [products, q, category, subcategory, subsub, brand, sort, inStockOnly, show]);
+
+  // how many cards are built (see STEP). ?all=1 shows every card - the "show more" link's own address, for browsers that
+  // run no scripts (Opera Mini) and for search engines
+  const all = params.get("all") === "1";
+  const listKey = [path, category, subcategory, subsub, brand, sort, show, q.trim().toLowerCase(), inStockOnly ? 1 : 0].join("|");
+  const [count, setCount] = useState(() => ({ key: listKey, n: hydrated ? seenCount(listKey) : STEP }));
+  const n = all ? shown.length : count.key === listKey ? count.n : STEP; // a new search or filter starts from the top
+  const showMore = useCallback(() => {
+    setCount({ key: listKey, n: n + STEP });
+    rememberCount(listKey, n + STEP);
+  }, [listKey, n]);
+  useEffect(() => {
+    hydrated = true;
+  }, []);
+  const end = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    const el = end.current;
+    if (!el || n >= shown.length || typeof IntersectionObserver === "undefined") return;
+    // well before the customer reaches the end, so they never wait for it
+    const io = new IntersectionObserver((e) => void (e[0]?.isIntersecting && showMore()), { rootMargin: "1200px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [n, shown.length, showMore]);
+  const allHref = useMemo(() => {
+    const next = new URLSearchParams(params.toString());
+    next.set("all", "1");
+    return `${path}?${next}`;
+  }, [params, path]);
 
   const subChip = (on: boolean) =>
     cx("h-9 shrink-0 rounded-full px-3.5 text-[13px] font-bold transition", on ? "bg-sea-teal text-white" : "bg-sea-teal-soft text-sea-teal hover:bg-sea-teal/15");
@@ -211,11 +267,28 @@ export function ShopBrowser({ products }: { products: ListedProduct[] }) {
       </p>
 
       {shown.length ? (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-9 sm:gap-x-6 md:grid-cols-3 lg:grid-cols-4">
-          {shown.map((p) => (
-            <ProductCard key={p.id} p={p} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-9 sm:gap-x-6 md:grid-cols-3 lg:grid-cols-4">
+            {shown.slice(0, n).map((p) => (
+              <ProductCard key={p.id} p={p} />
+            ))}
+          </div>
+          {n < shown.length && (
+            <div className="mt-10 flex justify-center">
+              <a
+                ref={end}
+                href={allHref}
+                onClick={(e) => {
+                  e.preventDefault();
+                  showMore();
+                }}
+                className="rounded-full border border-sea-line bg-sea-paper px-5 py-2.5 text-[14px] font-bold text-sea-body transition hover:border-sea-ink"
+              >
+                Show more products ({shown.length - n} more)
+              </a>
+            </div>
+          )}
+        </>
       ) : (
         <div className="grid place-items-center rounded-[28px] border border-dashed border-sea-line px-6 py-20 text-center">
           <SearchX className="size-9 text-sea-muted" />

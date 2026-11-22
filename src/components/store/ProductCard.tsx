@@ -32,19 +32,32 @@ export function ProductCard({ p }: { p: CardProduct }) {
             </Link>
           </h3>
           <p className="mt-1 text-[15px] font-extrabold tabular-nums">
+            {p.priceTo > p.price && <span className="text-[12.5px] font-semibold text-sea-muted">From </span>}
             {tk(p.price)}
             {p.unit && <span className="text-[12.5px] font-semibold text-sea-muted"> / {p.unit}</span>}
             {p.regularPrice > 0 && <s className="ml-1.5 text-[12.5px] font-semibold text-sea-muted">{tk(p.regularPrice)}</s>}
           </p>
         </div>
-        <button
-          onClick={() => add(p)}
-          disabled={!p.inStock}
-          className="relative z-10 mt-1 grid size-10 shrink-0 place-items-center rounded-full bg-sea-ink text-white transition hover:bg-sea-teal active:scale-90 disabled:bg-sea-line disabled:text-sea-muted"
-          aria-label={p.inStock ? `Add ${p.name} to cart` : `${p.name} is sold out`}
-        >
-          <Plus className="size-[18px]" strokeWidth={2.5} />
-        </button>
+        {p.options > 0 && p.inStock ? (
+          // sold in variants: the customer picks one on the product page
+          <Link
+            href={href}
+            className="relative z-10 mt-1 grid size-10 shrink-0 place-items-center rounded-full bg-sea-ink text-white transition hover:bg-sea-teal active:scale-90"
+            aria-label={`Choose a variant of ${p.name}`}
+            title={`${p.options} variants`}
+          >
+            <Plus className="size-[18px]" strokeWidth={2.5} />
+          </Link>
+        ) : (
+          <button
+            onClick={() => add(p)}
+            disabled={!p.inStock}
+            className="relative z-10 mt-1 grid size-10 shrink-0 place-items-center rounded-full bg-sea-ink text-white transition hover:bg-sea-teal active:scale-90 disabled:bg-sea-line disabled:text-sea-muted"
+            aria-label={p.inStock ? `Add ${p.name} to cart` : `${p.name} is sold out`}
+          >
+            <Plus className="size-[18px]" strokeWidth={2.5} />
+          </button>
+        )}
       </div>
     </article>
   );

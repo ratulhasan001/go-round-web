@@ -21,9 +21,13 @@ async function find(segment: string) {
   return { ...findProduct(products, segment), products, shop };
 }
 
-/** One line under the title in search results: name, price, then the start of the description. */
+/** The price, or the range of a product's variant prices: "Tk 799 - Tk 5,699". */
+const priceText = (p: PublicProduct) => (p.priceTo > p.price ? `${tk(p.price)} - ${tk(p.priceTo)}` : tk(p.price));
+
+/** One line under the title in search results: name, price (and sizes), then the start of the description. */
 const summary = (p: PublicProduct) => {
-  const lead = `${cleanName(p.name)} price in Bangladesh: ${tk(p.price)}${p.inStock === false ? " (out of stock)" : ""}.`;
+  const sizes = p.variants.length > 1 ? ` Available in ${p.variants.map((v) => v.label).join(", ")}.` : "";
+  const lead = `${cleanName(p.name)} price in Bangladesh: ${priceText(p)}${p.inStock === false ? " (out of stock)" : ""}.${sizes}`;
   const text = plainText(p.description).replace(/\s+/g, " ").trim();
   const all = text ? `${lead} ${text}` : `${lead} Order online, pay with bKash or bank transfer.`;
   return all.length > 160 ? `${all.slice(0, 157).replace(/\s+\S*$/, "")}...` : all;
@@ -70,15 +74,37 @@ function productData(p: PublicProduct, url: string, shopName: string, reviews: P
         ...(p.sku ? { sku: p.sku } : {}),
         ...(p.brand ? { brand: { "@type": "Brand", name: p.brand } } : {}),
         ...(p.category ? { category: [p.category, p.subcategory, p.subsubcategory].filter(Boolean).join(" > ") } : {}),
-        offers: {
-          "@type": "Offer",
-          url,
-          price: p.price,
-          priceCurrency: "BDT",
-          availability: p.inStock === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-          itemCondition: "https://schema.org/NewCondition",
-          seller: { "@type": "Organization", name: shopName, url: SITE_URL },
-        },
+        // one offer, or one for each variant (500 ml, Large…) with its own price and stock
+        offers: p.variants.length
+          ? {
+              "@type": "AggregateOffer",
+              url,
+              lowPrice: Math.min(...p.variants.map((v) => v.price)),
+              highPrice: p.priceTo,
+              offerCount: p.variants.length,
+              priceCurrency: "BDT",
+              availability: p.inStock === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+              offers: p.variants.map((v) => ({
+                "@type": "Offer",
+                name: `${cleanName(p.name)} - ${v.label}`,
+                url: `${url}?v=${encodeURIComponent(v.id)}`,
+                price: v.price,
+                priceCurrency: "BDT",
+                ...(v.sku ? { sku: v.sku } : {}),
+                availability: v.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+                itemCondition: "https://schema.org/NewCondition",
+                seller: { "@type": "Organization", name: shopName, url: SITE_URL },
+              })),
+            }
+          : {
+              "@type": "Offer",
+              url,
+              price: p.price,
+              priceCurrency: "BDT",
+              availability: p.inStock === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+              itemCondition: "https://schema.org/NewCondition",
+              seller: { "@type": "Organization", name: shopName, url: SITE_URL },
+            },
         ...(rated.length
           ? {
               aggregateRating: { "@type": "AggregateRating", ratingValue: Number(avgRating(rated).toFixed(1)), reviewCount: rated.length, bestRating: 5, worstRating: 1 },
@@ -105,12 +131,15 @@ function productData(p: PublicProduct, url: string, shopName: string, reviews: P
   };
 }
 
-export default async function ProductPage({ params }: PageProps<"/store/products/[id]">) {
-  const { product, exact, products, shop } = await find((await params).id);
+export default async function ProductPage({ params, searchParams }: PageProps<"/store/products/[id]">) {
+  const { product, exact, variant: mergedVariant, products, shop } = await find((await params).id);
   if (!product) notFound();
   const L = await storeLinks();
-  // an old address (the full id, or the product's earlier name): send people and search engines to the current one
-  if (!exact) permanentRedirect(L.store(productPath(product)));
+  const asked = (await searchParams).v;
+  const wanted = mergedVariant ?? (typeof asked === "string" ? asked : undefined);
+  // an old address (the full id, the product's earlier name, or a product since merged into this one as a variant):
+  // send people and search engines to the current one, with that variant picked
+  if (!exact) permanentRedirect(`${L.store(productPath(product))}${wanted ? `?v=${encodeURIComponent(wanted)}` : ""}`);
   const reviews = await loadReviews(product.id);
   const related = products
     .filter((p) => p.id !== product.id && p.inStock)
@@ -123,7 +152,7 @@ export default async function ProductPage({ params }: PageProps<"/store/products
         <ChevronLeft className="size-4" /> Back to shop
       </Link>
       <JsonLd data={productData(product, `${SITE_URL}${productPath(product)}`, shop.name, reviews)} />
-      <ProductDetail p={product} rating={{ avg: avgRating(reviews), count: reviews.length }} />
+      <ProductDetail key={wanted ?? ""} p={product} variant={wanted} rating={{ avg: avgRating(reviews), count: reviews.length }} />
       <ProductReviews productId={product.id} initial={reviews} />
       {related.length > 0 && (
         <section className="mt-24">

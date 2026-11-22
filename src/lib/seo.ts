@@ -44,15 +44,21 @@ const decode = (s: string) => {
 /**
  * The product a /products/<segment> address means - its current address, an older one (the product was renamed), or
  * the original address with the full id. `exact` is false when the page should redirect to productPath(product).
+ * A product merged into another (it became one of its variants) is found too: `variant` then names that variant.
  */
-export function findProduct<P extends { id: string; name: string }>(products: P[], segment: string): { product: P; exact: boolean } | null {
+export function findProduct<P extends { id: string; name: string; variants?: { id: string }[] }>(
+  products: P[],
+  segment: string,
+): { product: P; exact: boolean; variant?: string } | null {
   const s = decode(segment);
   const byId = products.find((p) => p.id === s);
   if (byId) return { product: byId, exact: decode(productPath(byId)) === `/products/${s}` };
   const key = s.slice(s.lastIndexOf("-") + 1).toLowerCase();
   const hits = products.filter((p) => productKey(p.id) === key);
-  if (hits.length !== 1) return null;
-  return { product: hits[0]!, exact: decode(productPath(hits[0]!)) === `/products/${s}` };
+  if (hits.length === 1) return { product: hits[0]!, exact: decode(productPath(hits[0]!)) === `/products/${s}` };
+  if (hits.length) return null;
+  const merged = products.flatMap((p) => (p.variants ?? []).filter((v) => v.id !== p.id && (v.id === s || productKey(v.id) === key)).map((v) => ({ product: p, variant: v.id })));
+  return merged.length === 1 ? { ...merged[0]!, exact: false } : null;
 }
 
 /** An absolute address on the shop ("/api/img/x" → "https://goroundbd.com/api/img/x"); web addresses stay as they are. */

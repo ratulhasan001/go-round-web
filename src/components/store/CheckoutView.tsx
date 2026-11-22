@@ -9,7 +9,7 @@ import { POLICIES } from "@/lib/policies";
 import { couponAmount } from "@/lib/couponRules";
 import { DELIVERY_AREAS, type DeliveryArea, type OrderPayMethod } from "@/lib/types";
 import { ProductImage } from "./ProductImage";
-import { rememberOrder, useShop } from "./StoreContext";
+import { lineItem, rememberOrder, useShop } from "./StoreContext";
 import { useFreshCart } from "./CartView";
 import { PaymentInfo } from "./PaymentInfo";
 import { WhatsAppIcon } from "./Icons";
@@ -134,7 +134,7 @@ export function CheckoutView() {
       const res = await fetch("/api/site/orders", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...f, accept, coupon: coupon?.code ?? "", password: !me && makeAccount ? f.password : "", items: lines.map((l) => ({ id: l.id, qty: l.qty })) }),
+        body: JSON.stringify({ ...f, accept, coupon: coupon?.code ?? "", password: !me && makeAccount ? f.password : "", items: lines.map(lineItem) }),
       });
       const b = await res.json().catch(() => ({}));
       if (res.ok && b.order) {

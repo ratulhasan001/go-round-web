@@ -5,9 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, ShoppingBag, Trash2, X } from "lucide-react";
 import { tk } from "@/lib/site";
-import { productPath } from "@/lib/seo";
 import { ProductImage } from "./ProductImage";
-import { useShop } from "./StoreContext";
+import { lineHref, useShop } from "./StoreContext";
 import { QtyStepper, useFreshCart } from "./CartView";
 import { Fish } from "./Art";
 import { btn } from "./ui";
@@ -74,12 +73,12 @@ function Panel({ onClose }: { onClose: () => void }) {
             <ul className="divide-y divide-sea-line">
               {lines.map((l) => (
                 <li key={l.id} className="flex gap-3.5 py-4">
-                  <Link href={links.store(productPath(l))} onClick={onClose} className="size-[72px] shrink-0 overflow-hidden rounded-2xl bg-white ring-1 ring-sea-line">
+                  <Link href={links.store(lineHref(l))} onClick={onClose} className="size-[72px] shrink-0 overflow-hidden rounded-2xl bg-white ring-1 ring-sea-line">
                     <ProductImage src={l.image} name={l.name} />
                   </Link>
                   <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex items-start justify-between gap-2">
-                      <Link href={links.store(productPath(l))} onClick={onClose} className="line-clamp-2 text-[14px] font-bold leading-snug hover:text-sea-teal">
+                      <Link href={links.store(lineHref(l))} onClick={onClose} className="line-clamp-2 text-[14px] font-bold leading-snug hover:text-sea-teal">
                         {l.name}
                       </Link>
                       <p className="shrink-0 text-[14px] font-extrabold tabular-nums">{tk(l.price * l.qty)}</p>

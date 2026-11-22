@@ -345,7 +345,7 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
         <h3 className="mb-3 text-[15px] font-bold">Items</h3>
         <ul className="flex flex-col gap-3">
           {o.items.map((it) => (
-            <li key={it.productId} className="flex items-center gap-3">
+            <li key={`${it.productId}~${it.variantId ?? ""}`} className="flex items-center gap-3">
               <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-canvas">
                 {it.image ? (
                   // eslint-disable-next-line @next/next/no-img-element -- uploaded product photo

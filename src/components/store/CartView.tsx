@@ -5,10 +5,9 @@ import Link from "next/link";
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { tk, type PublicProduct } from "@/lib/site";
 import { ProductImage } from "./ProductImage";
-import { useShop } from "./StoreContext";
+import { lineHref, useShop } from "./StoreContext";
 import { Fish } from "./Art";
 import { btn } from "./ui";
-import { productPath } from "@/lib/seo";
 
 /** Brings the cart up to date with the shop's current prices and stock (once per page view). */
 export function useFreshCart() {
@@ -73,12 +72,12 @@ export function CartView() {
         <ul className="divide-y divide-sea-line border-y border-sea-line">
           {lines.map((l) => (
             <li key={l.id} className="flex gap-4 py-5">
-              <Link href={links.store(productPath(l))} className="size-20 shrink-0 overflow-hidden rounded-2xl ring-1 ring-sea-line sm:size-24">
+              <Link href={links.store(lineHref(l))} className="size-20 shrink-0 overflow-hidden rounded-2xl ring-1 ring-sea-line sm:size-24">
                 <ProductImage src={l.image} name={l.name} />
               </Link>
               <div className="flex min-w-0 flex-1 flex-col">
                 <div className="flex items-start justify-between gap-3">
-                  <Link href={links.store(productPath(l))} className="line-clamp-2 text-[15px] font-bold leading-snug hover:text-sea-teal">
+                  <Link href={links.store(lineHref(l))} className="line-clamp-2 text-[15px] font-bold leading-snug hover:text-sea-teal">
                     {l.name}
                   </Link>
                   <p className="shrink-0 text-[15px] font-extrabold tabular-nums">{tk(l.price * l.qty)}</p>

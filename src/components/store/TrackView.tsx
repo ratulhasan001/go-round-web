@@ -269,7 +269,7 @@ export function OrderCard({
           <h2 className="font-serif text-[22px]">Items</h2>
           <ul className="mt-4 grid gap-3">
             {order.items.map((i) => (
-              <li key={i.productId} className="flex items-center gap-3">
+              <li key={`${i.productId}~${i.variantId ?? ""}`} className="flex items-center gap-3">
                 <span className="size-14 shrink-0 overflow-hidden rounded-xl ring-1 ring-sea-line">
                   <ProductImage src={i.image} name={i.name} />
                 </span>

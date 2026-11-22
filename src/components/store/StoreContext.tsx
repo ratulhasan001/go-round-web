@@ -1,12 +1,16 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { linksFor, type CardProduct, type Links, type PublicProduct, type PublicShop } from "@/lib/site";
+import { productPath } from "@/lib/seo";
+import { linksFor, type CardProduct, type Links, type PublicProduct, type PublicShop, type PublicVariant } from "@/lib/site";
 import type { SiteSettings } from "@/lib/types";
 
 export interface CartLine {
-  id: string;
-  name: string;
+  id: string; // the product's id, or "<product id>~<variant id>" for one of its variants
+  pid?: string; // the product, for a variant's line
+  variant?: string; // the variant's id
+  product?: string; // the product's own name, for a variant's line (its page address is made from it)
+  name: string; // with the variant, e.g. "APT Zero - 500 ml"
   price: number;
   unit: string;
   image?: string;
@@ -22,7 +26,8 @@ interface Ctx {
   count: number;
   subtotal: number;
   ready: boolean;
-  add: (p: CardProduct, qty?: number) => void;
+  /** Adds a product - or, for a product sold in variants, the variant the customer picked. */
+  add: (p: CardProduct, qty?: number, variant?: PublicVariant) => void;
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
   clear: () => void;
@@ -41,6 +46,14 @@ interface Ctx {
 
 const C = createContext<Ctx | null>(null);
 const KEY = "go-round-cart:v1";
+
+/** A cart line's id: the product's, or the product's and its variant's together. */
+export const lineId = (pid: string, variant?: string) => (variant ? `${pid}~${variant}` : pid);
+/** The line's product page, with its variant picked. */
+export const lineHref = (l: CartLine) =>
+  l.pid ? `${productPath({ id: l.pid, name: l.product ?? l.name })}?v=${encodeURIComponent(l.variant ?? "")}` : productPath(l);
+/** What the line is for the shop: the product and (when it has one) the variant. */
+export const lineItem = (l: CartLine) => ({ id: l.pid ?? l.id, ...(l.variant ? { variant: l.variant } : {}), qty: l.qty });
 
 export function StoreProvider({ shop: saved, online, host, children }: { shop: PublicShop; online: boolean; host: string; children: React.ReactNode }) {
   const [previewSite, setPreviewSite] = useState<SiteSettings | null>(null);
@@ -86,29 +99,46 @@ export function StoreProvider({ shop: saved, online, host, children }: { shop: P
     }
   }, [lines, ready]);
 
-  const add = useCallback((p: CardProduct, qty = 1) => {
+  const add = useCallback((p: CardProduct, qty = 1, v?: PublicVariant) => {
+    const id = lineId(p.id, v?.id);
+    const name = v ? `${p.name} - ${v.label}` : p.name;
     setLines((ls) => {
-      const hit = ls.find((l) => l.id === p.id);
-      const max = p.stock ?? 99;
-      if (hit) return ls.map((l) => (l.id === p.id ? { ...l, qty: Math.min(99, max, l.qty + qty) } : l));
-      return [...ls, { id: p.id, name: p.name, price: p.price, unit: p.unit, image: p.images[0], weight: p.weight, qty: Math.min(99, max, qty) }];
+      const hit = ls.find((l) => l.id === id);
+      const max = (v ? v.stock : p.stock) ?? 99;
+      if (hit) return ls.map((l) => (l.id === id ? { ...l, qty: Math.min(99, max, l.qty + qty) } : l));
+      const line: CartLine = { id, ...(v ? { pid: p.id, variant: v.id, product: p.name } : {}), name, price: v?.price ?? p.price, unit: v ? "" : p.unit, image: v?.image || p.images[0], weight: v?.weight ?? p.weight, qty: Math.min(99, max, qty) };
+      return [...ls, line];
     });
-    setAdded({ name: p.name, at: Date.now() });
+    setAdded({ name, at: Date.now() });
   }, []);
 
   const refresh = useCallback((products: PublicProduct[]) => {
     const byId = new Map(products.map((p) => [p.id, p]));
+    // products merged into another one since the line was saved are now its variants (they kept their ids)
+    const byVariant = new Map(products.flatMap((p) => p.variants.map((v) => [v.id, p] as const)));
     const gone: string[] = [];
-    setLines((ls) =>
-      ls.flatMap((l) => {
-        const p = byId.get(l.id);
-        if (!p || !p.inStock) {
+    setLines((ls) => {
+      const out: CartLine[] = [];
+      for (const l of ls) {
+        const pid = l.pid ?? l.id;
+        const p = byId.get(pid) ?? byVariant.get(pid);
+        const vid = byId.has(pid) ? (l.variant ?? (p?.variants.length ? pid : undefined)) : pid;
+        const v = p && p.variants.length ? p.variants.find((x) => x.id === vid) : undefined;
+        if (!p || (p.variants.length ? !v || !v.inStock : !p.inStock)) {
           gone.push(l.id);
-          return [];
+          continue;
         }
-        return [{ ...l, name: p.name, price: p.price, unit: p.unit, image: p.images[0], weight: p.weight, qty: Math.min(l.qty, p.stock ?? 99) }];
-      }),
-    );
+        const id = lineId(p.id, v?.id);
+        const same = out.find((x) => x.id === id);
+        const stock = (v ? v.stock : p.stock) ?? 99;
+        if (same) {
+          same.qty = Math.min(99, stock, same.qty + l.qty);
+          continue;
+        }
+        out.push({ ...l, id, ...(v ? { pid: p.id, variant: v.id, product: p.name } : { pid: undefined, variant: undefined, product: undefined }), name: v ? `${p.name} - ${v.label}` : p.name, price: v?.price ?? p.price, unit: v ? "" : p.unit, image: v?.image || p.images[0], weight: v?.weight ?? p.weight, qty: Math.min(l.qty, stock) });
+      }
+      return out;
+    });
     return gone;
   }, []);
 

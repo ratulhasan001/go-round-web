@@ -42,7 +42,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body>
         {/* first in the page, so the doors are there before anything else paints */}
-        <DoorIntro logo={shop.logo} name={shop.name} />
+        <DoorIntro area={area} logo={shop.logo} name={shop.name} />
         <AnimationPauser />
         <StoreProvider area={area}>
           <ToastProvider>

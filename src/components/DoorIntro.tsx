@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { preload } from "react-dom";
 import { usePathname } from "next/navigation";
+import { Fish, Grass } from "./store/Art";
+import { isStorePath, type Area } from "@/lib/site";
 
 /** When the visitor last saw a page: the head script plays the full intro after 30 minutes away (src/lib/csp.ts). */
 const KEY = "gr-door";
@@ -37,14 +39,18 @@ const BUBBLES = [
  * it, and plays the doors on page changes. Nothing is shown to search engines, in a frame, or when the device asks
  * for less motion, nor on the customer form links (/f/...), which open straight to the form.
  *
- * `logo` is the public logo address (the admin panel's own copy only arrives after the page has loaded).
+ * `logo` is the public logo address (the admin panel's own copy only arrives after the page has loaded). The store and
+ * verify pages get the customer website's look (white and the card's paper, grass and fish); the admin panel keeps
+ * its deep green.
  */
-export function DoorIntro({ logo, name }: { logo: string; name: string }) {
+export function DoorIntro({ area, logo, name }: { area: Area; logo: string; name: string }) {
   const path = usePathname();
-  return path.startsWith("/f/") ? null : <Doors logo={logo} name={name} />;
+  if (path.startsWith("/f/")) return null;
+  const store = area === "store" || area === "verify" || isStorePath(path);
+  return <Doors store={store} logo={logo} name={name} />;
 }
 
-function Doors({ logo, name }: { logo: string; name: string }) {
+function Doors({ store, logo, name }: { store: boolean; logo: string; name: string }) {
   // the line's serif, with the page, so it never shows in a fallback font (the store preloads it too)
   for (const f of ["Fraunces-600", "Fraunces-Italic"]) preload(`/fonts/${f}.woff2`, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
   const path = usePathname();
@@ -110,6 +116,7 @@ function Doors({ logo, name }: { logo: string; name: string }) {
     <div
       ref={ref}
       className="gr-door"
+      data-theme={store ? "store" : undefined}
       data-state={state ?? undefined}
       data-full={full || undefined}
       aria-hidden="true"
@@ -128,6 +135,12 @@ function Doors({ logo, name }: { logo: string; name: string }) {
     >
       {(["l", "r"] as const).map((side) => (
         <span key={side} className={`gr-door__half gr-door__half--${side}`}>
+          {store && (
+            <>
+              <Grass blades={30} seed={side === "l" ? 5 : 11} height={160} className="gr-door__grass" />
+              <Fish className="gr-door__fish" />
+            </>
+          )}
           {BUBBLES.map((b, i) => (
             <i key={i} className="gr-door__bubble" style={{ "--x": b.x, "--s": `${b.s}px`, "--t": `${b.t}s`, "--d": `${b.d + (side === "r" ? 0.25 : 0)}s` } as React.CSSProperties} />
           ))}

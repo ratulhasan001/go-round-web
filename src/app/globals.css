@@ -1636,7 +1636,7 @@ input[type="number"] {
 
 
 /* ---------- doors (components/DoorIntro.tsx) ----------
-   Two halves over the store and the admin panel. The head script (src/lib/csp.ts) puts gr-intro-full or gr-intro-short on <html> before
+   Two halves over the store and the admin panel - deep green in the admin panel, the customer website's look on the store. The head script (src/lib/csp.ts) puts gr-intro-full or gr-intro-short on <html> before
    the first paint, so the page never shows ahead of the doors, and the timings below run the intro to the end even if
    the page's scripts never load. Between pages the component sets data-state="closing", then "opening". Only the
    doors' transform and the logo's opacity move, so it stays smooth on budget phones. */
@@ -1700,6 +1700,29 @@ html.gr-intro-short .gr-door,
   bottom: 0;
   width: 2px;
   background: linear-gradient(180deg, transparent 4%, rgb(165 212 111 / 0.5) 18%, transparent 30%, transparent 72%, rgb(165 212 111 / 0.5) 84%, transparent 96%);
+}
+.gr-door__grass {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: max(140px, 26vh);
+}
+/* the card's line fish, one in each door swimming towards the seam */
+.gr-door__fish {
+  position: absolute;
+  width: clamp(46px, 9vw, 72px);
+  opacity: 0.75;
+}
+.gr-door__half--l .gr-door__fish {
+  left: 16%;
+  top: 22%;
+}
+.gr-door__half--r .gr-door__fish {
+  right: 18%;
+  top: 34%;
+  width: clamp(36px, 7vw, 56px);
+  transform: scaleX(-1);
 }
 .gr-door__half--l::after {
   right: 0;
@@ -1775,6 +1798,38 @@ html.gr-intro-short .gr-door,
   font-style: italic;
   font-weight: 400;
   color: #a5d46f;
+}
+
+/* the customer website (store and verify pages): white turning to the card's warm paper, the card's grass, line fish
+   and teal bubbles, and the card's ink and teal lettering. The admin panel keeps the deep green above. */
+.gr-door[data-theme="store"] .gr-door__half {
+  background:
+    radial-gradient(70% 45% at var(--gr-seam) 100%, rgb(31 127 168 / 0.07), transparent 75%),
+    linear-gradient(180deg, #ffffff 0%, var(--color-sea-paper) 55%, #f3efe6 100%);
+  box-shadow: 0 0 28px rgb(17 58 45 / 0.09); /* a soft edge, so a closing door reads against a white page */
+}
+.gr-door[data-theme="store"] .gr-door__half::after {
+  width: 1px;
+  background: linear-gradient(180deg, transparent 4%, var(--color-sea-line) 18%, transparent 30%, transparent 72%, var(--color-sea-line) 84%, transparent 96%);
+}
+.gr-door[data-theme="store"] .gr-door__bubble {
+  border: 1.4px solid rgb(31 127 168 / 0.55);
+  background: none;
+}
+.gr-door[data-theme="store"] .gr-door__mark {
+  color: var(--color-sea-ink);
+}
+.gr-door[data-theme="store"] .gr-door__logo img {
+  filter: drop-shadow(0 12px 22px rgb(17 58 45 / 0.22));
+}
+.gr-door[data-theme="store"] .gr-door__ring {
+  border-color: rgb(94 158 57 / 0.55);
+}
+.gr-door[data-theme="store"] .gr-door__tag {
+  text-shadow: none;
+}
+.gr-door[data-theme="store"] .gr-door__tag em {
+  color: var(--color-sea-teal);
 }
 html.gr-intro-full .gr-door__bubble,
 .gr-door[data-full] .gr-door__bubble {

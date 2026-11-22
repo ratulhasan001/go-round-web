@@ -191,7 +191,8 @@ export const ORDER_PAY_METHODS: OrderPayMethod[] = ["bKash", "Bank Transfer"];
 
 export interface OrderItem {
   productId: string;
-  name: string;
+  variantId?: string; // the variant ordered, for a product sold in variants (its stock is the one that moves)
+  name: string; // with the variant, e.g. "APT Zero - 500 ml"
   unit?: string;
   price: number;
   qty: number;
@@ -258,6 +259,32 @@ export interface Product {
   warranty?: string; // "" / missing = no warranty, otherwise the seller's warranty, e.g. "6 months"
   onSite?: boolean; // missing means shown on the website
   featured?: boolean; // shown on the store's home page
+  // Sizes or amounts the product is sold in, each with its own price and stock (see variants.ts). Missing / empty =
+  // sold as one thing. With variants, price / regularPrice / inStock above follow the cheapest variant for lists and
+  // sorting, and stock, weight and the purchase price are kept on each variant instead.
+  variants?: ProductVariant[];
+}
+
+/** Kilogram, millilitre, gram, litre, piece, pot, size (small / medium / large) or a full bag. */
+export type VariantKind = "kg" | "ml" | "gm" | "l" | "piece" | "pot" | "size" | "bag";
+export type VariantSize = "small" | "medium" | "large";
+
+/** One way a product is sold, e.g. 500 ml or Large, with its own price, stock and photo. */
+export interface ProductVariant {
+  id: string; // never changes: cart lines and orders point at it (a product merged into another keeps its id here)
+  kind: VariantKind;
+  amount?: number; // how many kg / ml / gm / l / pieces / pots
+  size?: VariantSize; // kind "size"
+  price: number; // what the customer pays (the discounted price when there is a discount)
+  regularPrice?: number; // crossed out while discounted
+  purchasePrice?: number; // admin only
+  purchasePriceMax?: number;
+  inStock?: boolean; // missing = in stock
+  stock?: number; // missing = not counted
+  stockAt?: number;
+  weight?: number; // kg, for the delivery charge
+  sku?: string;
+  image?: string; // one of the product's photos, shown when a customer picks this variant
 }
 
 export interface Customer {

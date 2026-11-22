@@ -1,5 +1,6 @@
 // Shared by the customer website, its API routes and the admin panel. Nothing here touches the browser or the server.
 import { DELIVERY_AREAS, type DeliveryArea, type DeliveryZone, type Faq, type HomeBlockStyle, type HomeSectionId, type HomeSectionKey, type HeroShowcase, type HomeSettings, type Order, type OrderStatus, type Product, type Shop, type SiteSettings } from "./types";
+import { hasVariants, leadVariant, sellable, sortVariants, variantInStock, variantLabel } from "./variants";
 
 // ---------- where everything lives ----------
 //
@@ -388,9 +389,9 @@ export interface PublicShop {
 export interface PublicProduct {
   id: string;
   name: string;
-  price: number;
+  price: number; // with variants: the lead variant's (the cheapest in stock)
   unit: string;
-  inStock: boolean;
+  inStock: boolean; // with variants: any variant is
   images: string[];
   description: string;
   category: string;
@@ -400,36 +401,75 @@ export interface PublicProduct {
   sku: string;
   specification: string;
   regularPrice: number; // 0 = no discount
-  stock: number | null; // null = not counted
+  stock: number | null; // null = not counted (always null with variants: each variant has its own)
   weight: number; // kg, 0 = not set
   warranty: string; // "" = no warranty
   featured: boolean;
+  variants: PublicVariant[]; // the sizes or amounts customers pick from, smallest first ([] = sold as one)
+  options: number; // how many variants (0 = none): a card then links to the product page to pick one
+  priceTo: number; // the highest variant price (= price without variants): cards show "From" when it's higher
 }
 
-export const onSite = (p: Product) => p.onSite !== false && !!p.name.trim() && p.price > 0;
+/** One size or amount of a product, as the website shows it. */
+export interface PublicVariant {
+  id: string;
+  label: string; // "500 ml", "Large", "Full bag"
+  price: number;
+  regularPrice: number; // 0 = no discount
+  inStock: boolean;
+  stock: number | null; // null = not counted
+  weight: number; // kg, 0 = not set
+  image: string; // its photo ("" = the product's)
+  sku: string;
+}
 
-export const publicProduct = (p: Product): PublicProduct => ({
-  id: p.id,
-  name: p.name.trim(),
-  price: p.price,
-  unit: p.unit?.trim() ?? "",
-  // counted stock at 0 sells the product out too
-  inStock: p.inStock !== false && !(typeof p.stock === "number" && p.stock <= 0),
-  images: p.images ?? [],
-  description: p.description ?? "",
-  category: p.category?.trim() ?? "",
-  // a subcategory only means something inside a category
-  subcategory: p.category?.trim() ? (p.subcategory?.trim() ?? "") : "",
-  subsubcategory: p.category?.trim() && p.subcategory?.trim() ? (p.subsubcategory?.trim() ?? "") : "",
-  brand: p.brand?.trim() ?? "",
-  sku: p.sku?.trim() ?? "",
-  specification: p.specification ?? "",
-  regularPrice: (p.regularPrice ?? 0) > p.price ? p.regularPrice! : 0,
-  stock: typeof p.stock === "number" ? Math.max(0, Math.floor(p.stock)) : null,
-  weight: Math.max(0, Number(p.weight) || 0),
-  warranty: p.warranty?.trim() ?? "",
-  featured: !!p.featured,
-});
+/** On the website: not hidden, named, and with a price (a variant with a price, for a product sold in variants). */
+export const onSite = (p: Product) => p.onSite !== false && !!p.name.trim() && (hasVariants(p) ? p.variants.some(sellable) : p.price > 0);
+
+const counted = (n: number | undefined) => (typeof n === "number" ? Math.max(0, Math.floor(n)) : null);
+
+export const publicProduct = (p: Product): PublicProduct => {
+  const variants = sortVariants((p.variants ?? []).filter(sellable)).map(
+    (v): PublicVariant => ({
+      id: v.id,
+      label: variantLabel(v),
+      price: v.price,
+      regularPrice: (v.regularPrice ?? 0) > v.price ? v.regularPrice! : 0,
+      inStock: variantInStock(v),
+      stock: counted(v.stock),
+      weight: Math.max(0, Number(v.weight ?? p.weight) || 0),
+      image: v.image && p.images?.includes(v.image) ? v.image : "",
+      sku: v.sku?.trim() ?? "",
+    }),
+  );
+  // the lead variant (cheapest in stock) stands for the product in lists, sorting and search results
+  const lead = variants.find((v) => v.id === leadVariant((p.variants ?? []).filter(sellable))?.id);
+  return {
+    id: p.id,
+    name: p.name.trim(),
+    price: lead?.price ?? p.price,
+    unit: lead ? "" : (p.unit?.trim() ?? ""),
+    // counted stock at 0 sells the product out too
+    inStock: lead ? variants.some((v) => v.inStock) : p.inStock !== false && !(typeof p.stock === "number" && p.stock <= 0),
+    images: p.images ?? [],
+    description: p.description ?? "",
+    category: p.category?.trim() ?? "",
+    // a subcategory only means something inside a category
+    subcategory: p.category?.trim() ? (p.subcategory?.trim() ?? "") : "",
+    subsubcategory: p.category?.trim() && p.subcategory?.trim() ? (p.subsubcategory?.trim() ?? "") : "",
+    brand: p.brand?.trim() ?? "",
+    sku: p.sku?.trim() ?? "",
+    specification: p.specification ?? "",
+    regularPrice: lead ? lead.regularPrice : (p.regularPrice ?? 0) > p.price ? p.regularPrice! : 0,
+    stock: lead ? null : counted(p.stock),
+    weight: lead ? lead.weight : Math.max(0, Number(p.weight) || 0),
+    warranty: p.warranty?.trim() ?? "",
+    featured: !!p.featured,
+    variants,
+    options: variants.length,
+    priceTo: variants.length ? Math.max(...variants.map((v) => v.price)) : p.price,
+  };
+};
 
 /**
  * What a product card (and the cart's "add") needs. The home page and the shop send only this for each product, not
@@ -437,7 +477,7 @@ export const publicProduct = (p: Product): PublicProduct => ({
  */
 export type CardProduct = Pick<
   PublicProduct,
-  "id" | "name" | "price" | "unit" | "inStock" | "images" | "category" | "subcategory" | "subsubcategory" | "brand" | "regularPrice" | "stock" | "weight" | "featured"
+  "id" | "name" | "price" | "unit" | "inStock" | "images" | "category" | "subcategory" | "subsubcategory" | "brand" | "regularPrice" | "stock" | "weight" | "featured" | "options" | "priceTo"
 >;
 
 export const cardProduct = (p: PublicProduct): CardProduct => ({
@@ -455,12 +495,19 @@ export const cardProduct = (p: PublicProduct): CardProduct => ({
   stock: p.stock,
   weight: p.weight,
   featured: p.featured,
+  options: p.options,
+  priceTo: p.priceTo,
 });
 
 /** A product in the shop's list: its card, plus what the search box looks through (the description as plain text). */
 export type ListedProduct = CardProduct & { sku: string; text: string };
 
-export const listedProduct = (p: PublicProduct): ListedProduct => ({ ...cardProduct(p), sku: p.sku, text: plainText(p.description) });
+export const listedProduct = (p: PublicProduct): ListedProduct => ({
+  ...cardProduct(p),
+  sku: [p.sku, ...p.variants.map((v) => v.sku)].filter(Boolean).join(" "),
+  // the variants' sizes too, so "zero 500 ml" finds APT Zero
+  text: [plainText(p.description), ...p.variants.map((v) => v.label)].join(" "),
+});
 
 /** Average star rating (0 when there are no reviews). */
 export const avgRating = (list: { rating: number }[]) => (list.length ? list.reduce((s, r) => s + r.rating, 0) / list.length : 0);

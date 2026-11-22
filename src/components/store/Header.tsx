@@ -78,6 +78,7 @@ export function Header() {
                 openCart(); // the cart slides in from the right instead of opening its own page
               }}
               aria-haspopup="dialog"
+              data-no-door // opens the cart panel, not a page
               className="relative grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70"
               aria-label={`Cart, ${count} item${count === 1 ? "" : "s"}`}
             >

@@ -2,9 +2,14 @@ import { type Area, HOSTS, PHOTO_BASE } from "./site";
 
 /**
  * The one inline script of the site (src/app/layout.tsx). The policy allows it by its hash, so editing it here keeps
- * both in step.
+ * both in step. It runs before the first paint:
+ * - "js": JavaScript runs, so scroll-reveal effects may hide content until it scrolls into view.
+ * - the doors over the store and the admin panel (components/DoorIntro.tsx): "gr-intro-full" (the long intro) on the first page of a visit - nothing stored, or the last page was over 30 minutes ago - and "gr-intro-short" on a reload or a new tab
+ *   during one. Not for search engines, nor in a frame (the admin's home page preview), nor when the visitor's device
+ *   asks for less motion. Pages without the doors (the customer form links) ignore the class.
  */
-export const JS_CLASS_SCRIPT = "document.documentElement.classList.add('js')";
+export const JS_CLASS_SCRIPT =
+  "(function(h){h.classList.add('js');try{if(window.top===window&&!/bot|crawl|spider|slurp/i.test(navigator.userAgent)&&!matchMedia('(prefers-reduced-motion: reduce)').matches)h.classList.add(Date.now()-(+localStorage.getItem('gr-door')||0)>18e5?'gr-intro-full':'gr-intro-short')}catch(e){}})(document.documentElement)";
 
 let scriptHash: Promise<string> | null = null;
 const inlineScriptHash = () =>

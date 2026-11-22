@@ -1634,3 +1634,339 @@ input[type="number"] {
   transition: opacity 0.2s;
 }
 
+
+/* ---------- doors (components/DoorIntro.tsx) ----------
+   Two halves over the store and the admin panel. The head script (src/lib/csp.ts) puts gr-intro-full or gr-intro-short on <html> before
+   the first paint, so the page never shows ahead of the doors, and the timings below run the intro to the end even if
+   the page's scripts never load. Between pages the component sets data-state="closing", then "opening". Only the
+   doors' transform and the logo's opacity move, so it stays smooth on budget phones. */
+.gr-door {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  height: 100lvh; /* also behind a phone's address bar as it slides away */
+  z-index: 100;
+  display: none;
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* its own layer in the admin panel's page transitions, so the sliding pages pass under the doors, never over them */
+  view-transition-name: gr-door;
+}
+::view-transition-group(gr-door),
+::view-transition-new(gr-door) {
+  animation: none;
+}
+/* above the navbar and the icons that glide between pages - those are only on the new page, so they'd come later */
+::view-transition-group(gr-door) {
+  z-index: 100;
+}
+::view-transition-old(gr-door) {
+  display: none;
+}
+html.gr-intro-full .gr-door,
+html.gr-intro-short .gr-door,
+.gr-door[data-state] {
+  display: block;
+}
+.gr-door__half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(50% + 1px);
+  overflow: hidden;
+  /* light from the surface and the water's blue below, centred on the seam so the two halves read as one */
+  background:
+    radial-gradient(95% 55% at var(--gr-seam) 0%, rgb(140 191 90 / 0.24), transparent 70%),
+    radial-gradient(80% 45% at var(--gr-seam) 100%, rgb(31 127 168 / 0.45), transparent 75%),
+    linear-gradient(180deg, #0e382c 0%, #114234 50%, #0e4650 100%);
+  will-change: transform;
+}
+.gr-door__half--l {
+  left: 0;
+  --gr-seam: 100%;
+}
+.gr-door__half--r {
+  right: 0;
+  --gr-seam: 0%;
+}
+/* the glowing seam where the doors meet - faded behind the logo and the line, so it never cuts through the words */
+.gr-door__half::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent 4%, rgb(165 212 111 / 0.5) 18%, transparent 30%, transparent 72%, rgb(165 212 111 / 0.5) 84%, transparent 96%);
+}
+.gr-door__half--l::after {
+  right: 0;
+}
+.gr-door__half--r::after {
+  left: 0;
+}
+.gr-door__bubble {
+  position: absolute;
+  bottom: -24px;
+  left: var(--x);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 9999px;
+  border: 1.5px solid rgb(255 255 255 / 0.4);
+  background: radial-gradient(circle at 32% 30%, rgb(255 255 255 / 0.6) 0 16%, rgb(255 255 255 / 0.06) 42%, transparent 70%);
+  display: none;
+}
+.gr-door__mark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 3.4vh, 30px);
+  padding: 24px;
+  text-align: center;
+  color: #fff;
+  pointer-events: none;
+}
+.gr-door__logo {
+  position: relative;
+  width: clamp(108px, 30vw, 150px);
+  aspect-ratio: 1;
+}
+.gr-door__logo img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 26px rgb(0 0 0 / 0.38));
+}
+.gr-door__name {
+  position: relative;
+  display: grid;
+  height: 100%;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 600;
+}
+.gr-door__ring {
+  position: absolute;
+  inset: 2%;
+  border-radius: 9999px;
+  border: 2px solid rgb(165 212 111 / 0.7);
+  opacity: 0;
+}
+.gr-door__tag {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(27px, 7.2vw, 46px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  text-shadow: 0 2px 18px rgb(0 0 0 / 0.25);
+}
+.gr-door__tag > * {
+  display: block;
+}
+.gr-door__tag em {
+  font-style: italic;
+  font-weight: 400;
+  color: #a5d46f;
+}
+html.gr-intro-full .gr-door__bubble,
+.gr-door[data-full] .gr-door__bubble {
+  display: block;
+}
+
+/* the full intro (about 2.4 s): the logo, the line rising line by line, bubbles, then the doors open */
+html.gr-intro-full .gr-door {
+  animation: gr-door-gone 1ms linear 2400ms forwards;
+}
+html.gr-intro-full .gr-door__logo {
+  animation: gr-door-pop 620ms cubic-bezier(0.34, 1.56, 0.64, 1) 60ms both;
+}
+html.gr-intro-full .gr-door__ring {
+  animation: gr-door-ring 1.5s ease-out 320ms both;
+}
+html.gr-intro-full .gr-door__ring + .gr-door__ring {
+  animation-delay: 860ms;
+}
+html.gr-intro-full .gr-door__tag > * {
+  animation: gr-door-rise 620ms cubic-bezier(0.2, 0.8, 0.2, 1) 380ms both;
+}
+html.gr-intro-full .gr-door__tag > :nth-child(2) {
+  animation-delay: 540ms;
+}
+html.gr-intro-full .gr-door__tag > :nth-child(3) {
+  animation-delay: 700ms;
+}
+html.gr-intro-full .gr-door__mark {
+  animation: gr-door-out 320ms ease-in 1560ms both;
+}
+html.gr-intro-full .gr-door__half--l {
+  animation: gr-door-open-l 660ms cubic-bezier(0.76, 0, 0.24, 1) 1720ms both;
+}
+html.gr-intro-full .gr-door__half--r {
+  animation: gr-door-open-r 660ms cubic-bezier(0.76, 0, 0.24, 1) 1720ms both;
+}
+html.gr-intro-full .gr-door__bubble,
+.gr-door[data-full] .gr-door__bubble {
+  animation: gr-door-bubble var(--t) cubic-bezier(0.4, 0, 0.6, 1) var(--d) both;
+}
+
+/* a reload or a new tab during a visit: the doors open on the logo and the line */
+html.gr-intro-short .gr-door {
+  animation: gr-door-gone 1ms linear 880ms forwards;
+}
+html.gr-intro-short .gr-door__mark {
+  animation: gr-door-out 220ms ease-in 180ms both;
+}
+html.gr-intro-short .gr-door__half--l {
+  animation: gr-door-open-l 580ms cubic-bezier(0.76, 0, 0.24, 1) 280ms both;
+}
+html.gr-intro-short .gr-door__half--r {
+  animation: gr-door-open-r 580ms cubic-bezier(0.76, 0, 0.24, 1) 280ms both;
+}
+
+/* between pages: close on the logo and the line (the logo pulsing while the page loads), then open (also a tap
+   that skips the intro) */
+.gr-door[data-state="closing"] .gr-door__half--l {
+  animation: gr-door-close-l 360ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+.gr-door[data-state="closing"] .gr-door__half--r {
+  animation: gr-door-close-r 360ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+.gr-door[data-state="closing"] .gr-door__logo {
+  animation: gr-door-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) 180ms both;
+}
+.gr-door[data-state="closing"] .gr-door__tag > * {
+  animation: gr-door-rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) 200ms both;
+}
+.gr-door[data-state="closing"] .gr-door__tag > :nth-child(2) {
+  animation-delay: 260ms;
+}
+.gr-door[data-state="closing"] .gr-door__tag > :nth-child(3) {
+  animation-delay: 320ms;
+}
+.gr-door[data-state="closing"] .gr-door__ring {
+  animation: gr-door-ring 1.4s ease-out 520ms infinite both;
+}
+.gr-door[data-state="closing"] .gr-door__ring + .gr-door__ring {
+  animation-delay: 1220ms;
+}
+.gr-door[data-state="opening"] .gr-door__mark {
+  animation: gr-door-out 200ms ease-in both;
+}
+.gr-door[data-state="opening"] .gr-door__half--l {
+  animation: gr-door-open-l 600ms cubic-bezier(0.76, 0, 0.24, 1) 60ms both;
+}
+.gr-door[data-state="opening"] .gr-door__half--r {
+  animation: gr-door-open-r 600ms cubic-bezier(0.76, 0, 0.24, 1) 60ms both;
+}
+
+@keyframes gr-door-open-l {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-101%, 0, 0);
+  }
+}
+@keyframes gr-door-open-r {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(101%, 0, 0);
+  }
+}
+@keyframes gr-door-close-l {
+  from {
+    transform: translate3d(-101%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes gr-door-close-r {
+  from {
+    transform: translate3d(101%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes gr-door-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gr-door-ring {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+@keyframes gr-door-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gr-door-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(1.04);
+  }
+}
+@keyframes gr-door-bubble {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+  12% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate3d(7px, -50vh, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-5px, -105vh, 0);
+  }
+}
+@keyframes gr-door-gone {
+  to {
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gr-door {
+    display: none !important;
+  }
+}
+@media print {
+  .gr-door {
+    display: none !important;
+  }
+}

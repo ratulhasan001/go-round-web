@@ -74,6 +74,7 @@ describe.skipIf(!url)("website orders in the database", () => {
       ],
     });
     await doc("product", "pw", { id: "pw", name: "Bog wood - 1 kg", price: 2199, onSite: true, images: [], variants: [{ id: "w1", kind: "size", size: "large", price: 2199, stock: 1 }] });
+    await doc("product", "pc", { id: "pc", name: "Moss ball", price: 150, onSite: true, images: [], variants: [{ id: "c3", kind: "custom", name: "Pack of 3", price: 400, stock: 2 }] });
     await doc("coupon", "c1", { id: "c1", code: "GR10-OFF", name: "", phone: "+8801712345678", pct: 10, validFrom: "2020-01-01", validTo: "2099-12-31" });
   });
 
@@ -203,6 +204,12 @@ describe.skipIf(!url)("website orders in the database", () => {
       expect(results.filter((r) => r === null)).toHaveLength(1);
       expect(await variant("pw", "w1")).toMatchObject({ stock: 0, inStock: false });
       expect((await product("pw")).inStock).toBe(false);
+    });
+
+    it("orders a variant with a custom name", async () => {
+      const o = await m.orders.placeOrder(checkout({ items: [{ id: "pc", variant: "c3", qty: 2 }] }), null);
+      expect(o.items.map((i) => [i.name, i.price, i.qty])).toEqual([["Moss ball - Pack of 3", 400, 2]]);
+      expect(await variant("pc", "c3")).toMatchObject({ stock: 0, inStock: false });
     });
 
     it("keeps a variant's newer stock when the admin panel saves an older copy", () => {

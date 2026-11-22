@@ -5,8 +5,26 @@ import { Check, ImageOff, Layers, Loader2, Search, Undo2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { forget } from "@/lib/photos";
 import { isUploadedPhoto, thumb, tk } from "@/lib/site";
-import type { Product, ProductVariant, VariantKind, VariantSize } from "@/lib/types";
-import { SIZES, SIZE_LABEL, VARIANT_KINDS, clampAmount, hasAmount, hasVariants, kindInfo, mergeProducts, parseName, pickKeeper, planMerge, suggestMerges, textsDiffer, variantLabel } from "@/lib/variants";
+import type { Product, VariantKind, VariantSize } from "@/lib/types";
+import {
+  CUSTOM_MAX,
+  SIZES,
+  SIZE_LABEL,
+  VARIANT_KINDS,
+  type VariantSpec,
+  clampAmount,
+  hasAmount,
+  hasVariants,
+  kindInfo,
+  mergeProducts,
+  parseName,
+  pickKeeper,
+  planMerge,
+  specMissing,
+  suggestMerges,
+  textsDiffer,
+  variantLabel,
+} from "@/lib/variants";
 import { Modal } from "./Modal";
 import { Button, Input, Select, cx, useToast } from "./ui";
 
@@ -14,7 +32,7 @@ import { Button, Input, Select, cx, useToast } from "./ui";
 // Each size keeps its own price, discount, purchase price, stock, weight and photo; the product keeps the page,
 // description and photos of the one with the most written about it. The same picture saved twice is kept once.
 
-type Spec = Pick<ProductVariant, "kind" | "amount" | "size">;
+type Spec = VariantSpec;
 interface Draft {
   name: string;
   specs: Record<string, Spec>;
@@ -39,9 +57,12 @@ function problem(products: Product[], d: Draft): string {
   const labels = products.map((p) => d.specs[p.id]).map((s) => (s ? variantLabel(s) : ""));
   const missing = products.find((p) => {
     const s = d.specs[p.id];
-    return !s || (hasAmount(s.kind) && !(s.amount && s.amount > 0)) || (s.kind === "size" && !s.size);
+    return !s || !!specMissing(s);
   });
-  if (missing) return `Say which size "${missing.name.trim()}" is`;
+  if (missing) {
+    const s = d.specs[missing.id];
+    return `"${missing.name.trim()}" needs ${s ? specMissing(s) : "a kind of variant"}`;
+  }
   const twice = labels.find((l, i) => labels.indexOf(l) !== i);
   if (twice) return `Two products are both ${twice}`;
   return "";
@@ -95,7 +116,7 @@ function SpecPicker({ spec, onChange, label }: { spec: Spec; onChange: (s: Spec)
         aria-label={`Kind of variant for ${label}`}
         onChange={(e) => {
           const kind = e.target.value as VariantKind;
-          onChange({ kind, amount: hasAmount(kind) ? clampAmount(kind, spec.amount) : undefined, size: kind === "size" ? (spec.size ?? "small") : undefined });
+          onChange({ kind, amount: hasAmount(kind) ? clampAmount(kind, spec.amount) : undefined, size: kind === "size" ? (spec.size ?? "small") : undefined, name: kind === "custom" ? (spec.name ?? "") : undefined });
         }}
       >
         {VARIANT_KINDS.map((k) => (
@@ -132,6 +153,17 @@ function SpecPicker({ spec, onChange, label }: { spec: Spec; onChange: (s: Spec)
               </option>
             ))}
           </Select>
+        </span>
+      ) : spec.kind === "custom" ? (
+        <span className="w-[160px] shrink-0">
+          <Input
+            className="h-9 text-[13px]"
+            value={spec.name ?? ""}
+            maxLength={CUSTOM_MAX}
+            placeholder="e.g. Red, Pack of 3"
+            aria-label={`Variant name for ${label}`}
+            onChange={(e) => onChange({ ...spec, name: e.target.value })}
+          />
         </span>
       ) : (
         <span className="w-[122px] text-[13px] font-bold">Full bag</span>

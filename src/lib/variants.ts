@@ -23,13 +23,20 @@ export const VARIANT_KINDS: VariantKindInfo[] = [
   { kind: "pot", label: "Pot", unit: "pot", min: 1, max: 10, whole: true },
   { kind: "size", label: "Size", unit: "" },
   { kind: "bag", label: "Full bag", unit: "" },
+  { kind: "custom", label: "Custom name", unit: "" },
 ];
+/** The longest custom variant name. */
+export const CUSTOM_MAX = 40;
+/** What a variant is: its kind and amount, size or name. */
+export type VariantSpec = Pick<ProductVariant, "kind" | "amount" | "size" | "name">;
 export const SIZES: VariantSize[] = ["small", "medium", "large"];
 export const SIZE_LABEL: Record<VariantSize, string> = { small: "Small", medium: "Medium", large: "Large" };
 
 export const kindInfo = (kind: VariantKind) => VARIANT_KINDS.find((k) => k.kind === kind) ?? VARIANT_KINDS[0]!;
-/** Kinds sold by an amount (everything but size and full bag). */
-export const hasAmount = (kind: VariantKind) => kind !== "size" && kind !== "bag";
+/** Kinds sold by an amount (everything but size, full bag and a custom name). */
+export const hasAmount = (kind: VariantKind) => kind !== "size" && kind !== "bag" && kind !== "custom";
+/** A custom variant's name as it shows: trimmed, single-spaced and not too long. */
+export const customName = (name?: string) => (name ?? "").replace(/\s+/g, " ").trim().slice(0, CUSTOM_MAX);
 
 /**
  * An amount the admin typed, kept inside the kind's range: whole numbers for ml, gm, pieces and pots; kg and litres
@@ -44,10 +51,11 @@ export function clampAmount(kind: VariantKind, v: number | undefined): number | 
 
 const fmtAmount = (n: number) => String(Math.round(n * 1000) / 1000);
 
-/** What a variant is called on the website and on receipts: "500 ml", "0.67 L", "2 pieces", "Large", "Full bag". */
-export function variantLabel(v: Pick<ProductVariant, "kind" | "amount" | "size">): string {
+/** What a variant is called on the website and on receipts: "500 ml", "0.67 L", "2 pieces", "Large", "Full bag", or its custom name. */
+export function variantLabel(v: VariantSpec): string {
   if (v.kind === "size") return v.size ? SIZE_LABEL[v.size] : "Size";
   if (v.kind === "bag") return "Full bag";
+  if (v.kind === "custom") return customName(v.name) || "Custom";
   const n = v.amount;
   const unit = kindInfo(v.kind).unit;
   if (n === undefined) return unit;
@@ -56,20 +64,25 @@ export function variantLabel(v: Pick<ProductVariant, "kind" | "amount" | "size">
 }
 
 /** A variant's full name, as it goes on an order or a receipt: "APT Zero - 500 ml". */
-export const variantName = (productName: string, v: Pick<ProductVariant, "kind" | "amount" | "size">) => `${productName.trim()} - ${variantLabel(v)}`;
+export const variantName = (productName: string, v: VariantSpec) => `${productName.trim()} - ${variantLabel(v)}`;
 
 /** Whether a product is sold in variants. */
 export const hasVariants = (p: Pick<Product, "variants">): p is { variants: ProductVariant[] } => (p.variants?.length ?? 0) > 0;
 
-/** A variant customers can buy: it has a price and says what it is (an amount, or a size). */
-export const sellable = (v: ProductVariant) => v.price > 0 && (hasAmount(v.kind) ? (v.amount ?? 0) > 0 : v.kind !== "size" || !!v.size);
+/** What a variant still needs to say what it is ("" = nothing): an amount, a size or a name. */
+export const specMissing = (v: VariantSpec) =>
+  hasAmount(v.kind) ? (!((v.amount ?? 0) > 0) ? "an amount" : "") : v.kind === "size" ? (!v.size ? "a size" : "") : v.kind === "custom" ? (!customName(v.name) ? "a name" : "") : "";
+
+/** A variant customers can buy: it has a price and says what it is (an amount, a size or a name). */
+export const sellable = (v: ProductVariant) => v.price > 0 && !specMissing(v);
 
 /** In stock: not marked out of stock, and a counted stock above 0. */
 export const variantInStock = (v: Pick<ProductVariant, "inStock" | "stock">) => v.inStock !== false && !(typeof v.stock === "number" && v.stock <= 0);
 
 const kindOrder = (k: VariantKind) => VARIANT_KINDS.findIndex((x) => x.kind === k);
 /** Variants in the order customers see them: by kind, then smallest first (Small, Medium, Large). */
-export const sortVariants = <V extends Pick<ProductVariant, "kind" | "amount" | "size">>(list: V[]): V[] =>
+// (custom names keep the order they were added in)
+export const sortVariants = <V extends VariantSpec>(list: V[]): V[] =>
   [...list].sort(
     (a, b) =>
       kindOrder(a.kind) - kindOrder(b.kind) ||
@@ -202,7 +215,7 @@ export function parseName(name: string): NameParts {
 }
 
 const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-type Pick3 = Pick<ProductVariant, "kind" | "amount" | "size">;
+type Pick3 = VariantSpec;
 
 /** How each product of a group becomes a variant, and the merged product's name. Null when they can't be told apart. */
 export function planMerge(products: Product[]): { name: string; variants: Map<string, Pick3> } | null {
@@ -305,6 +318,7 @@ export function mergeProducts(
         kind: v.kind,
         ...(v.amount !== undefined ? { amount: v.amount } : {}),
         ...(v.size ? { size: v.size } : {}),
+        ...(v.kind === "custom" ? { name: customName(v.name) } : {}),
         price: p.price,
         ...((p.regularPrice ?? 0) > p.price ? { regularPrice: p.regularPrice } : {}),
         ...(p.purchasePrice !== undefined ? { purchasePrice: p.purchasePrice } : {}),

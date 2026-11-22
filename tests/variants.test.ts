@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { Product } from "@/lib/types";
 import {
   clampAmount,
+  customName,
+  sellable,
+  specMissing,
   findVariant,
   leadVariant,
   mergeProducts,
@@ -33,6 +36,18 @@ describe("variant labels", () => {
     expect(variantName(" APT Zero ", { kind: "ml", amount: 200 })).toBe("APT Zero - 200 ml");
   });
 
+  it("takes a custom name the admin types", () => {
+    expect(variantLabel({ kind: "custom", name: "  Red   tank  " })).toBe("Red tank");
+    expect(variantName("Moss ball", { kind: "custom", name: "Pack of 3" })).toBe("Moss ball - Pack of 3");
+    expect(customName("x".repeat(60))).toHaveLength(40);
+    // no name yet: not shown to customers, and the admin is told why
+    expect(specMissing({ kind: "custom", name: "  " })).toBe("a name");
+    expect(sellable({ id: "c", kind: "custom", name: " ", price: 100 })).toBe(false);
+    expect(sellable({ id: "c", kind: "custom", name: "Red", price: 100 })).toBe(true);
+    expect(specMissing({ kind: "ml" })).toBe("an amount");
+    expect(specMissing({ kind: "bag" })).toBe("");
+  });
+
   it("keeps amounts inside each kind's range", () => {
     expect(clampAmount("kg", 25)).toBe(20);
     expect(clampAmount("kg", 0.5)).toBe(0.5); // fractions of a kg or litre are fine
@@ -52,6 +67,13 @@ describe("variant labels", () => {
       { kind: "kg" as const, amount: 1 },
     ]);
     expect(list.map(variantLabel)).toEqual(["1 kg", "100 ml", "500 ml", "Small", "Large"]);
+    // custom names come last, in the order they were added
+    const named = sortVariants([
+      { kind: "custom" as const, name: "Red" },
+      { kind: "ml" as const, amount: 100 },
+      { kind: "custom" as const, name: "Blue" },
+    ]);
+    expect(named.map(variantLabel)).toEqual(["100 ml", "Red", "Blue"]);
   });
 });
 
@@ -190,6 +212,23 @@ describe("variants on the website", () => {
     expect(pub.variants[0]).toMatchObject({ id: "v1", inStock: false });
     expect(pub.variants[2]).toMatchObject({ price: 5699, regularPrice: 6000, weight: 9 });
     expect(pub).toMatchObject({ price: 2499, priceTo: 5699, options: 3, inStock: true, stock: null });
+  });
+
+  it("shows custom names, and leaves out a custom variant without one", () => {
+    const moss = prod("m", "Moss ball", 0);
+    const pub = publicProduct({
+      ...moss,
+      ...withVariants(moss, [
+        { id: "m1", kind: "custom", name: "Single", price: 150 },
+        { id: "m3", kind: "custom", name: "Pack of 3", price: 400 },
+        { id: "m0", kind: "custom", name: "", price: 999 },
+      ]),
+    });
+    expect(pub.variants.map((v) => [v.label, v.price])).toEqual([
+      ["Single", 150],
+      ["Pack of 3", 400],
+    ]);
+    expect(pub).toMatchObject({ price: 150, priceTo: 400 });
   });
 
   it("sells a product out when every variant is", () => {

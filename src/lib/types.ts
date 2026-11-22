@@ -265,8 +265,8 @@ export interface Product {
   variants?: ProductVariant[];
 }
 
-/** Kilogram, millilitre, gram, litre, piece, pot, size (small / medium / large) or a full bag. */
-export type VariantKind = "kg" | "ml" | "gm" | "l" | "piece" | "pot" | "size" | "bag";
+/** Kilogram, millilitre, gram, litre, piece, pot, size (small / medium / large), a full bag, or a name the admin types. */
+export type VariantKind = "kg" | "ml" | "gm" | "l" | "piece" | "pot" | "size" | "bag" | "custom";
 export type VariantSize = "small" | "medium" | "large";
 
 /** One way a product is sold, e.g. 500 ml or Large, with its own price, stock and photo. */
@@ -275,6 +275,7 @@ export interface ProductVariant {
   kind: VariantKind;
   amount?: number; // how many kg / ml / gm / l / pieces / pots
   size?: VariantSize; // kind "size"
+  name?: string; // kind "custom": what the admin calls it, e.g. "Red" or "Pack of 3"
   price: number; // what the customer pays (the discounted price when there is a discount)
   regularPrice?: number; // crossed out while discounted
   purchasePrice?: number; // admin only

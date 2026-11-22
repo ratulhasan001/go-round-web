@@ -6,14 +6,14 @@ import { uid } from "@/lib/calc";
 import { thumb, tk } from "@/lib/site";
 import type { Product, ProductVariant, VariantKind, VariantSize } from "@/lib/types";
 import { purchaseMax, withPurchase } from "@/lib/productPrice";
-import { SIZES, SIZE_LABEL, VARIANT_KINDS, clampAmount, hasAmount, kindInfo, sellable, sortVariants, variantLabel, withVariants } from "@/lib/variants";
+import { CUSTOM_MAX, SIZES, SIZE_LABEL, VARIANT_KINDS, clampAmount, customName, hasAmount, kindInfo, sellable, sortVariants, specMissing, variantLabel, withVariants } from "@/lib/variants";
 import { PriceInput } from "./ProductDetailsDialog";
 import { Input, Select, Switch, cx } from "./ui";
 
 // The product form's "Variants" section: the sizes or amounts a product is sold in (500 ml, 2 kg, Large, Full bag…),
 // each with its own prices, stock, weight, SKU and photo. Customers pick one on the product page.
 
-const SHORT: Record<VariantKind, string> = { kg: "kg", ml: "ml", gm: "gm", l: "Litre", piece: "Piece", pot: "Pot", size: "Size", bag: "Full bag" };
+const SHORT: Record<VariantKind, string> = { kg: "kg", ml: "ml", gm: "gm", l: "Litre", piece: "Piece", pot: "Pot", size: "Size", bag: "Full bag", custom: "Custom name" };
 const range = (kind: VariantKind) => {
   const k = kindInfo(kind);
   if (!hasAmount(kind)) return "";
@@ -141,7 +141,10 @@ function VariantRow({
           aria-label="Kind of variant"
           onChange={(e) => {
             const kind = e.target.value as VariantKind;
-            onChange({ kind, amount: hasAmount(kind) ? clampAmount(kind, v.amount) : undefined, size: kind === "size" ? (v.size ?? "small") : undefined }, true);
+            onChange(
+              { kind, amount: hasAmount(kind) ? clampAmount(kind, v.amount) : undefined, size: kind === "size" ? (v.size ?? "small") : undefined, name: kind === "custom" ? (v.name ?? "") : undefined },
+              true,
+            );
           }}
         >
           {VARIANT_KINDS.map((k) => (
@@ -174,6 +177,18 @@ function VariantRow({
                 </option>
               ))}
             </Select>
+          </span>
+        ) : v.kind === "custom" ? (
+          <span className="w-56 shrink-0">
+            <Input
+              value={v.name ?? ""}
+              maxLength={CUSTOM_MAX}
+              placeholder="e.g. Red, Pack of 3"
+              aria-label="Variant name"
+              autoFocus={!v.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+              onBlur={() => v.name !== customName(v.name) && onChange({ name: customName(v.name) })}
+            />
           </span>
         ) : (
           <span className="text-[13.5px] font-bold">Full bag</span>
@@ -277,7 +292,7 @@ export function VariantsEditor({ p, update }: { p: Product; update: (patch: Part
   // what each variant still needs before customers see it
   const incomplete = list
     .filter((v) => !sellable(v))
-    .map((v) => `${variantLabel(v)} needs ${[!(v.price > 0) && "a price", hasAmount(v.kind) && !(v.amount && v.amount > 0) && "an amount"].filter(Boolean).join(" and ")}`);
+    .map((v) => `${variantLabel(v)} needs ${[!(v.price > 0) && "a price", specMissing(v)].filter(Boolean).join(" and ")}`);
   const shown = sortVariants(list.filter(sellable)).map(variantLabel);
 
   return (

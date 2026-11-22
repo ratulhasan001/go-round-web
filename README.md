@@ -40,6 +40,7 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 
 ### Customer website (goroundbd.com)
 - A public online store in the style of the Go Round visiting card (Aquascape Editorial): Fraunces serif headings, swaying aquatic grass, line-drawn fish and gentle scroll motion. It is built for phones first.
+- **Doors:** on the first page of a visit, two ink-green doors open on the logo and *Witness the Underwater World Through Us* (about 2.4 seconds; a tap skips it). A reload opens them at once, and between pages they close on the logo and open on the new page. Search engines, the admin's home page preview and devices set to reduce motion don't get them.
 - **Pages:** Home (hero photos, featured products, categories, brands, reviews), Shop (search, category chips, brand filter, sort, in-stock filter), product pages, Cart (a panel that slides in, and a cart page), Checkout, Order status, Reviews, Wholesale, About us, Contact us, FAQ, the policy pages and My account.
 - **Ordering:** as a guest or with an account (an account can also be created at checkout). Returning customers get their saved details filled in from their mobile number. Payment is **bKash** or **bank transfer**, checked by hand: the customer pays the total shown and types the transaction ID at checkout. The ID is optional only for a bank transfer when no bank details are set, since the customer has to ask for them first. Prices, stock, delivery and coupons are always worked out on the server.
 - **Variants:** a product sold in several sizes or amounts shows once in the shop ("From" its cheapest price). Its page lists the *Available variants* (e.g. 100 ml · 200 ml · 500 ml) and the customer picks one; the price, discount, stock and photo follow the pick, and the cart and the order name it ("APT Zero - 500 ml"). Kinds: kilogram (1-20 kg), millilitre (1-10,000 ml), gram (1-10,000 gm), litre (1-100 L), piece (1-10), pot (1-10), size (small / medium / large), full bag, and a **custom name** the shop types (e.g. "Red", "Pack of 3"); kg and litres also take fractions such as a 0.67 L bag.
@@ -51,7 +52,7 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 - A floating WhatsApp button, plus Facebook and WhatsApp links throughout. Products without a photo get a drawn aquascape placeholder.
 
 ### Admin panel (admin.goroundbd.com)
-- Same look as the store: ink green, teal accents and Fraunces headings.
+- Same look as the store: ink green, teal accents and Fraunces headings, and the same doors opening the panel and between pages.
 - **Orders:** to approve / to ship / shipped / delivered / cancelled tabs with a badge for unseen orders. Open an order and check the bKash TrxID. **Approve payment** marks it paid, moves the order to *Approved*, and makes the receipt the customer downloads from the website. **Payment not found** asks the customer to resend the ID, and **Undo** takes an approval back. From there: one button for each next step, courier info, a private note, and a ready-made WhatsApp update for the customer. New orders appear within a minute. Cancelling an order gives its stock and coupon back.
 - **Website:** *Home page design* (hero photos, sections, text blocks, partners, live preview), *Store settings* (taking-orders switch, announcement bar, WhatsApp and Facebook links, bKash number and type, bank details, delivery services and fees, free-delivery threshold, About us text and FAQ) and *Visitors* (today's visitors and visits, the last 30 days as a chart and day by day; today's visitors also show on the home page's Website tile).
 - **Products:** *Photos & details* on each product: photos (resized in the browser), description, specification, category, brand, prices (purchase, regular, selling), stock, weight, *Show on website* and *Feature on home page*.
@@ -100,7 +101,7 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 ### Home and app shell
 - A dashboard with this month's billed and collected amounts, the total still due, and the receipt count, plus a calendar and flip clock.
 - An interactive **aquarium** on the home page: a planted tank with neon tetras, rummy-nose tetras and harlequin rasboras to explore, feed, play with and keep clean. Receipts and customers add fish. Guests on the customer form see a version without any shop data.
-- Number keys **1–6** jump straight to a section. Pages slide between sections with view transitions.
+- Number keys **1–6** jump straight to a section. Pages slide between sections with view transitions, under the doors.
 - Mobile layout: a bottom navigation bar, a thumb-friendly action bar, and "Add to Home Screen" support through the PWA manifest.
 - **Backup / restore** to a JSON file, and a reset to sample data, in Settings.
 
@@ -311,6 +312,7 @@ src/
 │   ├── VariantsEditor.tsx      # The product form's variants section
 │   ├── MergeProductsDialog.tsx # Merge sizes: products saved once per size become one with variants
 │   ├── AppShell.tsx, nav.tsx   # Navigation, sync status
+│   ├── DoorIntro.tsx           # The doors over the store and the admin panel (intro, page changes)
 │   ├── orders/                 # The admin's order panel
 │   ├── security/               # Login & security page parts
 │   ├── store/                  # Customer website components (shop browser, product card, cart, checkout…)
@@ -387,7 +389,7 @@ Every route needs the admin login, except where marked **public**. When `APP_PAS
 - A forgotten password is reset through a one-time link sent to the owner's alert address, never to an address typed on the page; with two-step login on, the reset also needs the code.
 
 **Every page**
-- A Content-Security-Policy with a fresh nonce per page view: only the page's own scripts run (`src/lib/csp.ts`, applied in `src/proxy.ts`). Violations are reported to `/api/site/csp-report`.
+- A Content-Security-Policy with a fresh nonce per page view: only the page's own scripts run (`src/lib/csp.ts`, applied in `src/proxy.ts`). The one inline script in the page head (it picks the door intro before the first paint) is allowed by its hash. Violations are reported to `/api/site/csp-report`.
 - `nosniff`, a strict referrer policy and a permissions policy on every response; no other site may frame the pages; the admin and verify addresses are kept out of search results.
 
 **Customers and the store**

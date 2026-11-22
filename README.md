@@ -42,6 +42,7 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 - A public online store in the style of the Go Round visiting card (Aquascape Editorial): Fraunces serif headings, swaying aquatic grass, line-drawn fish and gentle scroll motion. It is built for phones first.
 - **Pages:** Home (hero photos, featured products, categories, brands, reviews), Shop (search, category chips, brand filter, sort, in-stock filter), product pages, Cart (a panel that slides in, and a cart page), Checkout, Order status, Reviews, Wholesale, About us, Contact us, FAQ, the policy pages and My account.
 - **Ordering:** as a guest or with an account (an account can also be created at checkout). Returning customers get their saved details filled in from their mobile number. Payment is **bKash** or **bank transfer**, checked by hand: the customer pays the total shown and types the transaction ID at checkout. The ID is optional only for a bank transfer when no bank details are set, since the customer has to ask for them first. Prices, stock, delivery and coupons are always worked out on the server.
+- **Variants:** a product sold in several sizes or amounts shows once in the shop ("From" its cheapest price). Its page lists the *Available variants* (e.g. 100 ml · 200 ml · 500 ml) and the customer picks one; the price, discount, stock and photo follow the pick, and the cart and the order name it ("APT Zero - 500 ml"). Kinds: kilogram (1-20 kg), millilitre (1-10,000 ml), gram (1-10,000 gm), litre (1-100 L), piece (1-10), pot (1-10), size (small / medium / large) and full bag; kg and litres also take fractions such as a 0.67 L bag.
 - **Coupons at checkout:** a coupon given to a customer works only with their mobile number (or name). The order summary shows the discount, and the coupon is reserved when the order is placed.
 - **Approval, then receipt:** the order waits as *Waiting for approval* until the shop approves the payment. The order page checks for the approval every 30 seconds. Once approved, the customer gets **Download receipt**, the same A4 PDF the shop prints, stamped PAID. If the shop marks the payment *not found*, the customer is asked to check the transaction ID and send it again.
 - **Order status** (`/order-status`, no account needed): the customer types the **mobile number** they ordered with to see their orders' progress (placed → approved → shipped → delivered), payment status and courier info, and to download the receipt. Links in the shop's WhatsApp updates open one order directly. The old `/store/track` link redirects here.
@@ -54,6 +55,7 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, `@react-pdf/render
 - **Orders:** to approve / to ship / shipped / delivered / cancelled tabs with a badge for unseen orders. Open an order and check the bKash TrxID. **Approve payment** marks it paid, moves the order to *Approved*, and makes the receipt the customer downloads from the website. **Payment not found** asks the customer to resend the ID, and **Undo** takes an approval back. From there: one button for each next step, courier info, a private note, and a ready-made WhatsApp update for the customer. New orders appear within a minute. Cancelling an order gives its stock and coupon back.
 - **Website:** *Home page design* (hero photos, sections, text blocks, partners, live preview), *Store settings* (taking-orders switch, announcement bar, WhatsApp and Facebook links, bKash number and type, bank details, delivery services and fees, free-delivery threshold, About us text and FAQ) and *Visitors* (today's visitors and visits, the last 30 days as a chart and day by day; today's visitors also show on the home page's Website tile).
 - **Products:** *Photos & details* on each product: photos (resized in the browser), description, specification, category, brand, prices (purchase, regular, selling), stock, weight, *Show on website* and *Feature on home page*.
+- **Variants:** in the product form, *Add a variant* (kg, ml, gm, litre, piece, pot, size, full bag) gives the product the sizes it's sold in, each with its own regular and discounted price, purchase price, stock, weight, SKU, photo and in-stock switch; only the variants added show on the website. **Merge sizes** (on the Products page) combines products that were saved once per size into one product with variants: it suggests products whose names differ only by the size, lets you check what each one becomes, and keeps every size's own details. The product with the most written about it keeps its page; the same photo saved twice is kept once; different descriptions are each kept under their size. **Undo** splits a merge again while the dialog is open. Receipts and letters list each variant on its own line ("APT Zero - 500 ml"), at its own price.
 - **Login & security** (Settings): password, two-step login, passkeys, logged-in devices, login history and alerts. See [Security](#security).
 - **Visit store** button in the navbar and on the home page.
 
@@ -148,6 +150,7 @@ The app runs in one of two modes, depending on whether a database is configured:
 - **Light store pages.** The home page and the shop send each product's card fields only - full descriptions and specifications stay on the product's own page (`cardProduct` / `listedProduct` in `src/lib/site.ts`). The shop builds 24 cards and adds 24 more as the customer scrolls; search, filters and sorting always cover every product. Coming back from a product shows the same cards at the same place. `?all=1` builds every card, for browsers without JavaScript (Opera Mini) and search engines.
 - **Protection at the edge.** A Vercel Firewall rule rate-limits each internet address on the public APIs (`/api/site/…`), the admin login and the customer-form links before requests reach the server. The server keeps its own finer limits per phone number and per address (`src/lib/server/rateLimit.ts`).
 - **Visitor counter.** A store page that starts a visit sends one small request (`navigator.sendBeacon`, after the page has shown) and the server adds it to that day's totals in `gr_visits` - one row per Bangladesh day, kept outside `gr_docs` so a visit never makes the admin panel reload. Later page views in the same visit send nothing. The browser only remembers the day and time of its last page view (no cookie, no id), and the server keeps no address or anything about the visitor. Bots and automated browsers, other sites, the verify address and the admin's home page preview aren't counted. The admin panel reads the totals only when the Visitors tab or home page is opened, never on a timer, so an open panel doesn't keep the database awake.
+- **Variants.** A product sold in several sizes keeps them in its own record (`variants`, see `src/lib/variants.ts`), not as one product per size. Each variant has an id that never changes - cart lines and orders point at it, and the server prices and stocks an order from the variant. Merging products keeps each merged product's id as its variant's id, so an old product address redirects (308) to the merged product with that variant picked, and a cart saved before the merge still orders the right size. The product's own price and in-stock flag follow its cheapest variant in stock, so lists, sorting and older code keep working.
 - **Search engines.** A sitemap, structured data (JSON-LD) on store pages, and IndexNow pings (sent after the response, with `after()`) when products change.
 
 ---
@@ -218,6 +221,7 @@ The app deploys and works without any environment variables, saving to each brow
 **Tests** (`npm test`, Vitest, in `tests/`):
 - `tests/money.test.ts` checks the money rules with numbers worked out by hand: receipt totals, discounts and coupons, payments, amount in words, website coupon rules and Bangladesh dates, delivery and per-kg charges, discounted prices, saving orders and stock from the admin panel, and that the website's product data never carries the purchase price.
 - `tests/orders.db.test.ts` places website orders against a real Postgres: prices come from the database, delivery and the coupon are applied, stock and the coupon are taken; used coupons, sold-out items and short stock are refused; cancelling, restoring and deleting move stock and the coupon back; and an order waits while another one is buying the same last item. It runs only when `TEST_DATABASE_URL` points at a **local throwaway database**, because it wipes the `gr_*` tables first; otherwise it is skipped.
+- `tests/variants.test.ts` checks the variant rules: names and ranges, reading sizes from product names, which products are suggested for merging (and which aren't: models, colours), merging (prices, stock, photos and descriptions kept) and what the website shows. `tests/orders.db.test.ts` also orders variants: priced and stocked per variant, sold-out and unknown variants refused, carts from before a merge, and the last one of a variant sold once.
 - `tests/visits.test.ts` checks the visitor counter's rules (when a page view starts a visit or a new visitor, which browsers are bots, the 30 days), and `tests/visits.db.test.ts` the daily totals in Postgres (same local-database rule).
 - `npm run build` runs the tests first, so a broken money rule stops the Vercel build and never goes live (the database tests skip there).
 
@@ -304,6 +308,8 @@ src/
 │   ├── CustomerFormDialog.tsx  # Make and track customer form links
 │   ├── CustomerFormView.tsx    # The page customers fill in
 │   ├── ImportDialog.tsx        # Excel / CSV import with preview
+│   ├── VariantsEditor.tsx      # The product form's variants section
+│   ├── MergeProductsDialog.tsx # Merge sizes: products saved once per size become one with variants
 │   ├── AppShell.tsx, nav.tsx   # Navigation, sync status
 │   ├── orders/                 # The admin's order panel
 │   ├── security/               # Login & security page parts
@@ -317,12 +323,13 @@ src/
     ├── calc.ts                 # Totals, charges, formatting, amount in words
     ├── couponRules.ts          # Website coupon rules (shared by checkout, server and panel)
     ├── visits.ts               # Visitor counter rules (when a visit starts, bots, the 30 days)
+    ├── variants.ts             # Product variants: kinds and labels, the lead price, reading sizes from names, merging
     ├── csp.ts                  # Content-Security-Policy for each page
     ├── pdf.tsx, excel.ts, ledger.ts, letterPdf.tsx, letterDocx.ts, idCard.tsx
     ├── coupons.ts, customerImport.ts, sheet.ts, phone.ts, photos.ts, seo.ts, seed.ts
     └── server/                 # Server-only: db (schema), catalog (cache), orders, auth, accounts, twoFactor,
                                 #   passkeys, loginGuard, rateLimit, r2 (photos), customers, reviews, visits, adminEvents…
-tests/                          # Vitest: money rules, visitor counter, website orders and visits against Postgres
+tests/                          # Vitest: money rules, variants, visitor counter, website orders and visits against Postgres
 .github/workflows/              # checks.yml (types, lint, tests), uptime.yml (scheduled checks)
 vercel.json                     # Function region
 public/
@@ -354,7 +361,7 @@ Every route needs the admin login, except where marked **public**. When `APP_PAS
 | `GET /api/img/[id]` | **Public.** A photo stored in the database (`-t` = thumbnail); redirects to R2 once its database copy is cleared. |
 | `GET/POST /api/accounts` | List website accounts; `{ id, action: "reset" \| "delete" }`. |
 | `GET /api/visits` | The store's visitors and visits per day for the last 30 days, today last. |
-| `POST /api/site/orders` | **Public.** Places a website order (`name, phone, address, ps, email?, note?, zone, method, trxId?, sender?, coupon?, password?, accept, items: [{id, qty}]`). |
+| `POST /api/site/orders` | **Public.** Places a website order (`name, phone, address, ps, email?, note?, zone, method, trxId?, sender?, coupon?, password?, accept, items: [{id, variant?, qty}]`; `variant` is the picked variant of a product sold in variants). |
 | `POST /api/site/track` | **Public.** `{ phone }` → that number's orders; `{ code, phone }` → one order (without the shop's private note). |
 | `POST /api/site/pay` | **Public.** `{ code, phone, method, trxId, sender? }` adds payment details to an unpaid order. |
 | `POST /api/site/coupon` | **Public.** `{ code, phone, name }` → the coupon's offer for the order summary (nothing is reserved). |

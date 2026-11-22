@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ImageOff, Package } from "lucide-react";
+import { ImageOff, Layers, Package } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { uid } from "@/lib/calc";
 import type { Product } from "@/lib/types";
@@ -10,24 +10,53 @@ import { cx } from "@/components/ui";
 import { PriceInput, ProductDetailsButton, ProductDetailsDialog } from "@/components/ProductDetailsDialog";
 import { isDiscounted, purchaseMax, regularOf, withPurchase, withRegular, withUnitPrice } from "@/lib/productPrice";
 import { thumb } from "@/lib/site";
+import { hasVariants, saleNames, withVariants } from "@/lib/variants";
+import { MergeProductsDialog } from "@/components/MergeProductsDialog";
+import { Button, Input } from "@/components/ui";
 
 const inStock = (p: Product) => p.inStock !== false;
 const byName = (a: Product, b: Product) => a.name.trim().localeCompare(b.name.trim(), undefined, { numeric: true, sensitivity: "base" });
 const updated = (p: Product) => p.updatedAt ?? 0;
+const money = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+/** "1,049 - 2,699": the lowest and highest of the variants' figures. */
+const spread = (ns: number[]) => {
+  const xs = ns.filter((n) => n > 0);
+  if (!xs.length) return "-";
+  const lo = Math.min(...xs);
+  const hi = Math.max(...xs);
+  return lo === hi ? money(lo) : `${money(lo)} - ${money(hi)}`;
+};
+/** A variant product's figures in the table, read only: they're edited in the product form, per variant. */
+const VariantFigure = ({ text, title }: { text: string; title: string }) => (
+  <span className="flex h-10 items-center justify-end px-3 text-right text-[14px] font-semibold tabular-nums text-body" title={title}>
+    {text}
+  </span>
+);
 const fmtUpdated = (p: Product) =>
   p.updatedAt ? `Updated ${new Date(p.updatedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : "Not edited recently";
 
 export default function ProductsPage() {
   const { products, setProducts, invoices } = useStore();
 
-  // units sold per product name, for "Best selling"
+  // units sold per product name, for "Best selling" (a product sold in variants counts every variant's name too)
   const sold = useMemo(() => {
     const m = new Map<string, number>();
     for (const inv of invoices) for (const it of inv.items) m.set(it.description.trim().toLowerCase(), (m.get(it.description.trim().toLowerCase()) ?? 0) + (Number(it.qty) || 1));
     return m;
   }, [invoices]);
-  const units = (p: Product) => sold.get(p.name.trim().toLowerCase()) ?? 0;
+  const units = (p: Product) => saleNames(p).reduce((n, name) => n + (sold.get(name.trim().toLowerCase()) ?? 0), 0);
   const [formFor, setFormFor] = useState<string | null>(null); // a new product opens straight in the full form
+  const [merging, setMerging] = useState(false);
+  // the In stock switch on a product sold in variants switches every variant
+  const save = (rows: Product[]) => {
+    const before = new Map(products.map((p) => [p.id, p]));
+    setProducts(
+      rows.map((r) => {
+        const b = before.get(r.id);
+        return b && hasVariants(r) && r.inStock !== b.inStock ? { ...r, ...withVariants(r, r.variants.map((v) => ({ ...v, inStock: r.inStock !== false }))) } : r;
+      }),
+    );
+  };
 
   return (
     <>
@@ -40,7 +69,12 @@ export default function ProductsPage() {
       icon={<Package className="size-5" />}
       noun="Product"
       rows={products}
-      onChange={setProducts}
+      onChange={save}
+      actions={
+        <Button onClick={() => setMerging(true)} className="group" title="Combine products saved once per size into one product with variants">
+          <Layers className="size-4 transition-transform duration-300 group-hover:-translate-y-0.5" /> Merge sizes
+        </Button>
+      }
       blank={() => ({ id: uid(), name: "", price: 0, inStock: true, updatedAt: Date.now() })}
       onAdd={(p) => setFormFor(p.id)}
       touch={(p) => ({ ...p, updatedAt: Date.now() })}
@@ -63,6 +97,7 @@ export default function ProductsPage() {
         { label: "No photo", test: (p) => !p.images?.length },
         { label: "On discount", test: (p) => (p.regularPrice ?? 0) > p.price },
         { label: "No brand", test: (p) => !p.brand?.trim() },
+        { label: "With variants", test: (p) => hasVariants(p) },
       ]}
       rowActions={(p) => <ProductDetailsButton product={p} />}
       lead={(p) => (
@@ -87,7 +122,26 @@ export default function ProductsPage() {
       )}
       columns={[
         { key: "name", label: "Product name", placeholder: "e.g. Seachem Prime 325ml", width: "minmax(140px,2fr)" },
-        { key: "unit", label: "Unit", placeholder: "e.g. pcs, bottle", width: "minmax(66px,120px)" },
+        {
+          key: "unit",
+          label: "Unit",
+          type: "custom",
+          width: "minmax(66px,120px)",
+          // a product sold in variants has no single unit: its variants are its sizes
+          render: (p, update) =>
+            hasVariants(p) ? (
+              <button
+                type="button"
+                onClick={() => setFormFor(p.id)}
+                className="flex h-10 w-full items-center gap-1.5 rounded-xl bg-aqua-soft px-2.5 text-[12.5px] font-bold text-aqua-deep transition hover:bg-aqua-soft/70"
+                title={`Sold in ${p.variants.length} variants - edit them in the product form`}
+              >
+                <Layers className="size-3.5 shrink-0" /> {p.variants.length} variants
+              </button>
+            ) : (
+              <Input placeholder="e.g. pcs, bottle" aria-label="Unit" value={p.unit ?? ""} onChange={(e) => update({ unit: e.target.value })} />
+            ),
+        },
         { key: "inStock", label: "Status", type: "toggle", on: "In stock", off: "Out of stock", width: "minmax(120px,150px)" },
         {
           key: "purchasePrice",
@@ -96,6 +150,7 @@ export default function ProductsPage() {
           width: "minmax(146px,210px)",
           // one figure, or a range when it varies ("1200 - 1500"); the "to" box only shows while editing or when set
           render: (p, update) => {
+            if (hasVariants(p)) return <VariantFigure text={spread(p.variants.flatMap((v) => [v.purchasePrice ?? 0, purchaseMax(v) ?? 0]))} title="Each variant's purchase price - edit them in the product form" />;
             const max = purchaseMax(p);
             return (
               <div className="flex items-center gap-1.5">
@@ -112,7 +167,12 @@ export default function ProductsPage() {
           type: "custom",
           width: "minmax(92px,150px)",
           // the price before any discount; the same as the unit price when there is none
-          render: (p, update) => <PriceInput value={regularOf(p)} placeholder="0.00" ariaLabel="Regular price" className={cx("text-right font-semibold", isDiscounted(p) && "text-muted line-through")} onCommit={(v) => update(withRegular(p, v))} />,
+          render: (p, update) =>
+            hasVariants(p) ? (
+              <VariantFigure text={spread(p.variants.map(regularOf))} title="Each variant's regular price - edit them in the product form" />
+            ) : (
+              <PriceInput value={regularOf(p)} placeholder="0.00" ariaLabel="Regular price" className={cx("text-right font-semibold", isDiscounted(p) && "text-muted line-through")} onCommit={(v) => update(withRegular(p, v))} />
+            ),
         },
         {
           key: "price",
@@ -120,11 +180,17 @@ export default function ProductsPage() {
           type: "custom",
           width: "minmax(92px,150px)",
           // what the customer pays: the sale price when the product is on discount
-          render: (p, update) => <PriceInput value={p.price} placeholder="0.00" ariaLabel="Unit price" className={cx("text-right font-semibold", isDiscounted(p) && "text-brand")} onCommit={(v) => update(withUnitPrice(p, v))} />,
+          render: (p, update) =>
+            hasVariants(p) ? (
+              <VariantFigure text={spread(p.variants.map((v) => v.price))} title="What customers pay for each variant - edit them in the product form" />
+            ) : (
+              <PriceInput value={p.price} placeholder="0.00" ariaLabel="Unit price" className={cx("text-right font-semibold", isDiscounted(p) && "text-brand")} onCommit={(v) => update(withUnitPrice(p, v))} />
+            ),
         },
       ]}
     />
     {formFor && <ProductDetailsDialog productId={formFor} onClose={() => setFormFor(null)} />}
+    {merging && <MergeProductsDialog onClose={() => setMerging(false)} onOpen={(id) => (setMerging(false), setFormFor(id))} />}
     </>
   );
 }

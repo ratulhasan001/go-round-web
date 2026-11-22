@@ -10,6 +10,8 @@ import { DescriptionEditor } from "./DescriptionEditor";
 import { Input, Switch, cx, useToast } from "./ui";
 import { forget, storePhoto } from "@/lib/photos";
 import { purchaseMax, withPurchase, withRegular } from "@/lib/productPrice";
+import { hasVariants } from "@/lib/variants";
+import { VariantsEditor } from "./VariantsEditor";
 
 const MAX_PHOTOS = 8;
 
@@ -77,6 +79,7 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
   const subsubs = uniq(products.filter((x) => same(x.category, p.category) && same(x.subcategory, p.subcategory)).map((x) => x.subsubcategory));
   const discounted = (p.regularPrice ?? 0) > p.price;
   const regular = discounted ? p.regularPrice! : p.price;
+  const variants = hasVariants(p); // prices, stock and weight are then each variant's
 
   const update = (patch: Partial<Product>) =>
     setProducts(latest.current.map((x) => (x.id === productId ? { ...x, ...patch, updatedAt: Date.now() } : x)));
@@ -130,7 +133,7 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
       width="max-w-3xl"
       icon={<Images className="size-5" />}
       title={p.name.trim() ? "Edit product" : "Add product"}
-      subtitle={`${p.name.trim() || "New product"} · ${tk(p.price)}${p.unit ? ` / ${p.unit}` : ""} · changes save automatically`}
+      subtitle={`${p.name.trim() || "New product"} · ${variants ? `${p.variants!.length} variants from ${tk(p.price)}` : `${tk(p.price)}${p.unit ? ` / ${p.unit}` : ""}`} · changes save automatically`}
     >
       <div className="flex flex-col gap-4 bg-canvas/60 p-4 sm:p-5">
         {/* name, description, specification */}
@@ -203,15 +206,17 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
               ))}
             </datalist>
           </label>
-          <label className="block">
-            <Label>Unit</Label>
-            <Input list="product-units" value={p.unit ?? ""} placeholder="Select or type a unit" onChange={(e) => update({ unit: e.target.value })} />
-            <datalist id="product-units">
-              {units.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          </label>
+          {!variants && (
+            <label className="block">
+              <Label>Unit</Label>
+              <Input list="product-units" value={p.unit ?? ""} placeholder="Select or type a unit" onChange={(e) => update({ unit: e.target.value })} />
+              <datalist id="product-units">
+                {units.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </label>
+          )}
           {p.category?.trim() && (
             <p className="text-[12px] text-muted sm:col-span-2">
               On the website: {p.brand?.trim() && <b className="text-ink">{p.brand.trim()} · </b>}
@@ -222,55 +227,63 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
 
         {/* prices, stock, weight, warranty */}
         <div className={cx(section, "grid gap-4 sm:grid-cols-2")}>
-          <div className="block sm:col-span-2">
-            <Label hint="admin only, never on the website · a range when it varies, e.g. 1200 to 1500">Purchase price</Label>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:max-w-[calc(100%-0.5rem)]">
-              <PriceInput value={p.purchasePrice ?? 0} placeholder="From" ariaLabel="Purchase price from" onCommit={(v) => update(withPurchase(v || undefined, purchaseMax(p)))} />
-              <span className="text-[13px] font-semibold text-muted">to</span>
-              <PriceInput value={purchaseMax(p) ?? 0} placeholder="To (optional)" ariaLabel="Purchase price to" onCommit={(v) => update(withPurchase(p.purchasePrice, v || undefined))} />
-            </div>
-          </div>
-          <label className="block">
-            <Label required>Regular price</Label>
-            <PriceInput
-              value={regular}
-              placeholder="Regular price"
-              // applied when the field is left, so half-typed numbers never reach the website
-              onCommit={(v) => update(withRegular(p, v))}
-            />
-          </label>
-          <label className="block">
-            <Label hint="leave empty for no discount">Discounted price</Label>
-            <PriceInput
-              value={discounted ? p.price : 0}
-              placeholder="Discounted price"
-              onCommit={(v) => update(v && v < regular ? { price: v, regularPrice: regular } : { price: regular, regularPrice: undefined })}
-            />
-          </label>
-          {discounted && (
-            <p className="-mt-2 flex items-center gap-1.5 text-[12px] text-brand sm:col-span-2">
-              <Info className="size-3.5" /> Customers pay {tk(p.price)} - {tk(regular)} shows crossed out ({Math.round((1 - p.price / regular) * 100)}% off). Receipts use {tk(p.price)}.
+          {variants ? (
+            <p className="flex items-center gap-1.5 text-[12.5px] text-muted sm:col-span-2">
+              <Info className="size-3.5 shrink-0" /> Prices, stock and weight are set for each variant below.
             </p>
+          ) : (
+            <>
+              <div className="block sm:col-span-2">
+                <Label hint="admin only, never on the website · a range when it varies, e.g. 1200 to 1500">Purchase price</Label>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:max-w-[calc(100%-0.5rem)]">
+                  <PriceInput value={p.purchasePrice ?? 0} placeholder="From" ariaLabel="Purchase price from" onCommit={(v) => update(withPurchase(v || undefined, purchaseMax(p)))} />
+                  <span className="text-[13px] font-semibold text-muted">to</span>
+                  <PriceInput value={purchaseMax(p) ?? 0} placeholder="To (optional)" ariaLabel="Purchase price to" onCommit={(v) => update(withPurchase(p.purchasePrice, v || undefined))} />
+                </div>
+              </div>
+              <label className="block">
+                <Label required>Regular price</Label>
+                <PriceInput
+                  value={regular}
+                  placeholder="Regular price"
+                  // applied when the field is left, so half-typed numbers never reach the website
+                  onCommit={(v) => update(withRegular(p, v))}
+                />
+              </label>
+              <label className="block">
+                <Label hint="leave empty for no discount">Discounted price</Label>
+                <PriceInput
+                  value={discounted ? p.price : 0}
+                  placeholder="Discounted price"
+                  onCommit={(v) => update(v && v < regular ? { price: v, regularPrice: regular } : { price: regular, regularPrice: undefined })}
+                />
+              </label>
+              {discounted && (
+                <p className="-mt-2 flex items-center gap-1.5 text-[12px] text-brand sm:col-span-2">
+                  <Info className="size-3.5" /> Customers pay {tk(p.price)} - {tk(regular)} shows crossed out ({Math.round((1 - p.price / regular) * 100)}% off). Receipts use {tk(p.price)}.
+                </p>
+              )}
+              <label className="block">
+                <Label hint="empty = not counted">Stock quantity</Label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={p.stock ?? ""}
+                  placeholder="Stock quantity"
+                  onChange={(e) => {
+                    const v = num(e.target.value);
+                    const stock = v === undefined ? undefined : Math.floor(v);
+                    update({ stock, stockAt: Date.now(), ...(stock !== undefined ? { inStock: stock > 0 } : {}) });
+                  }}
+                />
+              </label>
+              <label className="block">
+                <Label hint="for the delivery charge">Weight (kg)</Label>
+                <Input type="number" inputMode="decimal" min={0} step="0.01" value={p.weight ?? ""} placeholder="Weight (kg)" onChange={(e) => update({ weight: num(e.target.value) })} />
+              </label>
+            </>
           )}
-          <label className="block">
-            <Label hint="empty = not counted">Stock quantity</Label>
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={p.stock ?? ""}
-              placeholder="Stock quantity"
-              onChange={(e) => {
-                const v = num(e.target.value);
-                const stock = v === undefined ? undefined : Math.floor(v);
-                update({ stock, stockAt: Date.now(), ...(stock !== undefined ? { inStock: stock > 0 } : {}) });
-              }}
-            />
-          </label>
-          <label className="block">
-            <Label hint="for the delivery charge">Weight (kg)</Label>
-            <Input type="number" inputMode="decimal" min={0} step="0.01" value={p.weight ?? ""} placeholder="Weight (kg)" onChange={(e) => update({ weight: num(e.target.value) })} />
-          </label>
           <div className="sm:col-span-2">
             <Label>Warranty</Label>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -286,6 +299,9 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
             </div>
           </div>
         </div>
+
+        {/* sizes or amounts it's sold in */}
+        <VariantsEditor p={p} update={update} />
 
         {/* photos */}
         <div className={section}>
@@ -433,8 +449,12 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
             <Switch checked={!!p.featured} label="Feature on home page" onChange={(v) => update({ featured: v })} />
           </label>
         </div>
-        {p.inStock === false && <p className="-mt-2 text-[12.5px] text-amber-700">This product is out of stock: the website shows it, but customers can&apos;t add it to their cart.</p>}
-        {!(p.price > 0) && <p className="-mt-2 text-[12.5px] text-amber-700">Products without a price aren&apos;t shown on the website.</p>}
+        {p.inStock === false && (
+          <p className="-mt-2 text-[12.5px] text-amber-700">
+            {variants ? "Every variant is out of stock" : "This product is out of stock"}: the website shows it, but customers can&apos;t add it to their cart.
+          </p>
+        )}
+        {!variants && !(p.price > 0) && <p className="-mt-2 text-[12.5px] text-amber-700">Products without a price aren&apos;t shown on the website.</p>}
       </div>
     </Modal>
   );

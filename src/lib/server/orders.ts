@@ -2,7 +2,8 @@ import type postgres from "postgres";
 import { randomBytes, randomUUID } from "node:crypto";
 import { clean, normPhone, phoneKey } from "@/lib/phone";
 import { cleanCode, deliveryFee, makeOrderCode, needsTrxAtCheckout, onSite, siteSettings, splitPoliceStation, thumb, withPoliceStation } from "@/lib/site";
-import { ORDER_PAY_METHODS, type CouponCode, type Invoice, type Order, type OrderItem, type OrderPayMethod, type Product } from "@/lib/types";
+import { ORDER_PAY_METHODS, type CouponCode, type Invoice, type Order, type OrderItem, type OrderPayMethod, type Product, type ProductVariant } from "@/lib/types";
+import { findVariant, hasVariants, sellable, variantName, withVariants } from "@/lib/variants";
 import { db } from "./db";
 import { loadShop } from "./catalog";
 import { syncAccount, upsertCustomer } from "./customers";
@@ -65,11 +66,14 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
   if (Object.keys(errors).length) throw new OrderError(422, { error: "invalid", fields: errors });
 
   const raw = Array.isArray(body.items) ? body.items.slice(0, 60) : [];
-  const wanted = new Map<string, number>();
-  for (const it of raw as { id?: unknown; qty?: unknown }[]) {
+  // what the customer wants: a product (and which of its variants) and how many
+  const wanted = new Map<string, { id: string; variant: string; qty: number }>();
+  for (const it of raw as { id?: unknown; variant?: unknown; qty?: unknown }[]) {
     const id = typeof it?.id === "string" ? it.id.slice(0, 100) : "";
+    const variant = typeof it?.variant === "string" ? it.variant.slice(0, 100) : "";
     const qty = Math.floor(Number(it?.qty));
-    if (id && qty > 0) wanted.set(id, Math.min(99, (wanted.get(id) ?? 0) + qty));
+    const k = `${id}~${variant}`;
+    if (id && qty > 0) wanted.set(k, { id, variant, qty: Math.min(99, (wanted.get(k)?.qty ?? 0) + qty) });
   }
   if (!wanted.size) throw new OrderError(422, { error: "empty", message: "Your cart is empty." });
 
@@ -79,22 +83,41 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
   // buy the last one, and an admin edit made a moment ago is never overwritten with an older copy.
   const now = Date.now();
   const order = await db().begin(async (tx) => {
-    const rows = await tx<{ data: Product }[]>`select data from gr_docs where kind = 'product' and id = any(${[...wanted.keys()]}) for update`;
+    const ids = [...new Set([...wanted.values()].map((w) => w.id))];
+    // a cart saved before its products were merged into one may still name a merged product: that is now a variant
+    const rows = await tx<{ data: Product }[]>`
+      select data from gr_docs where kind = 'product' and (id = any(${ids})
+        or exists (select 1 from jsonb_array_elements(coalesce(data->'variants', '[]'::jsonb)) v where v->>'id' = any(${ids})))
+      for update`;
     const byId = new Map(rows.map((r) => [r.data.id, r.data]));
+    const byVariant = new Map(rows.flatMap((r) => (r.data.variants ?? []).map((v) => [v.id, r.data] as const)));
     const items: OrderItem[] = [];
     const unavailable: string[] = [];
     const short: string[] = []; // fewer in stock than ordered
-    for (const [id, qty] of wanted) {
-      const p = byId.get(id);
-      if (!p || !onSite(p) || p.inStock === false || (typeof p.stock === "number" && p.stock <= 0)) {
-        unavailable.push(id);
+    for (const w of wanted.values()) {
+      const p = byId.get(w.id) ?? byVariant.get(w.id);
+      const variantId = byId.has(w.id) ? w.variant : w.id;
+      const v: ProductVariant | undefined = p && hasVariants(p) ? findVariant(p, variantId) : undefined;
+      const sold = p && hasVariants(p) ? v : p; // what is sold: the variant, or the product itself
+      if (!p || !sold || !onSite(p) || (v && !sellable(v)) || sold.inStock === false || (typeof sold.stock === "number" && sold.stock <= 0)) {
+        unavailable.push(w.id);
         continue;
       }
-      if (typeof p.stock === "number" && p.stock < qty) {
-        short.push(`${p.name.trim()} (only ${p.stock} left)`);
+      const name = v ? variantName(p.name, v) : p.name.trim();
+      if (typeof sold.stock === "number" && sold.stock < w.qty) {
+        short.push(`${name} (only ${sold.stock} left)`);
         continue;
       }
-      items.push({ productId: id, name: p.name.trim(), unit: p.unit?.trim() || undefined, price: p.price, qty, image: p.images?.[0] ? thumb(p.images[0]) : undefined });
+      const photo = v?.image || p.images?.[0];
+      items.push({
+        productId: p.id,
+        ...(v ? { variantId: v.id } : {}),
+        name,
+        unit: v ? undefined : p.unit?.trim() || undefined,
+        price: sold.price,
+        qty: w.qty,
+        image: photo ? thumb(photo) : undefined,
+      });
     }
     if (short.length && !unavailable.length)
       throw new OrderError(409, { error: "unavailable", ids: [], message: `We don't have that many of ${short.join(", ")}. We've lowered the quantity in your cart - please check it.` });
@@ -102,7 +125,11 @@ export async function placeOrder(body: Record<string, unknown>, accountId: strin
       throw new OrderError(409, { error: "unavailable", ids: unavailable, message: "Some items in your cart are no longer available. We've removed them - please check your cart." });
 
     const subtotal = round2(items.reduce((s, i) => s + i.price * i.qty, 0));
-    const weight = Math.round(items.reduce((s, i) => s + (Number(byId.get(i.productId)?.weight) || 0) * i.qty, 0) * 1000) / 1000;
+    const weightOf = (i: OrderItem) => {
+      const p = byId.get(i.productId) ?? byVariant.get(i.productId);
+      return Number((i.variantId && p ? findVariant(p, i.variantId)?.weight : undefined) ?? p?.weight) || 0;
+    };
+    const weight = Math.round(items.reduce((s, i) => s + weightOf(i) * i.qty, 0) * 1000) / 1000;
     const { zone, fee, quote } = deliveryFee(settings, String(body.zone ?? ""), subtotal, weight);
 
     // a coupon typed at checkout: checked again here, with its row locked, so two orders can't both use it
@@ -272,17 +299,32 @@ type Tx = postgres.TransactionSql | postgres.Sql;
  * Moves counted stock for an order's items: -1 takes them (an order placed or brought back), +1 puts them back (an
  * order cancelled or deleted). Rows are locked, only stock changes, and products without a count are left alone.
  */
-export async function adjustStock(tx: Tx, items: { productId: string; qty: number }[], sign: 1 | -1) {
+export async function adjustStock(tx: Tx, items: { productId: string; variantId?: string; qty: number }[], sign: 1 | -1) {
   const ids = [...new Set(items.map((i) => i.productId))];
   if (!ids.length) return;
   const rows = await tx<{ data: Product }[]>`select data from gr_docs where kind = 'product' and id = any(${ids}) for update`;
   const at = Date.now();
+  const moved = <T extends { stock?: number; inStock?: boolean }>(x: T, qty: number): T => {
+    const stock = Math.max(0, x.stock! + sign * qty);
+    return { ...x, stock, stockAt: at, ...(stock === 0 ? { inStock: false } : sign > 0 && x.stock! <= 0 ? { inStock: true } : {}) };
+  };
   for (const { data: p } of rows) {
-    if (typeof p.stock !== "number") continue;
-    const qty = items.filter((i) => i.productId === p.id).reduce((s, i) => s + i.qty, 0);
-    const stock = Math.max(0, p.stock + sign * qty);
-    const next: Product = { ...p, stock, stockAt: at, ...(stock === 0 ? { inStock: false } : sign > 0 && p.stock <= 0 ? { inStock: true } : {}), updatedAt: at };
-    await tx`update gr_docs set data = ${tx.json(next as never)}, updated_at = now() where kind = 'product' and id = ${p.id}`;
+    const mine = items.filter((i) => i.productId === p.id);
+    let next: Product | null = null;
+    if (hasVariants(p)) {
+      // each variant's own count moves (items ordered before the product had variants move the variant that kept its id)
+      let changed = false;
+      const variants = p.variants.map((v) => {
+        const qty = mine.filter((i) => (i.variantId || p.id) === v.id).reduce((s, i) => s + i.qty, 0);
+        if (!qty || typeof v.stock !== "number") return v;
+        changed = true;
+        return moved(v, qty);
+      });
+      if (changed) next = { ...p, ...withVariants(p, variants), updatedAt: at };
+    } else if (typeof p.stock === "number") {
+      next = { ...moved(p, mine.reduce((s, i) => s + i.qty, 0)), updatedAt: at };
+    }
+    if (next) await tx`update gr_docs set data = ${tx.json(next as never)}, updated_at = now() where kind = 'product' and id = ${p.id}`;
   }
 }
 
@@ -337,9 +379,22 @@ export async function couponForOrderChange(tx: Tx, before: Order | undefined, af
  * order took stock after the panel loaded): an edit to the price or photos must not bring old stock back.
  */
 export function mergeProduct(server: Product | undefined, incoming: Product): Product {
-  if (!server || typeof server.stock !== "number") return incoming;
-  if ((server.stockAt ?? 0) <= (incoming.stockAt ?? 0)) return incoming;
-  return { ...incoming, stock: server.stock, stockAt: server.stockAt, ...(server.stock <= 0 ? { inStock: false } : {}) };
+  if (!server) return incoming;
+  const newer = (a: { stock?: number; stockAt?: number }, b: { stockAt?: number }) => typeof a.stock === "number" && (a.stockAt ?? 0) > (b.stockAt ?? 0);
+  // a product sold in variants: the same, for each variant's count
+  if (hasVariants(incoming)) {
+    const old = new Map((server.variants ?? []).map((v) => [v.id, v]));
+    let changed = false;
+    const variants = incoming.variants.map((v) => {
+      const s = old.get(v.id);
+      if (!s || !newer(s, v)) return v;
+      changed = true;
+      return { ...v, stock: s.stock, stockAt: s.stockAt, ...(s.stock! <= 0 ? { inStock: false } : {}) };
+    });
+    return changed ? { ...incoming, ...withVariants(incoming, variants) } : incoming;
+  }
+  if (!newer(server, incoming)) return incoming;
+  return { ...incoming, stock: server.stock, stockAt: server.stockAt, ...(server.stock! <= 0 ? { inStock: false } : {}) };
 }
 
 /** The receipt the shop made for an approved order, with the shop details it prints (null until approved). */

@@ -60,6 +60,20 @@ describe.skipIf(!url)("website orders in the database", () => {
     await doc("product", "p1", { id: "p1", name: "Anubias nana", price: 450, stock: 5, weight: 0.5, onSite: true, images: [] });
     await doc("product", "p2", { id: "p2", name: "Seachem Prime", price: 1200, weight: 1.2, onSite: true, images: [] }); // stock not counted
     await doc("product", "p3", { id: "p3", name: "Sold-out moss", price: 100, stock: 0, onSite: true, images: [] });
+    // sold in variants: "pv" kept its own id as its 200 ml variant; "old500" was a product merged into it
+    await doc("product", "pv", {
+      id: "pv",
+      name: "APT Zero",
+      price: 1499,
+      onSite: true,
+      images: ["/api/img/zero"],
+      variants: [
+        { id: "pv", kind: "ml", amount: 200, price: 1499, stock: 3, weight: 0.3 },
+        { id: "v300", kind: "ml", amount: 300, price: 2249, inStock: false },
+        { id: "old500", kind: "ml", amount: 500, price: 2699, regularPrice: 2800, weight: 0.6, image: "/api/img/zero500" },
+      ],
+    });
+    await doc("product", "pw", { id: "pw", name: "Bog wood - 1 kg", price: 2199, onSite: true, images: [], variants: [{ id: "w1", kind: "size", size: "large", price: 2199, stock: 1 }] });
     await doc("coupon", "c1", { id: "c1", code: "GR10-OFF", name: "", phone: "+8801712345678", pct: 10, validFrom: "2020-01-01", validTo: "2099-12-31" });
   });
 
@@ -143,5 +157,60 @@ describe.skipIf(!url)("website orders in the database", () => {
     const p1 = await product("p1");
     expect(p1.stock).toBe(0);
     expect(p1.inStock).toBe(false); // sold out at 0
+  });
+
+  describe("products sold in variants", () => {
+    const variant = async (pid: string, vid: string) => (await product(pid)).variants!.find((v) => v.id === vid)!;
+
+    it("prices each variant from the database and takes that variant's stock", async () => {
+      const o = await m.orders.placeOrder(checkout({ items: [{ id: "pv", variant: "pv", qty: 2 }, { id: "pv", variant: "old500", qty: 1, price: 1 }] }), null);
+      expect(o.items.map((i) => [i.productId, i.variantId, i.name, i.price, i.qty])).toEqual([
+        ["pv", "pv", "APT Zero - 200 ml", 1499, 2],
+        ["pv", "old500", "APT Zero - 500 ml", 2699, 1],
+      ]);
+      expect(o.items[1]!.image).toBe("/api/img/zero500-t"); // the small copy of the variant's own photo
+      expect(o.subtotal).toBe(5697); // 2 × 1499 + 2699
+      expect(o.weight).toBe(1.2); // 2 × 0.3 + 0.6 kg
+      expect((await variant("pv", "pv")).stock).toBe(1);
+      expect((await variant("pv", "old500")).stock).toBeUndefined(); // not counted, left alone
+
+      // cancelling puts the variant's stock back
+      await saveOrder(o, { ...o, status: "cancelled" });
+      expect((await variant("pv", "pv")).stock).toBe(3);
+    });
+
+    it("refuses a sold-out variant, one that doesn't exist, more than its stock, and a product without a pick", async () => {
+      expect(await refusal(checkout({ items: [{ id: "pv", variant: "v300", qty: 1 }] }))).toMatchObject({ status: 409, error: "unavailable" });
+      expect(await refusal(checkout({ items: [{ id: "pv", variant: "nope", qty: 1 }] }))).toMatchObject({ status: 409, error: "unavailable" });
+      expect(await refusal(checkout({ items: [{ id: "pv", variant: "pv", qty: 9 }] }))).toMatchObject({ status: 409, message: expect.stringMatching(/APT Zero - 200 ml \(only 3 left\)/) });
+      // "pw" has no variant that kept its own id, so a line without a pick can't be priced
+      expect(await refusal(checkout({ items: [{ id: "pw", qty: 1 }] }))).toMatchObject({ status: 409, error: "unavailable" });
+      expect((await variant("pv", "pv")).stock).toBe(3);
+    });
+
+    it("sells from a cart saved before the merge: the old product is now a variant", async () => {
+      const o = await m.orders.placeOrder(checkout({ items: [{ id: "old500", qty: 1 }, { id: "pv", qty: 1 }] }), null);
+      expect(o.items.map((i) => [i.productId, i.variantId, i.price])).toEqual([
+        ["pv", "old500", 2699],
+        ["pv", "pv", 1499],
+      ]);
+      await saveOrder(o, null);
+      expect((await variant("pv", "pv")).stock).toBe(3);
+    });
+
+    it("sells a variant's last one once, and the product sells out with its last variant", async () => {
+      const results = await Promise.all([1, 2].map(() => refusal(checkout({ items: [{ id: "pw", variant: "w1", qty: 1 }] }))));
+      expect(results.filter((r) => r === null)).toHaveLength(1);
+      expect(await variant("pw", "w1")).toMatchObject({ stock: 0, inStock: false });
+      expect((await product("pw")).inStock).toBe(false);
+    });
+
+    it("keeps a variant's newer stock when the admin panel saves an older copy", () => {
+      const server = { id: "pv", name: "APT Zero", price: 1499, variants: [{ id: "pv", kind: "ml" as const, amount: 200, price: 1499, stock: 1, stockAt: 20 }] };
+      const panel = { ...server, variants: [{ ...server.variants[0]!, price: 1399, stock: 3, stockAt: 10 }] };
+      const saved = m.orders.mergeProduct(server, panel);
+      expect(saved.variants![0]).toMatchObject({ price: 1399, stock: 1, stockAt: 20 });
+      expect(saved.price).toBe(1399);
+    });
   });
 });

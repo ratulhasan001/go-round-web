@@ -19,6 +19,7 @@ import { SectionIcon } from "./nav";
 import { couponProblem, givenBy, normCode, offerFromCode, offerLabel } from "@/lib/coupons";
 import ReceiptPreview from "./ReceiptPreview";
 import { invoiceFromOrder } from "@/lib/orderReceipt";
+import { perVariant } from "@/lib/variants";
 
 const blankItem = (): LineItem => ({ id: uid(), description: "", price: 0, qty: 1 });
 const numOrZero = (v: string) => (v === "" ? 0 : Number(v));
@@ -155,15 +156,17 @@ function EditorForm({
     return () => window.removeEventListener("keydown", h);
   }, []);
 
-  const productOpts = useMemo(() => products.map((p) => ({ id: p.id, label: p.name, meta: `৳ ${money(p.price)}${p.inStock === false ? " · Out of stock" : ""}` })), [products]);
+  // what a receipt line can be: each product, or each variant of a product sold in variants ("APT Zero - 500 ml")
+  const sellables = useMemo(() => perVariant(products).map((p) => ({ id: p.id, name: p.name, price: p.price, out: p.inStock === false })), [products]);
+  const productOpts = useMemo(() => sellables.map((x) => ({ id: x.id, label: x.name, meta: `৳ ${money(x.price)}${x.out ? " · Out of stock" : ""}` })), [sellables]);
   const customerOpts = useMemo(() => customers.map((c) => ({ id: c.id, label: c.name, meta: c.phone })), [customers]);
 
   // most-sold products first, for the quick-add chips
   const quickProducts = useMemo(() => {
     const count = new Map<string, number>();
     for (const i of invoices) for (const it of i.items) count.set(it.description.toLowerCase(), (count.get(it.description.toLowerCase()) ?? 0) + (Number(it.qty) || 1));
-    return [...products].filter((p) => p.name.trim() && p.inStock !== false).sort((a, b) => (count.get(b.name.toLowerCase()) ?? 0) - (count.get(a.name.toLowerCase()) ?? 0)).slice(0, 8);
-  }, [products, invoices]);
+    return sellables.filter((x) => x.name.trim() && !x.out).sort((a, b) => (count.get(b.name.toLowerCase()) ?? 0) - (count.get(a.name.toLowerCase()) ?? 0)).slice(0, 8);
+  }, [sellables, invoices]);
 
   const t = computeTotals(inv);
 
@@ -452,8 +455,8 @@ function EditorForm({
                     options={productOpts}
                     onChange={(v) => setItem(idx, { description: v })}
                     onPick={(o) => {
-                      const p = products.find((x) => x.id === o.id)!;
-                      setItem(idx, { description: p.name, price: p.price });
+                      const x = sellables.find((s) => s.id === o.id)!;
+                      setItem(idx, { description: x.name, price: x.price });
                     }}
                     onEnter={() => idx === inv.items.length - 1 && addItem()}
                   />

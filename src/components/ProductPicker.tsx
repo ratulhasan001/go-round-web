@@ -5,6 +5,7 @@ import { Check, Minus, Package, Plus, Search } from "lucide-react";
 import type { Product } from "@/lib/types";
 import { money } from "@/lib/calc";
 import { calcTableHtml } from "@/lib/calcTable";
+import { perVariant } from "@/lib/variants";
 import { Switch, cx } from "./ui";
 
 // Picks products from the saved price list and hands back editor HTML to drop in at the caret.
@@ -29,7 +30,9 @@ export function productsHtml(list: Product[], format: Format, prices: boolean, q
   return list.map((p) => `${esc(p.name)}${prices ? ` (${price(p)})` : unitOnly(p)}`).join(", ");
 }
 
-export default function ProductPicker({ products, onInsert, onClose }: { products: Product[]; onInsert: (html: string) => void; onClose: () => void }) {
+export default function ProductPicker({ products: saved, onInsert, onClose }: { products: Product[]; onInsert: (html: string) => void; onClose: () => void }) {
+  // a product sold in variants is picked one variant at a time ("APT Zero - 500 ml" at its own price)
+  const products = useMemo(() => perVariant(saved), [saved]);
   const box = useRef<HTMLDivElement>(null);
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState<string[]>([]); // ids, in the order they were ticked

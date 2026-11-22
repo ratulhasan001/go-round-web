@@ -8,6 +8,7 @@ import { uid } from "./calc";
 import { couponProblem, givenBy, normCode, usedBy } from "./coupons";
 import { normPhone, phoneKey } from "./phone";
 import { ADMIN_IDLE_MINUTES, isStorePath, type Area } from "./site";
+import { saleNames } from "./variants";
 
 const KEY = "go-round-receipts:v1"; // this device's copy of the data
 const OUTBOX = "go-round-receipts:outbox"; // changes not yet confirmed by the server
@@ -538,7 +539,8 @@ export function StoreProvider({ area, children }: { area: Area; children: React.
       let products = d.products;
       for (const it of remember ? inv.items : []) {
         if (!it.description.trim() || !it.price) continue;
-        if (!products.some((p) => norm(p.name) === norm(it.description)))
+        // a product sold in variants is known by each variant's name too ("APT Zero - 500 ml"), so it isn't added again
+        if (!products.some((p) => saleNames(p).some((n) => norm(n) === norm(it.description))))
           products = [...products, { id: uid(), name: it.description.trim(), price: Number(it.price), inStock: true, updatedAt: Date.now() }];
       }
       // a receipt made from a website order is linked to it

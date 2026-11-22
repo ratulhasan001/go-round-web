@@ -57,29 +57,39 @@ function usePhotoPicker(cloud: boolean, onSaved: (url: string, file: File) => vo
   return { open: () => ref.current?.click(), busy, input, upload };
 }
 
-/** Lets files be dropped on an element: `over` is true while files are dragged over it. */
+/**
+ * Lets files be dropped on an element: `over` is true while files are dragged over it. An element inside it that
+ * takes its own drops (marked `data-own-drop`, like one logo) counts as elsewhere: over it only that element lights
+ * up, and the drop is its own.
+ */
 function useDropFiles(onFiles: (files: File[]) => void, enabled = true) {
   const [over, setOver] = useState(false);
   const has = (e: React.DragEvent) => e.dataTransfer.types.includes("Files");
+  /** The element inside that takes this drag instead, if any. */
+  const inner = (e: React.DragEvent) => {
+    const own = e.target instanceof Element ? e.target.closest("[data-own-drop]") : null;
+    return own && own !== e.currentTarget ? own : null;
+  };
   return {
     over,
     props: enabled
       ? {
           onDragOver: (e: React.DragEvent) => {
             if (!has(e)) return;
-            e.preventDefault();
-            e.stopPropagation();
+            e.preventDefault(); // (otherwise the browser opens the file)
             e.dataTransfer.dropEffect = "copy";
-            setOver(true);
+            setOver(!inner(e));
           },
           onDragLeave: (e: React.DragEvent) => {
             if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
           },
+          // also when the element inside takes the drop, so this one doesn't stay lit
+          onDropCapture: () => setOver(false),
           onDrop: (e: React.DragEvent) => {
             if (!has(e)) return;
             e.preventDefault();
+            if (inner(e)) return; // the logo's own (it was busy uploading)
             e.stopPropagation();
-            setOver(false);
             onFiles([...e.dataTransfer.files]);
           },
         }
@@ -292,14 +302,7 @@ export function LogoListEditor({
   const [added, setAdded] = useState(""); // the entry just added by hand: its name box takes the cursor
   const drop = useDropFiles((files) => void bulk.upload(files), !bulk.busy);
   return (
-    <div {...drop.props} className={cx("relative rounded-2xl transition", drop.over && "bg-soft ring-2 ring-brand ring-offset-4 ring-offset-white")}>
-      {drop.over && (
-        <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl bg-white/80">
-          <span className="flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-[13px] font-bold text-white shadow-lg">
-            <ImagePlus className="size-4" /> Drop to add {word} logos
-          </span>
-        </div>
-      )}
+    <div {...drop.props} className={cx("relative rounded-2xl transition", drop.over && "ring-2 ring-brand ring-offset-4 ring-offset-white")}>
       <label className="block">
         <span className="mb-1.5 block text-[13px] font-semibold text-ink">Section heading</span>
         <Input value={title} placeholder={kind === "partners" ? "Our partners" : "Where we have worked"} onChange={(e) => onTitle(e.target.value)} />
@@ -325,6 +328,12 @@ export function LogoListEditor({
           ))}
         </ul>
       )}
+      {/* where dropped files land: after the list (a file dragged over one logo replaces that logo instead) */}
+      {drop.over && (
+        <div className="pointer-events-none mt-2 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-brand bg-soft px-4 py-4 text-[13px] font-bold text-brand">
+          <ImagePlus className="size-4" /> Drop to add {word} logos here
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button size="sm" variant="dark" onClick={bulk.open} disabled={bulk.busy}>
           {bulk.busy ? <Loader2 className="size-3.5 animate-spin" /> : <ImagePlus className="size-3.5" />} Upload logos
@@ -343,7 +352,7 @@ export function LogoListEditor({
       </div>
       <p className="mt-2 text-[12px] text-muted">
         {items.length ? `${items.length} ${word}${items.length === 1 ? "" : "s"}. ` : "Nothing yet - the section stays hidden until you add one. "}
-        Pick or drag in several logo files at once (any size - big images are scaled down); each becomes an entry named after its file. Drop a file on a logo to replace it. Logos look best on a white or clear background.
+        Pick or drag in several logo files at once (any size - big images are scaled down); each becomes an entry named after its file. Drop a file on a logo to replace just that one. Logos look best on a white or clear background.
       </p>
     </div>
   );
@@ -357,8 +366,8 @@ function LogoRow({ x, focus, kind, cloud, first, last, onEdit, onMove, onRemove 
   // a file dropped on this logo replaces it (only the first one)
   const drop = useDropFiles((files) => void photo.upload(files.slice(0, 1)), !photo.busy);
   return (
-    <li className="flex items-start gap-3 rounded-2xl border border-line bg-white p-2.5">
-      <button type="button" {...drop.props} onClick={photo.open} disabled={photo.busy} className={cx("group relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-canvas ring-1 ring-line", drop.over && "ring-2 ring-brand")} aria-label={x.logo ? `Change ${x.name || "the"} logo` : "Upload a logo"} title={x.logo ? "Change logo" : "Upload logo"}>
+    <li className={cx("flex items-start gap-3 rounded-2xl border p-2.5 transition-colors", drop.over ? "border-brand bg-soft" : "border-line bg-white")}>
+      <button type="button" {...drop.props} data-own-drop onClick={photo.open} disabled={photo.busy} className={cx("group relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-canvas ring-1 ring-line", drop.over && "ring-2 ring-brand")} aria-label={x.logo ? `Change ${x.name || "the"} logo` : "Upload a logo"} title={x.logo ? "Change logo" : "Upload logo"}>
         {photo.busy ? (
           <Loader2 className="size-5 animate-spin text-muted" />
         ) : x.logo ? (
@@ -367,7 +376,9 @@ function LogoRow({ x, focus, kind, cloud, first, last, onEdit, onMove, onRemove 
         ) : (
           <ImagePlus className="size-5 text-faint" />
         )}
-        {x.logo && !photo.busy && <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-center text-[10px] font-bold text-white opacity-0 transition group-hover:opacity-100">Change</span>}
+        {x.logo && !photo.busy && !drop.over && <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-center text-[10px] font-bold text-white opacity-0 transition group-hover:opacity-100">Change</span>}
+        {/* the file being dragged lands here */}
+        {drop.over && <span className="absolute inset-0 grid place-items-center bg-brand/85 text-[11px] font-bold text-white">{x.logo ? "Replace" : "Add"}</span>}
       </button>
       {photo.input()}
       <div className="grid min-w-0 flex-1 gap-1.5 sm:grid-cols-2">

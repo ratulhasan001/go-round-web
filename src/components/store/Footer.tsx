@@ -112,6 +112,18 @@ export function Footer({ shop, links }: { shop: PublicShop; links: Links }) {
             </span>
           ))}
         </span>
+        <span className="mt-2 block">
+          <span className="inline-block rounded-full bg-sea-paper/90 px-3 py-1 font-medium text-sea-ink/70">
+            Developed by{" "}
+            <a href="https://ratulhasan.dev" target="_blank" rel="noopener" className="font-semibold underline-offset-2 hover:text-sea-ink hover:underline">
+              Ratul Hasan
+            </a>
+            {" · "}Website issues?{" "}
+            <a href="mailto:ratul@ratulhasan.dev" className="font-semibold underline-offset-2 hover:text-sea-ink hover:underline">
+              ratul@ratulhasan.dev
+            </a>
+          </span>
+        </span>
       </p>
     </footer>
   );

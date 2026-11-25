@@ -74,7 +74,7 @@ export const POLICIES: Policy[] = [
   {
     slug: "return-policy",
     title: "Return and Cancellation Policy for {name}",
-    short: "Return policy",
+    short: "Return and refund policy",
     intro: ["Thank you for shopping at {name}. Please read this policy carefully. Your satisfaction is our priority, and we want to ensure a transparent and hassle-free experience for you."],
     sections: [
       {

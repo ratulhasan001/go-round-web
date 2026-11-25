@@ -84,7 +84,7 @@ export const exploreLinks = (links: Links) => [{ href: links.store("/reviews"), 
 export const policyLinks = (links: Links) => [
   { href: links.store("/privacy-policy"), label: "Privacy policy" },
   { href: links.store("/terms-and-conditions"), label: "Terms and conditions" },
-  { href: links.store("/return-policy"), label: "Return policy" },
+  { href: links.store("/return-policy"), label: "Return and refund policy" },
 ];
 
 const STAFF_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";

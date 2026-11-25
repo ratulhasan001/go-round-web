@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Megaphone, ShoppingBag, Store, UserRound, X } from "lucide-react";
+import { Menu, Megaphone, Search, ShoppingBag, Store, UserRound, X } from "lucide-react";
 import { exploreLinks, policyLinks, waLink } from "@/lib/site";
 import { useShop } from "./StoreContext";
+import { FOCUS_SEARCH } from "./SearchSuggest";
 import { FacebookIcon, WhatsAppIcon } from "./Icons";
 
 const isOn = (path: string, href: string, home: string) => (href === home ? path === href : path === href.split("?")[0] || path.startsWith(href + "/"));
@@ -65,6 +66,26 @@ export function Header() {
               className="mr-1 inline-flex h-10 items-center gap-1.5 rounded-full bg-sea-ink px-4 text-[14px] font-extrabold text-white shadow-[0_8px_20px_-10px_rgba(17,58,45,0.7)] transition hover:bg-sea-teal active:scale-95"
             >
               <Store className="size-[17px]" /> Shop
+            </Link>
+            <Link
+              href={links.store("/products")}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // opening it in a new tab
+                // the products page focuses its search box once it's open; already there, focus it now
+                if (path === links.store("/products").split("?")[0]) {
+                  e.preventDefault();
+                  window.dispatchEvent(new Event(FOCUS_SEARCH));
+                } else
+                  try {
+                    sessionStorage.setItem(FOCUS_SEARCH, "1");
+                  } catch {
+                    /* private mode: the page still opens */
+                  }
+              }}
+              className="grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70"
+              aria-label="Search products"
+            >
+              <Search className="size-[21px]" />
             </Link>
             {/* on small phones "My account" is in the menu, so the shop's name has room */}
             <Link href={links.store("/account")} className="grid size-11 place-items-center rounded-full text-sea-ink transition hover:bg-sea-sand/70 max-[420px]:hidden" aria-label="My account">

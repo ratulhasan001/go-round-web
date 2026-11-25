@@ -12,7 +12,7 @@ export async function PolicyView({ slug }: { slug: Policy["slug"] }) {
   const fill = (t: string) => fillPolicy(t, { name: shop.name, phone: prettyPhone(shop.site.whatsapp || shop.phone), email: shop.email });
   return (
     <div className="mx-auto max-w-3xl px-4 pt-10 sm:px-6 sm:pt-14">
-      <PageHead eyebrow={p.short} title={fill(p.title)} intro={`Effective ${POLICY_EFFECTIVE}`} />
+      <PageHead eyebrow={p.short} title={<PolicyTitle text={fill(p.title)} />} intro={`Effective ${POLICY_EFFECTIVE}`} />
       <article className="grid gap-7 text-[15.5px] leading-relaxed text-sea-body">
         {p.intro.map((t, i) => (
           <p key={i}>{fill(t)}</p>
@@ -36,5 +36,17 @@ export async function PolicyView({ slug }: { slug: Policy["slug"] }) {
         ))}
       </nav>
     </div>
+  );
+}
+
+/** "Return and Cancellation Policy for Go Round": the shop's name always starts its own line, "for" with it. */
+function PolicyTitle({ text }: { text: string }) {
+  const at = text.lastIndexOf(" for ");
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <span className="block">{text.slice(at + 1)}</span>
+    </>
   );
 }

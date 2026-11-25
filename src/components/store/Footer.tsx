@@ -19,7 +19,9 @@ export function Footer({ shop, links }: { shop: PublicShop; links: Links }) {
             <span className="font-serif text-[26px] font-semibold">{shop.name}</span>
           </div>
           <p className="mt-4 max-w-xs font-serif text-[19px] leading-snug">
-            Witness the <em className="text-sea-teal">Underwater World</em> Through Us
+            Witness the <em className="text-sea-teal">Underwater World</em>
+            <br />
+            Through Us
           </p>
           <p className="store-eyebrow mt-4 !tracking-[0.24em]">Importer &amp; supplier of aquarium plants &amp; accessories</p>
         </div>

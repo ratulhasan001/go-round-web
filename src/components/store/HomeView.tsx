@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { ArrowRight, BadgePercent, LayoutGrid, PackageCheck, Search, ShoppingBag, Sparkles, Store, Wallet, Zap } from "lucide-react";
+import { ArrowRight, BadgePercent, LayoutGrid, PackageCheck, ShoppingBag, Sparkles, Store, Wallet, Zap } from "lucide-react";
 import { avgRating, heroShowcase, inCategory, tk, waLink, type CardProduct, type Links, type PublicShop } from "@/lib/site";
 import { categoryIcon } from "@/lib/categoryIcons";
 import type { HomeSectionKey } from "@/lib/types";
@@ -15,6 +15,7 @@ import { WhatsAppIcon } from "./Icons";
 import { btn, cx } from "./ui";
 import { HomeBlockView, LogoSection } from "./HomeBlocks";
 import { productPath } from "@/lib/seo";
+import { SearchSuggest } from "./SearchSuggest";
 
 /**
  * The store's home page, drawn from the shop's Website settings. Shared by the live page (a server component) and the
@@ -279,7 +280,8 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
   return (
     <>
       {/* hero - the visiting card, opened up */}
-      <section className="relative overflow-hidden">
+      {/* clipped only sideways where browsers can (the swimming fish), so the search box's suggestions can hang below */}
+      <section className="relative overflow-hidden supports-[overflow:clip]:overflow-x-clip supports-[overflow:clip]:overflow-y-visible">
         <Grass blades={110} seed={11} height={260} className="pointer-events-none absolute inset-x-0 bottom-0 h-[170px] w-full sm:h-[240px]" />
         <div className="pointer-events-none absolute inset-x-0 bottom-[90px] h-0 sm:bottom-[130px]">
           <div className="sea-fish absolute left-0" style={{ "--dur": "38s", "--reach": "70vw" } as React.CSSProperties}>
@@ -300,14 +302,8 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
             <Rule className="mt-7 animate-fade-up [animation-delay:300ms]" />
             {home.intro.trim() && <p className="mt-6 max-w-md animate-fade-up text-[16px] leading-relaxed text-sea-body [animation-delay:340ms]">{home.intro}</p>}
             {home.search && (
-              // a plain GET form: the shop page reads ?q= and opens with the search filled in
-              <form action={L.store("/products")} method="get" role="search" className="mt-7 flex max-w-md animate-fade-up items-center gap-2 rounded-full border border-sea-line bg-white p-1.5 pl-5 shadow-[0_14px_30px_-22px_rgba(17,58,45,0.6)] [animation-delay:370ms] focus-within:border-sea-teal focus-within:ring-4 focus-within:ring-sea-teal/12">
-                <Search className="size-[18px] shrink-0 text-sea-muted" aria-hidden />
-                <input name="q" type="search" required placeholder="Search plants, ferts, tools…" aria-label="Search products" className="h-10 min-w-0 flex-1 bg-transparent text-[15px] font-medium text-sea-ink outline-none placeholder:font-normal placeholder:text-sea-muted/80" />
-                <button type="submit" className={btn("teal", "sm", "h-10 shrink-0")}>
-                  <Search className="size-4" /> Search
-                </button>
-              </form>
+              // a GET form to the shop page (it reads ?q=), with suggestions while typing
+              <SearchSuggest variant="hero" products={products} action={L.store("/products")} className="mt-7 animate-fade-up [animation-delay:370ms]" />
             )}
             <div className="mt-8 flex animate-fade-up flex-wrap gap-3 [animation-delay:400ms]">
               <Link href={L.store("/products")} className={btn("primary", "lg")}>

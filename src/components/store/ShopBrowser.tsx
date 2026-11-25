@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search, SearchX, X } from "lucide-react";
+import { SearchX, X } from "lucide-react";
 import { inCategory, type ListedProduct } from "@/lib/site";
 import { ProductCard } from "./ProductCard";
+import { SearchSuggest } from "./SearchSuggest";
 import { cx } from "./ui";
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -152,24 +153,9 @@ export function ShopBrowser({ products }: { products: ListedProduct[] }) {
 
   return (
     <>
-      <div className="sticky top-16 z-20 -mx-4 mb-8 border-b border-sea-line/70 bg-sea-cream/92 px-4 pb-3 pt-3 backdrop-blur-md sm:top-[72px] sm:-mx-6 sm:px-6">
+      <div data-shop-bar className="sticky top-16 z-20 -mx-4 mb-8 border-b border-sea-line/70 bg-sea-cream/92 px-4 pb-3 pt-3 backdrop-blur-md sm:top-[72px] sm:-mx-6 sm:px-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <div className="relative md:w-80">
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-sea-muted" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search plants, ferts, tools…"
-              aria-label="Search products"
-              type="search"
-              className="h-11 w-full rounded-full border border-sea-line bg-white pl-11 pr-10 text-[15px] font-medium outline-none transition placeholder:font-normal placeholder:text-sea-muted/70 focus:border-sea-teal focus:ring-4 focus:ring-sea-teal/12"
-            />
-            {q && (
-              <button onClick={() => setQ("")} className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-sea-muted hover:bg-sea-sand" aria-label="Clear search">
-                <X className="size-4" />
-              </button>
-            )}
-          </div>
+          <SearchSuggest products={products} value={q} onChange={setQ} onCategory={pickCategory} onBrand={(b) => setParam("brand", b)} />
           <div className="flex items-center gap-2 md:ml-auto">
             {brands.length > 0 && (
               <select

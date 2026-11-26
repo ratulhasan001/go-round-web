@@ -11,6 +11,7 @@ import { OrderCard } from "./TrackView";
 import { Panel, SeaField, SeaInput, SeaTextarea, btn, cx } from "./ui";
 import { useSavedContact } from "./useSavedContact";
 import { Turnstile } from "@/components/Turnstile";
+import { rememberLogin, rememberedLogin } from "@/lib/rememberLogin";
 
 interface Account {
   id: string;
@@ -54,6 +55,15 @@ function SignIn({ onDone, siteKey }: { onDone: () => void; siteKey: string }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  // "Remember me": this device fills in the mobile number next time
+  const [remember, setRemember] = useState(false);
+  useEffect(() => {
+    const saved = rememberedLogin("store");
+    if (!saved) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time load from localStorage after hydration
+    setF((x) => (x.phone ? x : { ...x, phone: saved }));
+    setRemember(true);
+  }, []);
   // Cloudflare's "Verify you are human", when it is set up; each pass works once
   const [human, setHuman] = useState("");
   const [resetHuman, setResetHuman] = useState(0);
@@ -77,6 +87,7 @@ function SignIn({ onDone, siteKey }: { onDone: () => void; siteKey: string }) {
       setMsg(r.message);
       return;
     }
+    rememberLogin("store", f.phone, remember);
     if (params.get("next") === "checkout") router.push(links.store("/checkout"));
     else onDone();
   };
@@ -133,6 +144,10 @@ function SignIn({ onDone, siteKey }: { onDone: () => void; siteKey: string }) {
         <SeaField label="Password" hint={tab === "register" ? "at least 8 characters" : undefined} error={errors.password} htmlFor="a-pw">
           <SeaInput id="a-pw" type="password" autoComplete={tab === "login" ? "current-password" : "new-password"} value={f.password} onChange={set("password")} invalid={!!errors.password} />
         </SeaField>
+        <label className="flex w-fit cursor-pointer items-center gap-2.5 text-[14px] font-semibold text-sea-body">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-[18px] accent-sea-ink" />
+          Remember me on this device
+        </label>
         {siteKey && <Turnstile siteKey={siteKey} action={`store-${tab}`} theme="light" onToken={setHuman} reset={resetHuman} />}
         {msg && <p className="text-[13.5px] font-semibold text-red-600">{msg}</p>}
         <button type="submit" disabled={busy || (!!siteKey && !human)} className={btn("primary", "lg", "w-full")}>

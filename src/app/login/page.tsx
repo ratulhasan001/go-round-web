@@ -7,6 +7,7 @@ import { LoginShell, loginButton, loginField, loginInput, loginLabel, loginLink 
 import { Turnstile } from "@/components/Turnstile";
 import { useClientValue } from "@/components/ui";
 import { forgetDeviceCopy } from "@/lib/store";
+import { rememberLogin, rememberedLogin } from "@/lib/rememberLogin";
 import { ADMIN_IDLE_MINUTES } from "@/lib/site";
 
 type Status = "idle" | "checking" | "error" | "success";
@@ -45,6 +46,7 @@ interface Answer {
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [remember, setRemember] = useState(false); // "Remember me": this device fills in the email next time
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
@@ -70,6 +72,15 @@ export default function LoginPage() {
   const passkeys = useClientValue(() => browserSupportsWebAuthn(), false); // this browser can use passkeys
   // the panel logged itself out after ADMIN_IDLE_MINUTES without use
   const idle = useClientValue(() => new URLSearchParams(window.location.search).get("idle") === "1", false);
+
+  useEffect(() => {
+    const saved = rememberedLogin("admin");
+    if (!saved) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time load from localStorage after hydration
+    setEmail(saved);
+    setRemember(true);
+    input.current?.focus(); // the email is there: straight to the password
+  }, []);
 
   useEffect(() => {
     // already logged in on this device (a link from another site arrives without the login cookie): carry on
@@ -126,6 +137,7 @@ export default function LoginPage() {
     if (siteKey && !human) return fail("Please tick “Verify you are human” first.");
     const { res, b } = await post({ email: email.trim(), password, turnstile: human });
     if (siteKey) setResetHuman((n) => n + 1); // each pass works once
+    if (res?.ok && (b?.ok || b?.ticket)) rememberLogin("admin", email, remember); // the password was right
     if (res?.ok && b?.ok) return finish();
     if (res?.ok && b?.next === "new-password" && b.ticket) {
       setSetpw(b.ticket);
@@ -499,14 +511,18 @@ export default function LoginPage() {
               </button>
             </div>
 
-            <div className="flex min-h-7 items-start justify-between gap-3 pt-2.5">
-              <p className="text-[13px] font-semibold text-red-300" role="alert">
-                {error}
-              </p>
+            <div className="flex items-center justify-between gap-3 pt-3">
+              <label className="flex cursor-pointer items-center gap-2 text-[13px] font-semibold text-[#b9d8c9]">
+                <input type="checkbox" checked={remember} disabled={busy} onChange={(e) => setRemember(e.target.checked)} className="size-4 accent-[#7fd1ae]" />
+                Remember me
+              </label>
               <button type="button" className={`${linkBtn} shrink-0`} onClick={() => showForgot(true)}>
                 Forgot password?
               </button>
             </div>
+            <p className="min-h-6 pt-1.5 text-[13px] font-semibold text-red-300" role="alert">
+              {error}
+            </p>
 
             {siteKey && (
               <div className="mb-3">

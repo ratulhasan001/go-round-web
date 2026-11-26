@@ -8,6 +8,7 @@ import { richHtml, tk, waLink, type PublicProduct, type PublicVariant } from "@/
 import { ProductImage } from "./ProductImage";
 import { useShop } from "./StoreContext";
 import { WhatsAppIcon } from "./Icons";
+import { ShareProduct } from "./ShareProduct";
 import { btn, cx } from "./ui";
 
 /** The variant shown first: the one the address asks for, else the first in stock (smallest first), else the first. */
@@ -231,6 +232,7 @@ export function ProductDetail({ p, variant, rating }: { p: PublicProduct; varian
         >
           <WhatsAppIcon className="size-[18px] text-wa" /> Ask about this product
         </a>
+        <ShareProduct name={fullName} />
       </div>
     </div>
   );

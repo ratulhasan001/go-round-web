@@ -467,7 +467,6 @@ export default function LoginPage() {
                   setError("");
                 }}
                 className={inputCls}
-                placeholder="name@example.com"
               />
             </div>
             <label htmlFor="password" className={loginLabel}>

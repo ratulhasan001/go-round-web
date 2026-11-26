@@ -44,6 +44,7 @@ interface Answer {
 }
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
@@ -121,9 +122,9 @@ export default function LoginPage() {
 
   const submitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (busy || !password) return;
+    if (busy || !email.trim() || !password) return;
     if (siteKey && !human) return fail("Please tick “Verify you are human” first.");
-    const { res, b } = await post({ password, turnstile: human });
+    const { res, b } = await post({ email: email.trim(), password, turnstile: human });
     if (siteKey) setResetHuman((n) => n + 1); // each pass works once
     if (res?.ok && b?.ok) return finish();
     if (res?.ok && b?.next === "new-password" && b.ticket) {
@@ -134,7 +135,7 @@ export default function LoginPage() {
     if (res?.ok && toCodeStep(b)) return;
     setPassword("");
     input.current?.focus();
-    fail(b?.message ?? (res ? "Wrong password. Try again." : "Can't connect. Check your internet."));
+    fail(b?.message ?? (res ? "Wrong email or password. Try again." : "Can't connect. Check your internet."));
   };
 
   /** Moves on to the two-step code, when that's what the server asked for. */
@@ -278,7 +279,7 @@ export default function LoginPage() {
           ? "The PIN is retired. Choose a password to log in with from now on."
           : forgot
           ? "We'll send a reset link to the shop owner's email"
-          : "Enter your password to continue";
+          : "Enter the admin email and password to continue";
 
   return (
     <LoginShell>
@@ -444,6 +445,31 @@ export default function LoginPage() {
           </form>
         ) : (
           <form onSubmit={submitPassword} className="mt-7">
+            <label htmlFor="email" className={loginLabel}>
+              Email
+            </label>
+            <div className={`${field} mb-4 ${status === "error" ? "animate-pin-shake border-red-400" : "border-white/15"}`}>
+              <input
+                id="email"
+                name="username"
+                type="email"
+                inputMode="email"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                autoFocus
+                required
+                maxLength={200}
+                value={email}
+                disabled={busy}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError("");
+                }}
+                className={inputCls}
+                placeholder="name@example.com"
+              />
+            </div>
             <label htmlFor="password" className={loginLabel}>
               Password
             </label>
@@ -454,7 +480,6 @@ export default function LoginPage() {
                 name="password"
                 type={show ? "text" : "password"}
                 autoComplete="current-password"
-                autoFocus
                 required
                 value={password}
                 disabled={busy}

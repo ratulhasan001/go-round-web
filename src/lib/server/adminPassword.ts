@@ -10,6 +10,15 @@ import { db, dbEnabled, ensureSchema } from "./db";
  */
 export const PASSWORD_MIN = 12;
 
+/** The only email the admin login accepts (ADMIN_EMAIL in Vercel, else admin@goroundbd.com). */
+export const adminEmail = () => (process.env.ADMIN_EMAIL || "admin@goroundbd.com").trim().toLowerCase();
+
+/** Whether this is the admin's email, compared in constant time (any case, surrounding spaces ignored). */
+export function adminEmailMatches(input: unknown) {
+  if (typeof input !== "string" || input.length > 200) return false;
+  return sameText(input.trim().toLowerCase(), adminEmail());
+}
+
 export async function getSetting<T>(k: string): Promise<T | null> {
   if (!dbEnabled()) return null;
   await ensureSchema();

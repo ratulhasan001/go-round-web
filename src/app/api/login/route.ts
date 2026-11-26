@@ -2,7 +2,7 @@ import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { authEnabled, clientIp, isAuthed, requestFrom, SESSION_COOKIE } from "@/lib/server/auth";
 import { alertLater, logEvent, loggedIn, securityLink, whoLine } from "@/lib/server/adminEvents";
-import { passwordProblem, passwordStatus, setAdminPassword, verifyAdminPassword } from "@/lib/server/adminPassword";
+import { adminEmailMatches, passwordProblem, passwordStatus, setAdminPassword, verifyAdminPassword } from "@/lib/server/adminPassword";
 import { issueToken, peekToken, updateToken, spendToken } from "@/lib/server/adminTokens";
 import { humanCheck, startAttempt, triesLeft, turnstileSiteKey, wrongMessage } from "@/lib/server/loginGuard";
 import { checkCode, emailCodeMatches, emailCodeOn, secondStepOn, sendEmailCode, twoFactorStatus, type EmailCode } from "@/lib/server/twoFactor";
@@ -33,7 +33,7 @@ export async function GET() {
 }
 
 /**
- * Step 1: { password, turnstile }. Logs in, or answers what comes next:
+ * Step 1: { email, password, turnstile }. Logs in, or answers what comes next:
  *         { next: "new-password", ticket } while the login is still the old PIN from Vercel (APP_PASSWORD): the admin
  *         chooses a real password ({ ticket, newPassword }) before getting in, and the PIN stops working;
  *         { next: "code", ticket } with two-step login on.
@@ -41,7 +41,7 @@ export async function GET() {
  *         { ticket, send: "email" }: emails a code (the first one goes out by itself when the app isn't set up).
  */
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => null)) as { password?: unknown; turnstile?: unknown; ticket?: unknown; code?: unknown; send?: unknown; newPassword?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { email?: unknown; password?: unknown; turnstile?: unknown; ticket?: unknown; code?: unknown; send?: unknown; newPassword?: unknown } | null;
   const ip = clientIp(req);
 
   if (!authEnabled()) return NextResponse.json({ ok: true });
@@ -58,15 +58,18 @@ export async function POST(req: Request) {
   const attempt = await startAttempt(ip);
   if (!attempt.ok) return NextResponse.json({ error: "locked", message: attempt.message }, { status: attempt.status });
 
-  if (!(await verifyAdminPassword(password))) {
+  // both are always checked, and a wrong email answers like a wrong password, so neither can be guessed on its own
+  const emailOk = adminEmailMatches(body?.email);
+  const passwordOk = await verifyAdminPassword(password);
+  if (!emailOk || !passwordOk) {
     const lockedFor = await attempt.failed();
-    await logEvent(req, "wrong-password");
+    await logEvent(req, "wrong-password", emailOk ? "" : "wrong email");
     if (lockedFor > 0) {
       await logEvent(req, "locked", `${lockedFor} min`);
       alertLater("Login locked after wrong passwords", [whoLine(req), `Locked for ${lockedFor} minutes.`, "If this wasn't you, someone is trying to guess your password.", securityLink()]);
     }
     await new Promise((r) => setTimeout(r, 600)); // slow down guessing
-    return NextResponse.json({ error: "wrong", message: wrongMessage("Wrong password.", lockedFor, await triesLeft(ip)) }, { status: 401 });
+    return NextResponse.json({ error: "wrong", message: wrongMessage("Wrong email or password.", lockedFor, await triesLeft(ip)) }, { status: 401 });
   }
 
   if (!(await passwordStatus()).custom) {

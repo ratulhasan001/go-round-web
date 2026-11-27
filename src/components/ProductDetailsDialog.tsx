@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CloudUpload, ImagePlus, Images, Info, Loader2, Star, Trash2 } from "lucide-react";
+import { CloudUpload, ImagePlus, Images, Info, Loader2, Sprout, Star, Trash2, Wrench } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { tk, thumb } from "@/lib/site";
 import type { Product } from "@/lib/types";
@@ -11,6 +11,7 @@ import { Input, Switch, cx, useToast } from "./ui";
 import { forget, storePhoto } from "@/lib/photos";
 import { purchaseMax, withPurchase, withRegular } from "@/lib/productPrice";
 import { hasVariants } from "@/lib/variants";
+import { PRODUCT_GROUPS, groupOf } from "@/lib/productGroup";
 import { VariantsEditor } from "./VariantsEditor";
 
 const MAX_PHOTOS = 8;
@@ -154,6 +155,31 @@ export function ProductDetailsDialog({ productId, onClose }: { productId: string
 
         {/* codes and groups */}
         <div className={cx(section, "grid gap-4 sm:grid-cols-2")}>
+          {/* admin only: which half of the Products list it's in; the website goes by the category */}
+          <div className="sm:col-span-2">
+            <Label hint="admin list only">Product type</Label>
+            <div role="radiogroup" aria-label="Product type" className="grid grid-cols-2 gap-2">
+              {PRODUCT_GROUPS.map((g) => {
+                const on = groupOf(p) === g.key;
+                return (
+                  <button
+                    key={g.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => update({ group: g.key })}
+                    className={cx(
+                      "flex h-11 items-center justify-center gap-2 rounded-xl border text-[14px] font-bold transition active:scale-[0.98]",
+                      on ? "border-brand bg-soft text-brand ring-2 ring-brand/15" : "border-line bg-white text-muted hover:border-faint hover:text-ink",
+                    )}
+                  >
+                    {g.key === "plant" ? <Sprout className="size-4" /> : <Wrench className="size-4" />}
+                    {g.key === "plant" ? "Plant" : "Accessory"}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <label className="block">
             <Label hint="your own code for it">SKU</Label>
             <Input value={p.sku ?? ""} placeholder="Product SKU" onChange={(e) => update({ sku: e.target.value })} />

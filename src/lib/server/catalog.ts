@@ -43,7 +43,7 @@ export async function loadProducts(): Promise<PublicProduct[]> {
 /** Tag of the cached catalogue: refreshCatalog() expires it. */
 export const CATALOG_TAG = "catalog";
 // bump when the cached shape (PublicShop / PublicProduct) changes, so a new deployment doesn't read an old shape
-const CATALOG_VERSION = "2";
+const CATALOG_VERSION = "3";
 
 /**
  * The website's catalogue (shop settings + products), kept in Next's data cache instead of read from the database

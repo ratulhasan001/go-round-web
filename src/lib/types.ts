@@ -187,6 +187,7 @@ export interface HomeSettings {
   experienceTitle: string;
   experience: LogoItem[];
   sections: { id: HomeSectionKey; on: boolean }[];
+  layoutVersion?: number; // see homeSettings(): older saved orders get one-time moves
 }
 
 export type OrderStatus = "placed" | "confirmed" | "shipped" | "delivered" | "cancelled";

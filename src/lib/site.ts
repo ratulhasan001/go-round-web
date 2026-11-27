@@ -176,10 +176,10 @@ export const DEFAULT_FEATURED = ["Soil & Additives", "Fertilizer", "Light", "CO2
 const FEATURED_VERSION = 2;
 
 export const HOME_SECTIONS: { id: HomeSectionId; label: string; hint: string }[] = [
-  { id: "steps", label: "How it works", hint: "Pick, pay, we deliver - the three steps under the big title" },
   { id: "shop", label: "Shop button", hint: "A noticeable button into the shop" },
   { id: "categories", label: "Featured categories", hint: "Category tiles with their icons" },
   { id: "products", label: "Hand-picked products", hint: "Featured and newest products" },
+  { id: "steps", label: "How it works", hint: "Pick, pay, we deliver - the three steps" },
   { id: "brands", label: "Brands", hint: "The brands of your products" },
   { id: "partners", label: "Our partners", hint: "Partner logos" },
   { id: "experience", label: "Work experience", hint: "Logos of places you have worked" },
@@ -264,7 +264,17 @@ export function heroShowcase<P extends CardProduct>(products: P[], sc: HeroShowc
  * Saved home settings with anything missing filled in. A built-in section added later goes in after the section it
  * follows by default; every text box has exactly one place in the order (new ones at the top).
  */
+/** Saved home page orders older than this get the one-time moves in homeSettings(). */
+const HOME_LAYOUT_VERSION = 1;
+
 function homeSettings(h?: Partial<HomeSettings>): HomeSettings {
+  // version 1: How it works moves from under the big title to right after Hand-picked products (the shop asked, 2026-11-27)
+  if (h?.sections && (h.layoutVersion ?? 0) < 1) {
+    const list = h.sections.filter((x) => x.id !== "steps");
+    const steps = h.sections.find((x) => x.id === "steps");
+    const at = list.findIndex((x) => x.id === "products");
+    if (steps && at >= 0) h = { ...h, sections: [...list.slice(0, at + 1), steps, ...list.slice(at + 1)] };
+  }
   const blocks = (h?.blocks ?? []).filter((b) => b && typeof b.id === "string");
   const known = new Set<string>([...HOME_SECTIONS.map((x) => x.id), ...blocks.map((b) => blockKey(b.id))]);
   const sections = (h?.sections ?? []).filter((x, i, all) => known.has(x.id) && all.findIndex((y) => y.id === x.id) === i);
@@ -281,7 +291,7 @@ function homeSettings(h?: Partial<HomeSettings>): HomeSettings {
     category: typeof sc?.category === "string" ? sc.category : "",
     title: typeof sc?.title === "string" ? sc.title : "",
   };
-  return { ...DEFAULT_HOME, ...h, showcase, blocks, partners: h?.partners ?? [], experience: h?.experience ?? [], sections };
+  return { ...DEFAULT_HOME, ...h, showcase, blocks, partners: h?.partners ?? [], experience: h?.experience ?? [], sections, layoutVersion: HOME_LAYOUT_VERSION };
 }
 
 /**

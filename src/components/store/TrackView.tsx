@@ -18,12 +18,13 @@ import { couponLabel } from "@/lib/couponRules";
 export function TrackView() {
   const params = useSearchParams();
   const { shop, online } = useShop();
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(() => (params.get("phone") ?? "").replace(/\D/g, ""));
   const [orders, setOrders] = useState<OrderView[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [state, setState] = useState<"idle" | "busy" | "missing" | "short" | "error">("idle");
   const placed = params.get("placed") === "1";
   const wanted = cleanCode(params.get("code") ?? ""); // links in WhatsApp updates name the order
+  const linkPhone = (params.get("phone") ?? "").replace(/\D/g, ""); // ...and the customer's number, so it opens straight away
 
   const show = useCallback(
     (list: OrderView[], pick?: string) => {
@@ -51,11 +52,12 @@ export function TrackView() {
     [show],
   );
 
-  // an order placed on this browser (or opened from a link with its code) fills itself in
+  // an order placed on this browser, or opened from a WhatsApp link with its code and number, fills itself in
   useEffect(() => {
-    const mine = recentOrders().find((o) => o.code === wanted);
-    if (wanted && mine) void look({ code: wanted, phone: mine.phone }); // eslint-disable-line react-hooks/set-state-in-effect -- one-time lookup for an order placed here
-  }, [wanted, look]);
+    if (!wanted) return;
+    const phone = linkPhone.length >= 10 ? linkPhone : recentOrders().find((o) => o.code === wanted)?.phone;
+    if (phone) void look({ code: wanted, phone }); // eslint-disable-line react-hooks/set-state-in-effect -- one-time lookup for the order the link names
+  }, [wanted, linkPhone, look]);
 
   const open = orders?.find((o) => o.id === openId);
   if (open)

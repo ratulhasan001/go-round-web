@@ -23,9 +23,10 @@ import { useStore } from "@/lib/store";
 import { invoiceFromOrder, isOrderPayment, orderPayment } from "@/lib/orderReceipt";
 import { computeTotals } from "@/lib/calc";
 import { ORDER_HINT, ORDER_LABEL, ORDER_STEPS, fmtWhen, payState, thumb, tk, waLink } from "@/lib/site";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { Order, OrderMessageKey, OrderStatus } from "@/lib/types";
+import { ORDER_MESSAGES, messageKeyFor } from "@/lib/orderMessages";
 import { Modal } from "../Modal";
-import { Button, Input, Label, Textarea, cx, useToast } from "../ui";
+import { Button, Input, Label, Select, Textarea, cx, useToast } from "../ui";
 import { PayChip, StatusChip, updateMessage } from "./shared";
 import { couponAmount, couponLabel } from "@/lib/couponRules";
 
@@ -59,15 +60,30 @@ export function OrderPanel({ id, onClose }: { id: string | null; onClose: () => 
 function Footer({ order }: { order: Order }) {
   const { shop } = useStore();
   const router = useRouter();
+  // the message that fits the order now, unless the admin picks another one (a new status picks again)
+  const auto = messageKeyFor(order);
+  const [picked, setPicked] = useState<{ key: OrderMessageKey; for: string } | null>(null);
+  const key = picked && picked.for === `${order.id}:${auto}` ? picked.key : auto;
   return (
     <div className="flex flex-wrap gap-2">
+      <div className="flex w-full items-center gap-2">
+        <label htmlFor="wa-message" className="shrink-0 text-[12px] font-semibold text-muted">Message</label>
+        <Select id="wa-message" className="h-9 flex-1 text-[13px]" value={key} onChange={(e) => setPicked({ key: e.target.value as OrderMessageKey, for: `${order.id}:${auto}` })}>
+          {ORDER_MESSAGES.map((m) => (
+            <option key={m.key} value={m.key}>
+              {m.label}
+              {m.key === auto ? " (now)" : ""}
+            </option>
+          ))}
+        </Select>
+      </div>
       <a
-        href={waLink(order.customer.phone, updateMessage(order, shop))}
+        href={waLink(order.customer.phone, updateMessage(order, shop, key))}
         target="_blank"
         rel="noopener"
         className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 text-sm font-semibold text-white transition hover:brightness-95 active:scale-[0.98]"
       >
-        <MessageCircle className="size-4" /> Send update on WhatsApp
+        <MessageCircle className="size-4" /> Send on WhatsApp
       </a>
       {order.invoiceId ? (
         <Button variant="dark" className="flex-1" onClick={() => router.push(`/new?id=${order.invoiceId}`)}>

@@ -64,7 +64,11 @@ export interface Shop {
   watermark: boolean; // faint logo behind the receipt
   rates: ChargeRates;
   site?: SiteSettings; // the customer website (missing on shops saved before the website existed)
+  messages?: Partial<Record<OrderMessageKey, string>>; // the shop's own WhatsApp wording per order situation (admin only)
 }
+
+/** The situations the shop sends a customer a WhatsApp message about (see src/lib/orderMessages.ts). */
+export type OrderMessageKey = "received" | "checking" | "notFound" | "approved" | "shipped" | "delivered" | "cancelled";
 
 // ---------- customer website ----------
 

@@ -22,7 +22,7 @@ import {
 import { useStore } from "@/lib/store";
 import { invoiceFromOrder, isOrderPayment, orderPayment } from "@/lib/orderReceipt";
 import { computeTotals } from "@/lib/calc";
-import { ORDER_HINT, ORDER_LABEL, ORDER_STEPS, fmtWhen, payState, thumb, tk, waLink } from "@/lib/site";
+import { ORDER_HINT, ORDER_LABEL, ORDER_STEPS, PROGRESS_LABEL, PROGRESS_STEPS, fmtWhen, progressIndex, payState, thumb, tk, waLink } from "@/lib/site";
 import type { Order, OrderMessageKey, OrderStatus } from "@/lib/types";
 import { ORDER_MESSAGES, messageKeyFor } from "@/lib/orderMessages";
 import { Modal } from "../Modal";
@@ -189,11 +189,11 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
         <p className="mt-2 text-[13px] text-muted">{ORDER_HINT[o.status]}</p>
 
         {o.status !== "cancelled" && (
-          <ol className="mt-4 grid grid-cols-4 gap-1.5" aria-label="Progress">
-            {ORDER_STEPS.map((s, i) => (
+          <ol className="mt-4 grid grid-cols-5 gap-1.5" aria-label="Progress">
+            {PROGRESS_STEPS.map((s, i) => (
               <li key={s} className="flex flex-col gap-1.5">
-                <span className={cx("h-1.5 rounded-full transition-colors duration-500", i <= step ? "bg-brand" : "bg-line")} />
-                <span className={cx("text-[11px] font-semibold", i <= step ? "text-ink" : "text-faint")}>{ORDER_LABEL[s]}</span>
+                <span className={cx("h-1.5 rounded-full transition-colors duration-500", i <= progressIndex(o) ? "bg-brand" : "bg-line")} />
+                <span className={cx("text-[11px] font-semibold leading-tight", i <= progressIndex(o) ? "text-ink" : "text-faint")}>{PROGRESS_LABEL[s]}</span>
               </li>
             ))}
           </ol>

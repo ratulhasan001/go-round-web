@@ -31,10 +31,10 @@ const BODY = `{items}\n{coupon}`;
 
 export const DEFAULT_MESSAGES: Record<OrderMessageKey, string> = {
   received: `Hello {name},\nThank you for your order *{code}* from {shop}!\n\n${BODY}\nTotal: *{total}*\n\n{payment}\n\nSee your order: {link}`,
-  checking: `Hello {name},\nWe've received your order *{code}* and your payment (transaction ID {trxid}). We're checking it now and will update you shortly.\n\n${BODY}\nTotal: *{total}*\n\nSee your order: {link}`,
+  checking: `Hello {name},\nWe've received your order *{code}* and your payment (transaction ID {trxid}). We're *checking your payment* now and will update you shortly.\n\n${BODY}\nTotal: *{total}*\n\nSee your order: {link}`,
   notFound: `Hello {name},\nWe couldn't find the payment for your order *{code}* (transaction ID {trxid}). Please check it and send it again on your order page.\n\n{payment}\n\nYour order: {link}`,
-  approved: `Hello {name},\nGood news! Your order *{code}* is approved - your payment of *{total}* is received and we're packing your order now.\n\n${BODY}\n\nReceipt: {receipt}\nSee your order and download the receipt: {link}`,
-  shipped: `Hello {name},\nYour order *{code}* has been shipped and is on its way!\n\nCourier / tracking: {tracking}\n\nFollow your order: {link}`,
+  approved: `Hello {name},\nGood news! Your order *{code}* is *approved* - your payment of *{total}* is received and we're packing your order now.\n\n${BODY}\n\nReceipt: {receipt}\nSee your order and download the receipt: {link}`,
+  shipped: `Hello {name},\nYour order *{code}* has been *shipped* and is on its way!\n\nCourier / tracking: {tracking}\n\nFollow your order: {link}`,
   delivered: `Hello {name},\nYour order *{code}* has been delivered. Thank you for shopping with {shop}!\n\nWe'd love to hear how you like it - you can leave a review on our website.\n\nYour order and receipt: {link}`,
   cancelled: `Hello {name},\nYour order *{code}* from {shop} has been cancelled. If you have any questions, just reply to this message.`,
 };

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Check, Download, FileText, Hourglass, Loader2, PartyPopper, Search, Truck } from "lucide-react";
-import { ORDER_HINT, ORDER_LABEL, ORDER_STEPS, PAY_LABEL, cleanCode, fmtWhen, payState, tk, waLink } from "@/lib/site";
+import { ORDER_HINT, ORDER_LABEL, PAY_LABEL, PROGRESS_LABEL, PROGRESS_STEPS, progressAt, progressIndex, cleanCode, fmtWhen, payState, tk, waLink } from "@/lib/site";
 import type { OrderView } from "@/lib/server/orders";
 import { recentOrders, useShop } from "./StoreContext";
 import { PaymentInfo } from "./PaymentInfo";
@@ -173,9 +173,8 @@ export function OrderCard({
   backLabel?: string;
 }) {
   const { shop } = useShop();
-  const stepIdx = ORDER_STEPS.indexOf(order.status);
+  const stepIdx = progressIndex(order);
   const cancelled = order.status === "cancelled";
-  const when = (s: string) => order.history.findLast((h) => h.status === s)?.at;
   const pay = payState(order);
   const waiting = !cancelled && pay === "submitted";
 
@@ -219,16 +218,16 @@ export function OrderCard({
           </div>
 
           {!cancelled && (
-            <ol className="mt-7 grid grid-cols-4 gap-1">
-              {ORDER_STEPS.map((s, i) => {
+            <ol className="mt-7 grid grid-cols-5 gap-1">
+              {PROGRESS_STEPS.map((s, i) => {
                 const done = i <= stepIdx;
-                const t = when(s);
+                const t = progressAt(order, s);
                 return (
                   <li key={s} className="flex flex-col">
                     <span className={cx("h-1.5 rounded-full transition-colors duration-700", done ? "bg-sea-leaf" : "bg-sea-line")} />
-                    <span className={cx("mt-2.5 flex items-center gap-1 text-[12px] font-extrabold sm:text-[13px]", done ? "text-sea-ink" : "text-sea-muted")}>
-                      {done && <Check className="size-3.5 shrink-0 text-sea-leaf" strokeWidth={3} />}
-                      {ORDER_LABEL[s]}
+                    <span className={cx("mt-2.5 flex items-start gap-1 text-[11.5px] font-extrabold leading-tight sm:text-[13px]", done ? "text-sea-ink" : "text-sea-muted")}>
+                      {done && <Check className="mt-px size-3.5 shrink-0 text-sea-leaf" strokeWidth={3} />}
+                      {PROGRESS_LABEL[s]}
                     </span>
                     {t && done && <span className="text-[11px] text-sea-muted">{new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Dhaka" })}</span>}
                   </li>

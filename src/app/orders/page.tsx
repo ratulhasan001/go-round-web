@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CloudOff, Search, ShoppingBag, X } from "lucide-react";
+import { CloudOff, MessageCircle, Search, ShoppingBag, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { tk } from "@/lib/site";
 import type { Order, OrderStatus } from "@/lib/types";
 import { SectionIcon, VisitStore } from "@/components/nav";
-import { Card, Input, cx } from "@/components/ui";
+import { Button, Card, Input, cx } from "@/components/ui";
+import { MessagesDialog } from "@/components/orders/MessagesDialog";
 import { OrderPanel } from "@/components/orders/OrderPanel";
 import { PayChip, StatusChip, itemSummary, timeAgo } from "@/components/orders/shared";
 
@@ -26,6 +27,7 @@ export default function OrdersPage() {
   const [picked, setPicked] = useState<OrderStatus | "all" | null>(null);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  const [messagesOpen, setMessagesOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   // the clock for "5 min ago", read after mount (so the server render matches) and every minute after
   const [now, setNow] = useState(0);
@@ -88,8 +90,12 @@ export default function OrdersPage() {
           <h1 className="font-display text-2xl font-extrabold sm:text-3xl">Orders</h1>
           <p className="text-sm text-muted">Orders from your website. Open one to check the payment, ship it and make the receipt.</p>
         </div>
+        <Button onClick={() => setMessagesOpen(true)}>
+          <MessageCircle className="size-4" /> Messages
+        </Button>
         <VisitStore tone="light" />
       </div>
+      <MessagesDialog open={messagesOpen} onClose={() => setMessagesOpen(false)} />
 
       {ready && mode !== "cloud" && (
         <Card className="mb-5 flex items-start gap-3 border-amber-200 bg-amber-50/60 p-4 text-[13.5px] text-amber-800">

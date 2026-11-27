@@ -1,7 +1,8 @@
 "use client";
 
 import { ORDER_LABEL, PAY_LABEL, absolute, payState, publicLinks, siteSettings, tk } from "@/lib/site";
-import type { Order, OrderStatus, Shop } from "@/lib/types";
+import { fillMessage, messageKeyFor, messageTemplate } from "@/lib/orderMessages";
+import type { Order, OrderMessageKey, OrderStatus, Shop } from "@/lib/types";
 import { cx } from "../ui";
 
 export const STATUS_TONE: Record<OrderStatus, string> = {
@@ -69,37 +70,17 @@ export function payInstructions(o: Order, shop: Shop) {
   ] as string[];
 }
 
-/** The verify page, where the customer checks the order (and gets the receipt) with their mobile number. */
-export const trackUrl = (o: Order) => absolute(`${publicLinks(window.location.host).verify()}?code=${encodeURIComponent(o.code)}`, window.location.origin);
+/** The verify page with the order and the customer's mobile number in it, so it opens straight to that order. */
+export const trackUrl = (o: Order) => {
+  const phone = o.customer.phone.replace(/\D/g, "");
+  return absolute(`${publicLinks(window.location.host).verify()}?code=${encodeURIComponent(o.code)}${phone ? `&phone=${phone}` : ""}`, window.location.origin);
+};
 
-/** A ready-made WhatsApp update for the customer about where their order is. */
-export function updateMessage(o: Order, shop: Shop) {
-  const paid = !!o.payment.verified;
-  const rejected = payState(o) === "rejected";
-  const status: Record<OrderStatus, string> = {
-    placed: paid
-      ? "your payment is approved."
-      : rejected
-        ? `we couldn't find your payment${o.payment.trxId ? ` (transaction ID ${o.payment.trxId})` : ""}. Please check it and send it again on your order page.`
-        : o.payment.trxId
-          ? "we've received your order and are checking your payment."
-          : "we've received your order.",
-    confirmed: "your payment is approved and your order is being packed.",
-    shipped: "your order is on its way.",
-    delivered: "your order has been delivered. Thank you!",
-    cancelled: "your order has been cancelled.",
-  };
-  const lines = [
-    `Hello ${o.customer.name.split(" ")[0] || "there"},`,
-    `${shop.name} order *${o.code}*: ${status[o.status]}`,
-    ``,
-    ...o.items.map((i) => `• ${i.qty} × ${i.name}`),
-    ...(o.coupon?.amount ? [`Coupon ${o.coupon.code}: −${tk(o.coupon.amount)}`] : []),
-    `Total: *${tk(o.total)}*${paid ? " (paid)" : ""}`,
-  ];
-  if (!paid && o.status !== "cancelled" && (!o.payment.trxId || rejected)) lines.push(``, ...payInstructions(o, shop));
-  if (paid && o.invoiceNumber && o.status !== "cancelled") lines.push(``, `Your receipt ${o.invoiceNumber} is ready - download it from your order page.`);
-  if (o.tracking?.trim() && (o.status === "shipped" || o.status === "delivered")) lines.push(``, `Delivery / tracking: ${o.tracking.trim()}`);
-  if (o.status !== "cancelled") lines.push(``, `Order status (enter your mobile number ${o.customer.phone}): ${trackUrl(o)}`);
-  return lines.join("\n");
+/** A ready-made WhatsApp message for the customer: the shop's wording for `key` (by default, where the order is now). */
+export function updateMessage(o: Order, shop: Shop, key: OrderMessageKey = messageKeyFor(o)) {
+  return fillMessage(messageTemplate(shop.messages, key), o, {
+    shop: shop.name,
+    payment: o.payment.verified || o.status === "cancelled" ? "" : payInstructions(o, shop).join("\n"),
+    link: trackUrl(o),
+  });
 }

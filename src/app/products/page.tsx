@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ImageOff, Layers, Package } from "lucide-react";
+import { ImageOff, Layers, Package, Sprout, Wrench } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { uid } from "@/lib/calc";
-import type { Product } from "@/lib/types";
+import type { Product, ProductGroup } from "@/lib/types";
+import { PRODUCT_GROUPS, groupOf } from "@/lib/productGroup";
 import { ListEditor } from "@/components/ListEditor";
 import { cx } from "@/components/ui";
 import { PriceInput, ProductDetailsButton, ProductDetailsDialog } from "@/components/ProductDetailsDialog";
@@ -32,6 +33,37 @@ const VariantFigure = ({ text, title }: { text: string; title: string }) => (
     {text}
   </span>
 );
+const GROUP_ICON: Record<ProductGroup, React.ReactNode> = { plant: <Sprout className="size-[18px]" />, accessory: <Wrench className="size-[17px]" /> };
+
+/** Plants | Accessories: the admin's product list is always one or the other. */
+function GroupSwitch({ value, counts, onChange }: { value: ProductGroup; counts: Record<ProductGroup, number>; onChange: (g: ProductGroup) => void }) {
+  return (
+    <div role="tablist" aria-label="Product type" className="mb-4 grid grid-cols-2 gap-1 rounded-2xl bg-white p-1.5 shadow-sm shadow-black/5 ring-1 ring-line sm:inline-grid sm:min-w-[420px]">
+      {PRODUCT_GROUPS.map((g) => {
+        const on = g.key === value;
+        return (
+          <button
+            key={g.key}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(g.key)}
+            className={cx(
+              "flex h-12 items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-bold transition active:scale-[0.98]",
+              on ? "bg-deep text-lime shadow-md shadow-deep/20" : "text-muted hover:bg-canvas hover:text-ink",
+            )}
+          >
+            {GROUP_ICON[g.key]}
+            {g.label}
+            <span key={counts[g.key]} className={cx("animate-count-bump rounded-full px-2 py-0.5 text-[12px] tabular-nums", on ? "bg-lime/20 text-lime" : "bg-line text-muted")}>
+              {counts[g.key]}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 const fmtUpdated = (p: Product) =>
   p.updatedAt ? `Updated ${new Date(p.updatedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : "Not edited recently";
 
@@ -47,35 +79,46 @@ export default function ProductsPage() {
   const units = (p: Product) => saleNames(p).reduce((n, name) => n + (sold.get(name.trim().toLowerCase()) ?? 0), 0);
   const [formFor, setFormFor] = useState<string | null>(null); // a new product opens straight in the full form
   const [merging, setMerging] = useState(false);
+  const [group, setGroup] = useState<ProductGroup>("plant");
+  const counts = useMemo(() => {
+    const c: Record<ProductGroup, number> = { plant: 0, accessory: 0 };
+    for (const p of products) c[groupOf(p)]++;
+    return c;
+  }, [products]);
+  // only this half is listed; the other half is kept as it is when the list saves
+  const shown = useMemo(() => products.filter((p) => groupOf(p) === group), [products, group]);
   // the In stock switch on a product sold in variants switches every variant
   const save = (rows: Product[]) => {
     const before = new Map(products.map((p) => [p.id, p]));
-    setProducts(
-      rows.map((r) => {
+    setProducts([
+      ...rows.map((r) => {
         const b = before.get(r.id);
         return b && hasVariants(r) && r.inStock !== b.inStock ? { ...r, ...withVariants(r, r.variants.map((v) => ({ ...v, inStock: r.inStock !== false }))) } : r;
       }),
-    );
+      ...products.filter((p) => groupOf(p) !== group),
+    ]);
   };
 
   return (
     <>
     <ListEditor<Product>
+      key={group}
       section="products"
       tableFrom="wide"
       tableMin="880px"
       title="Products"
       subtitle="Your price list - used on receipts and on your website. Tap the photo button for the full product form: photos, description, specification, brand, category, prices, stock and weight."
       icon={<Package className="size-5" />}
-      noun="Product"
-      rows={products}
+      noun={group === "plant" ? "Plant" : "Accessory"}
+      rows={shown}
       onChange={save}
+      switcher={<GroupSwitch value={group} counts={counts} onChange={setGroup} />}
       actions={
         <Button onClick={() => setMerging(true)} className="group" title="Combine products saved once per size into one product with variants">
           <Layers className="size-4 transition-transform duration-300 group-hover:-translate-y-0.5" /> Merge sizes
         </Button>
       }
-      blank={() => ({ id: uid(), name: "", price: 0, inStock: true, updatedAt: Date.now() })}
+      blank={() => ({ id: uid(), name: "", price: 0, inStock: true, group, updatedAt: Date.now() })}
       onAdd={(p) => setFormFor(p.id)}
       touch={(p) => ({ ...p, updatedAt: Date.now() })}
       sorts={[

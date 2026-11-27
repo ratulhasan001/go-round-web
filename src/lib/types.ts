@@ -259,11 +259,15 @@ export interface Product {
   warranty?: string; // "" / missing = no warranty, otherwise the seller's warranty, e.g. "6 months"
   onSite?: boolean; // missing means shown on the website
   featured?: boolean; // shown on the store's home page
+  group?: ProductGroup; // admin only: listed under Plants or Accessories (missing = guessed from the category, see productGroup.ts)
   // Sizes or amounts the product is sold in, each with its own price and stock (see variants.ts). Missing / empty =
   // sold as one thing. With variants, price / regularPrice / inStock above follow the cheapest variant for lists and
   // sorting, and stock, weight and the purchase price are kept on each variant instead.
   variants?: ProductVariant[];
 }
+
+/** The two halves of the admin's product list. */
+export type ProductGroup = "plant" | "accessory";
 
 /** Kilogram, millilitre, gram, litre, piece, pot, size (small / medium / large), a full bag, or a name the admin types. */
 export type VariantKind = "kg" | "ml" | "gm" | "l" | "piece" | "pot" | "size" | "bag" | "custom";

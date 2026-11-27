@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock, Landmark, Mail, MapPin, Phone, Wallet } from "lucide-react";
+import { Clock, Landmark, Mail, MapPin, Phone } from "lucide-react";
 import { POLICIES } from "@/lib/policies";
 import { prettyPhone, waLink, type Links, type PublicShop } from "@/lib/site";
 import { Grass } from "./Art";
@@ -64,8 +64,10 @@ export function Footer({ shop, links }: { shop: PublicShop; links: Links }) {
           <p className="mt-2 text-[13px] font-semibold text-sea-muted">Importer &amp; supplier of aquarium plants &amp; accessories</p>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <span className="mr-1 text-[12px] font-bold uppercase tracking-wider text-sea-muted">We accept</span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[12.5px] font-bold text-[#E2136E] ring-1 ring-sea-line">
-              <Wallet className="size-3.5" /> bKash
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white py-1 pl-1 pr-3 text-[12.5px] font-bold text-[#E2136E] ring-1 ring-sea-line">
+              {/* the real bKash logo, as on checkout */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- a small fixed logo */}
+              <img src="/pay/bkash.webp" alt="" width={20} height={20} className="size-5 rounded-full" /> bKash
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[12.5px] font-bold text-sea-ink ring-1 ring-sea-line">
               <Landmark className="size-3.5" /> Bank transfer

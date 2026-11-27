@@ -95,6 +95,7 @@ export function ListEditor<T extends { id: string }>({
   tableFrom = "md",
   tableMin = "0px",
   section,
+  switcher,
 }: {
   title: string;
   subtitle: string;
@@ -124,6 +125,8 @@ export function ListEditor<T extends { id: string }>({
   tableMin?: string;
   /** Section key (see nav.tsx): the header icon then morphs from the home tile. */
   section?: string;
+  /** Shown between the header and the list, e.g. the Plants / Accessories switch on Products. */
+  switcher?: React.ReactNode;
 }) {
   const L = LAYOUT[tableFrom];
   const toast = useToast();
@@ -300,6 +303,8 @@ export function ListEditor<T extends { id: string }>({
           </Button>
         </div>
       </div>
+
+      {switcher}
 
       <Card className="overflow-x-clip">
         {/* search: its own row; the border lights up and flows while it has focus */}

@@ -69,21 +69,22 @@ export function HomeView({ shop, products, reviews, links: L }: { shop: PublicSh
       case "steps":
         return (
           <section className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className={`grid gap-3 sm:grid-cols-3 ${first ? "-mt-20 sm:-mt-28" : "mt-20"}`}>
+            {/* three across on every screen; on phones each card stacks its icon over a shorter text */}
+            <div className={`grid grid-cols-3 gap-2 sm:gap-3 ${first ? "-mt-20 sm:-mt-28" : "mt-14 sm:mt-20"}`}>
               {[
                 { icon: ShoppingBag, t: "Pick your product", d: "Add what you need to the cart - no account needed." },
                 { icon: Wallet, t: "Pay by bKash or bank", d: "Send the total and type in the transaction ID." },
                 { icon: PackageCheck, t: "We pack & deliver", d: "Check Order status any time with your mobile number." },
               ].map((s, i) => (
-                <Reveal key={s.t} delay={i * 90} className="relative rounded-[24px] border border-sea-line bg-sea-paper/95 p-5 backdrop-blur">
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-10 place-items-center rounded-full bg-sea-teal-soft text-sea-teal">
-                      <s.icon className="size-5" />
+                <Reveal key={s.t} delay={i * 90} className="relative rounded-[18px] border border-sea-line bg-sea-paper/95 p-2.5 backdrop-blur sm:rounded-[24px] sm:p-5">
+                  <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                    <span className="grid size-8 place-items-center rounded-full bg-sea-teal-soft text-sea-teal sm:size-10">
+                      <s.icon className="size-4 sm:size-5" />
                     </span>
-                    <span className="font-serif text-[15px] italic text-sea-muted">Step {i + 1}</span>
+                    <span className="font-serif text-[12px] italic text-sea-muted sm:text-[15px]">Step {i + 1}</span>
                   </div>
-                  <h2 className="mt-3 text-[16px] font-extrabold">{s.t}</h2>
-                  <p className="mt-1 text-[14px] leading-relaxed text-sea-body">{s.d}</p>
+                  <h2 className="mt-1.5 text-[12.5px] font-extrabold leading-snug sm:mt-3 sm:text-[16px]">{s.t}</h2>
+                  <p className="mt-1 text-[11px] leading-snug text-sea-body sm:text-[14px] sm:leading-relaxed">{s.d}</p>
                 </Reveal>
               ))}
             </div>

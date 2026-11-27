@@ -192,8 +192,8 @@ export function OrderCard({
   }, [onChange, phone, cancelled, pay, order.code, order.updatedAt]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div className="grid gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6">
         {placed && (
           <div className="sea-sheet-in flex items-start gap-4 rounded-[28px] bg-sea-ink p-6 text-sea-cream">
             <PartyPopper className="mt-1 size-7 shrink-0 text-sea-sprout" />
@@ -239,7 +239,17 @@ export function OrderCard({
           {order.tracking && (
             <p className="mt-6 flex items-start gap-2.5 rounded-2xl bg-sea-teal-soft px-4 py-3 text-[14px] text-sea-ink">
               <Truck className="mt-0.5 size-[18px] shrink-0 text-sea-teal" />
-              <span className="whitespace-pre-line">{order.tracking}</span>
+              <span className="min-w-0 whitespace-pre-line [overflow-wrap:anywhere]">
+                {order.tracking.split(/(https?:\/\/\S+)/).map((part, i) =>
+                  /^https?:\/\//.test(part) ? (
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="font-bold text-sea-teal underline underline-offset-2">
+                      {part}
+                    </a>
+                  ) : (
+                    part
+                  ),
+                )}
+              </span>
             </p>
           )}
         </Panel>

@@ -189,7 +189,7 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
         <p className="mt-2 text-[13px] text-muted">{ORDER_HINT[o.status]}</p>
 
         {o.status !== "cancelled" && (
-          <ol className="mt-4 grid grid-cols-5 gap-1.5" aria-label="Progress">
+          <ol className="mt-4 grid grid-cols-3 gap-x-1.5 gap-y-3 sm:grid-cols-6" aria-label="Progress">
             {PROGRESS_STEPS.map((s, i) => (
               <li key={s} className="flex flex-col gap-1.5">
                 <span className={cx("h-1.5 rounded-full transition-colors duration-500", i <= progressIndex(o) ? "bg-brand" : "bg-line")} />

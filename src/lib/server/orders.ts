@@ -237,11 +237,10 @@ export async function findOrderByTrx(trxId: string): Promise<Order | null> {
   return row?.data ?? null;
 }
 
-/** What the customer sees of an order: everything except the shop's private note. */
+/** What the customer sees of an order: everything except the shop's private note (seen drives Order processing). */
 export const orderView = (o: Order) => {
-  const { adminNote, seen, invoiceId, ...rest } = o;
+  const { adminNote, invoiceId, ...rest } = o;
   void adminNote;
-  void seen;
   void invoiceId;
   return rest;
 };

@@ -681,22 +681,24 @@ export const PAY_LABEL: Record<PayState, string> = {
 export const needsTrxAtCheckout = (s: SiteSettings, method: string) => method === "bKash" || !!s.bank.accountNumber.trim();
 
 /**
- * The progress line shown on an order: the order steps, with "Payment checking" between Order placed and Approved.
- * Payment checking is reached once the customer has sent their payment details.
+ * The progress line shown on an order: the order steps, with "Order processing" and "Payment checking" between Order
+ * placed and Approved. Processing is reached once the shop has opened the order or the customer has sent payment
+ * details; Payment checking once the payment details are in and not turned down.
  */
-export type ProgressStep = OrderStatus | "checking";
-export const PROGRESS_STEPS: ProgressStep[] = ["placed", "checking", "confirmed", "shipped", "delivered"];
-export const PROGRESS_LABEL: Record<ProgressStep, string> = { ...ORDER_LABEL, checking: "Payment checking" };
-export function progressIndex(o: Pick<Order, "status" | "payment">) {
+export type ProgressStep = OrderStatus | "processing" | "checking";
+export const PROGRESS_STEPS: ProgressStep[] = ["placed", "processing", "checking", "confirmed", "shipped", "delivered"];
+export const PROGRESS_LABEL: Record<ProgressStep, string> = { ...ORDER_LABEL, processing: "Order processing", checking: "Payment checking" };
+export function progressIndex(o: Pick<Order, "status" | "payment" | "seen">) {
   if (o.status === "placed") {
     const pay = payState(o);
-    return pay === "submitted" || pay === "verified" ? 1 : 0;
+    if (pay === "submitted" || pay === "verified") return 2;
+    return o.seen || o.payment.trxId ? 1 : 0;
   }
   return PROGRESS_STEPS.indexOf(o.status);
 }
 /** When the order reached a progress step (the payment details' time for Payment checking). */
 export const progressAt = (o: Pick<Order, "history" | "payment">, s: ProgressStep) =>
-  s === "checking" ? o.payment.submittedAt : o.history.findLast((h) => h.status === s)?.at;
+  s === "processing" ? undefined : s === "checking" ? o.payment.submittedAt : o.history.findLast((h) => h.status === s)?.at;
 
 const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I/L
 

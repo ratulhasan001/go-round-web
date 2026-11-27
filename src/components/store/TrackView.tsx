@@ -218,7 +218,7 @@ export function OrderCard({
           </div>
 
           {!cancelled && (
-            <ol className="mt-7 grid grid-cols-5 gap-1">
+            <ol className="mt-7 grid grid-cols-3 gap-x-1 gap-y-4 sm:grid-cols-6">
               {PROGRESS_STEPS.map((s, i) => {
                 const done = i <= stepIdx;
                 const t = progressAt(order, s);

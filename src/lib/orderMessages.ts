@@ -30,7 +30,7 @@ export const MESSAGE_FIELDS: { tag: string; what: string }[] = [
 const BODY = `{items}\n{coupon}`;
 
 export const DEFAULT_MESSAGES: Record<OrderMessageKey, string> = {
-  received: `Hello {name},\nThank you for your order *{code}* from {shop}!\n\n${BODY}\nTotal: *{total}*\n\n{payment}\n\nSee your order: {link}`,
+  received: `Hello {name},\nThank you for your order *{code}* from {shop}! We're *processing your order* now.\n\n${BODY}\nTotal: *{total}*\n\n{payment}\n\nSee your order: {link}`,
   checking: `Hello {name},\nWe've received your order *{code}* and your payment (transaction ID {trxid}). We're *checking your payment* now and will update you shortly.\n\n${BODY}\nTotal: *{total}*\n\nSee your order: {link}`,
   notFound: `Hello {name},\nWe couldn't find the payment for your order *{code}* (transaction ID {trxid}). Please check it and send it again on your order page.\n\n{payment}\n\nYour order: {link}`,
   approved: `Hello {name},\nGood news! Your order *{code}* is *approved* - your payment of *{total}* is received and we're packing your order now.\n\n${BODY}\n\nReceipt: {receipt}\nSee your order and download the receipt: {link}`,

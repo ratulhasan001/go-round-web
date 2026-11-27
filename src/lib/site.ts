@@ -652,7 +652,7 @@ export const ORDER_LABEL: Record<OrderStatus, string> = {
 
 export const ORDER_HINT: Record<OrderStatus, string> = {
   placed: "We have your order and are checking the payment.",
-  confirmed: "Payment approved - your receipt is ready and your order is being packed.",
+  confirmed: "Payment approved - your receipt is ready and your order is being processed.",
   shipped: "Your parcel is on its way.",
   delivered: "Delivered. Enjoy your tank!",
   cancelled: "This order was cancelled.",
@@ -681,24 +681,23 @@ export const PAY_LABEL: Record<PayState, string> = {
 export const needsTrxAtCheckout = (s: SiteSettings, method: string) => method === "bKash" || !!s.bank.accountNumber.trim();
 
 /**
- * The progress line shown on an order: the order steps, with "Order processing" and "Payment checking" between Order
- * placed and Approved. Processing is reached once the shop has opened the order or the customer has sent payment
- * details; Payment checking once the payment details are in and not turned down.
+ * The progress line shown on an order: the order steps, with "Payment check" between Order placed and Approved and
+ * "Processing" (packing) between Approved and Shipped. Payment check is reached once the payment details are
+ * in and not turned down; Processing with the approval.
  */
 export type ProgressStep = OrderStatus | "processing" | "checking";
-export const PROGRESS_STEPS: ProgressStep[] = ["placed", "processing", "checking", "confirmed", "shipped", "delivered"];
-export const PROGRESS_LABEL: Record<ProgressStep, string> = { ...ORDER_LABEL, processing: "Order processing", checking: "Payment checking" };
-export function progressIndex(o: Pick<Order, "status" | "payment" | "seen">) {
+export const PROGRESS_STEPS: ProgressStep[] = ["placed", "checking", "confirmed", "processing", "shipped", "delivered"];
+export const PROGRESS_LABEL: Record<ProgressStep, string> = { ...ORDER_LABEL, processing: "Processing", checking: "Payment check" };
+export function progressIndex(o: Pick<Order, "status" | "payment">) {
   if (o.status === "placed") {
     const pay = payState(o);
-    if (pay === "submitted" || pay === "verified") return 2;
-    return o.seen || o.payment.trxId ? 1 : 0;
+    return pay === "submitted" || pay === "verified" ? 1 : 0;
   }
-  return PROGRESS_STEPS.indexOf(o.status);
+  return o.status === "confirmed" ? 3 : PROGRESS_STEPS.indexOf(o.status);
 }
 /** When the order reached a progress step (the payment details' time for Payment checking). */
 export const progressAt = (o: Pick<Order, "history" | "payment">, s: ProgressStep) =>
-  s === "processing" ? undefined : s === "checking" ? o.payment.submittedAt : o.history.findLast((h) => h.status === s)?.at;
+  s === "checking" ? o.payment.submittedAt : o.history.findLast((h) => h.status === (s === "processing" ? "confirmed" : s))?.at;
 
 const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I/L
 

@@ -1,4 +1,4 @@
-import { payState, tk } from "./site";
+import { markedChecking, payState, tk } from "./site";
 import type { Order, OrderMessageKey } from "./types";
 
 /** Every situation the shop can message a customer about, in the order an order goes through them. */
@@ -7,6 +7,7 @@ export const ORDER_MESSAGES: { key: OrderMessageKey; label: string; hint: string
   { key: "checking", label: "Checking payment", hint: "The customer sent a transaction ID" },
   { key: "notFound", label: "Payment not found", hint: "After Payment not found" },
   { key: "approved", label: "Order approved", hint: "After Approve payment" },
+  { key: "processing", label: "Processing", hint: "After Mark as processing" },
   { key: "shipped", label: "Shipped", hint: "After Mark as shipped" },
   { key: "delivered", label: "Delivered", hint: "After Mark as delivered" },
   { key: "cancelled", label: "Cancelled", hint: "After Cancel order" },
@@ -31,12 +32,13 @@ const BODY = `{items}\n{coupon}`;
 
 export const DEFAULT_MESSAGES: Record<OrderMessageKey, string> = {
   received: `Hello {name},\nThank you for your order *{code}* from {shop}!\n\n${BODY}\nTotal: *{total}*\n\n{payment}\n\nSee your order: {link}`,
-  checking: `Hello {name},\nWe've received your order *{code}* and your payment (transaction ID {trxid}). We're *checking your payment* now and will let you know as soon as it's approved.\n\n${BODY}\nTotal: *{total}*\n\nSee your order: {link}`,
+  checking: `Hello {name},\nWe've received your order *{code}* and your payment (transaction ID {trxid}). We're *CHECKING YOUR PAYMENT* now and will let you know as soon as it's approved.\n\n${BODY}\nTotal: *{total}*\n\nSee your order: {link}`,
   notFound: `Hello {name},\nWe couldn't find the payment for your order *{code}* (transaction ID {trxid}). Please check it and send it again on your order page.\n\n{payment}\n\nYour order: {link}`,
-  approved: `Hello {name},\nGood news! Your payment of *{total}* has been received and your order *{code}* is *approved*. We're now *processing* your order and will ship it soon.\n\n${BODY}\n\nReceipt: {receipt}\nSee your order and download the receipt: {link}`,
-  shipped: `Hello {name},\nYour order *{code}* has been *shipped* and is on its way!\n\nCourier / tracking: {tracking}\n\nFollow your order: {link}`,
-  delivered: `Hello {name},\nYour order *{code}* has been delivered. Thank you for shopping with {shop}!\n\nWe'd love to hear how you like it - you can leave a review on our website.\n\nYour order and receipt: {link}`,
-  cancelled: `Hello {name},\nYour order *{code}* from {shop} has been cancelled. If you have any questions, just reply to this message.`,
+  approved: `Hello {name},\nGood news! Your payment of *{total}* has been received and your order *{code}* is *APPROVED*. We're now *PROCESSING* your order and will ship it soon.\n\n${BODY}\n\nReceipt: {receipt}\nSee your order and download the receipt: {link}`,
+  processing: `Hello {name},\nWe're now *PROCESSING* your order *{code}* - packing it up to ship soon.\n\n${BODY}\n\nSee your order: {link}`,
+  shipped: `Hello {name},\nYour order *{code}* has been *SHIPPED* and is on its way!\n\nCourier / tracking: {tracking}\n\nFollow your order: {link}`,
+  delivered: `Hello {name},\nYour order *{code}* has been *DELIVERED*. Thank you for shopping with {shop}!\n\nWe'd love to hear how you like it - you can leave a review on our website.\n\nYour order and receipt: {link}`,
+  cancelled: `Hello {name},\nYour order *{code}* from {shop} has been *CANCELLED*. If you have any questions, just reply to this message.`,
 };
 
 /** The shop's wording for a message, or the default when it hasn't written its own. */
@@ -48,10 +50,11 @@ export function messageKeyFor(o: Order): OrderMessageKey {
   if (o.status === "placed") {
     const pay = payState(o);
     if (pay === "verified") return "approved";
-    if (pay === "rejected") return "notFound";
-    return pay === "submitted" ? "checking" : "received";
+    if (pay === "submitted" || markedChecking(o)) return "checking";
+    return pay === "rejected" ? "notFound" : "received";
   }
-  return o.status === "confirmed" ? "approved" : o.status;
+  if (o.status === "confirmed") return o.processingAt ? "processing" : "approved";
+  return o.status;
 }
 
 /**
@@ -78,5 +81,6 @@ export function fillMessage(template: string, o: Order, values: { shop: string; 
     if (tags.length && tags.every((t) => !v[t])) return [];
     return [line.replace(/\{(\w+)\}/g, (m, t: string) => (t.toLowerCase() in v ? v[t.toLowerCase()]! : m))];
   });
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  // a payment the shop marked as being checked may have no transaction ID on the order: drop the empty "(transaction ID )"
+  return lines.join("\n").replace(/ \(transaction ID\s*\)/g, "").replace(/\n{3,}/g, "\n\n").trim();
 }

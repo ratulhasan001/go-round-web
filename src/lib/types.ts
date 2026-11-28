@@ -68,7 +68,7 @@ export interface Shop {
 }
 
 /** The situations the shop sends a customer a WhatsApp message about (see src/lib/orderMessages.ts). */
-export type OrderMessageKey = "received" | "checking" | "notFound" | "approved" | "shipped" | "delivered" | "cancelled";
+export type OrderMessageKey = "received" | "checking" | "notFound" | "approved" | "processing" | "shipped" | "delivered" | "cancelled";
 
 // ---------- customer website ----------
 
@@ -228,9 +228,11 @@ export interface Order {
     verified?: boolean; // the shop has checked the money arrived
     verifiedAt?: number;
     rejectedAt?: number; // the shop couldn't find this payment; a newer submittedAt means the customer sent it again
+    checkingAt?: number; // the shop marked the payment as being checked (e.g. it was sent on WhatsApp, not on the website)
   };
   note?: string; // from the customer
   adminNote?: string; // private, only in the admin panel
+  processingAt?: number; // the shop marked an approved order as being processed (packed); cleared to go back to Approved
   tracking?: string; // courier / tracking info shown to the customer
   invoiceId?: string; // receipt made from this order
   invoiceNumber?: string;

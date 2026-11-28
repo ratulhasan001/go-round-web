@@ -102,7 +102,7 @@ export function TrackView() {
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-x-2 text-[14.5px] font-extrabold">
                     {o.code}
-                    <span className={cx("rounded-full px-2 py-0.5 text-[11px] font-extrabold", o.status === "cancelled" ? "bg-red-50 text-red-700" : o.status === "placed" ? "bg-amber-50 text-amber-700" : "bg-sea-teal-soft text-sea-teal")}>
+                    <span className={cx("rounded-full px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide", o.status === "cancelled" ? "bg-red-50 text-red-700" : o.status === "placed" ? "bg-amber-50 text-amber-700" : "bg-sea-teal-soft text-sea-teal")}>
                       {o.status === "placed" ? PAY_LABEL[payState(o)] : ORDER_LABEL[o.status]}
                     </span>
                   </span>
@@ -209,7 +209,7 @@ export function OrderCard({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="store-eyebrow">Order {order.code}</p>
-              <p className="mt-2 font-serif text-[30px] leading-tight">{cancelled ? <em className="text-red-700">Cancelled</em> : ORDER_LABEL[order.status]}</p>
+              <p className="mt-2 font-serif text-[30px] font-bold uppercase leading-tight tracking-wide">{cancelled ? <em className="text-red-700">Cancelled</em> : PROGRESS_LABEL[PROGRESS_STEPS[stepIdx] ?? order.status]}</p>
               <p className="mt-1 text-[14px] text-sea-body">
                 {order.status === "placed" ? (pay === "submitted" ? "Your payment is waiting for our approval." : pay === "rejected" ? "We couldn't find your payment yet." : "Waiting for your payment.") : ORDER_HINT[order.status]}
               </p>
@@ -225,7 +225,7 @@ export function OrderCard({
                 return (
                   <li key={s} className="flex flex-col">
                     <span className={cx("h-1.5 rounded-full transition-colors duration-700", done ? "bg-sea-leaf" : "bg-sea-line")} />
-                    <span className={cx("mt-2.5 flex items-start gap-1 text-[11.5px] font-extrabold leading-tight sm:text-[13px]", done ? "text-sea-ink" : "text-sea-muted")}>
+                    <span className={cx("mt-2.5 flex items-start gap-1 text-[11.5px] font-extrabold uppercase leading-tight tracking-wide sm:text-[13px]", done ? "text-sea-ink" : "text-sea-muted")}>
                       {done && <Check className="mt-px size-3.5 shrink-0 text-sea-leaf" strokeWidth={3} />}
                       {PROGRESS_LABEL[s]}
                     </span>

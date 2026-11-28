@@ -7,6 +7,7 @@ import {
   Ban,
   CheckCircle2,
   Copy,
+  Boxes,
   FileText,
   ImageOff,
   MapPin,
@@ -14,6 +15,7 @@ import {
   PackageCheck,
   Phone,
   RotateCcw,
+  ScanSearch,
   ShoppingBag,
   Trash2,
   Truck,
@@ -22,7 +24,7 @@ import {
 import { useStore } from "@/lib/store";
 import { invoiceFromOrder, isOrderPayment, orderPayment } from "@/lib/orderReceipt";
 import { computeTotals } from "@/lib/calc";
-import { ORDER_HINT, ORDER_LABEL, ORDER_STEPS, PROGRESS_LABEL, PROGRESS_STEPS, fmtWhen, progressIndex, payState, thumb, tk, waLink } from "@/lib/site";
+import { ORDER_HINT, ORDER_LABEL, PROGRESS_LABEL, PROGRESS_STEPS, fmtWhen, markedChecking, progressIndex, payState, thumb, tk, waLink } from "@/lib/site";
 import type { Order, OrderMessageKey, OrderStatus } from "@/lib/types";
 import { ORDER_MESSAGES, messageKeyFor } from "@/lib/orderMessages";
 import { Modal } from "../Modal";
@@ -30,13 +32,35 @@ import { Button, Input, Label, Select, Textarea, cx, useToast } from "../ui";
 import { PayChip, StatusChip, updateMessage } from "./shared";
 import { couponAmount, couponLabel } from "@/lib/couponRules";
 
-// "placed" moves on through Approve payment (see Body), which also makes the customer's receipt
-const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string; icon: React.ReactNode }>> = {
-  confirmed: { to: "shipped", label: "Mark as shipped", icon: <Truck className="size-4" /> },
-  shipped: { to: "delivered", label: "Mark as delivered", icon: <PackageCheck className="size-4" /> },
-};
-
 const withStatus = (o: Order, status: OrderStatus): Order => ({ ...o, status, history: [...o.history, { status, at: Date.now() }] });
+
+type Move = { to: Order; label: string; icon?: React.ReactNode };
+
+/**
+ * One step on along the progress line (Order placed → Payment check → Approved → Processing → Shipped → Delivered).
+ * Approving is its own button (it makes the receipt), so a placed order only gets Mark as payment check here.
+ */
+function forward(o: Order): Move | null {
+  const now = Date.now();
+  if (o.status === "placed")
+    return progressIndex(o) === 0 ? { to: { ...o, payment: { ...o.payment, checkingAt: now } }, label: "Mark as payment check", icon: <ScanSearch className="size-4" /> } : null;
+  if (o.status === "confirmed")
+    return o.processingAt
+      ? { to: withStatus(o, "shipped"), label: "Mark as shipped", icon: <Truck className="size-4" /> }
+      : { to: { ...o, processingAt: now }, label: "Mark as processing", icon: <Boxes className="size-4" /> };
+  if (o.status === "shipped") return { to: withStatus(o, "delivered"), label: "Mark as delivered", icon: <PackageCheck className="size-4" /> };
+  return null;
+}
+
+/** One step back along the progress line (undoing Approved itself is the payment's Undo). */
+function backward(o: Order): Move | null {
+  let to: Order | null = null;
+  if (o.status === "delivered") to = withStatus(o, "shipped");
+  else if (o.status === "shipped") to = withStatus(o, "confirmed");
+  else if (o.status === "confirmed") to = o.processingAt ? { ...o, processingAt: undefined } : withStatus(o, "placed");
+  else if (o.status === "placed" && markedChecking(o) && payState(o) !== "submitted" && !o.payment.verified) to = { ...o, payment: { ...o.payment, checkingAt: undefined } };
+  return to ? { to, label: `Back to ${PROGRESS_LABEL[PROGRESS_STEPS[progressIndex(to)]!]}` } : null;
+}
 
 /** Everything about one website order, with the next step one tap away. */
 export function OrderPanel({ id, onClose }: { id: string | null; onClose: () => void }) {
@@ -122,7 +146,7 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
   };
   /** Undo an approval: the order goes back to waiting, and the payment approving added to its receipt comes off. */
   const unapprove = () => {
-    let next: Order = { ...o, payment: { ...o.payment, verified: false, verifiedAt: undefined } };
+    let next: Order = { ...o, payment: { ...o.payment, verified: false, verifiedAt: undefined }, processingAt: undefined };
     if (next.status === "confirmed") next = withStatus(next, "placed");
     save(next);
     if (linked && linked.payments.some((p) => isOrderPayment(p, o))) saveInvoice({ ...linked, payments: linked.payments.filter((p) => !isOrderPayment(p, o)) }, { remember: false });
@@ -156,9 +180,9 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
     }
   };
 
-  const next = NEXT[o.status];
-  const step = ORDER_STEPS.indexOf(o.status);
-  const back = step > 0 ? ORDER_STEPS[step - 1] : null;
+  const next = forward(o);
+  const back = backward(o);
+  const at = progressIndex(o);
   // where a cancelled order goes back to: the last step it reached
   const restoreTo = [...o.history].reverse().find((h) => h.status !== "cancelled")?.status ?? "placed";
   const pay = payState(o);
@@ -192,8 +216,8 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
           <ol className="mt-4 grid grid-cols-3 gap-x-1.5 gap-y-3 sm:grid-cols-6" aria-label="Progress">
             {PROGRESS_STEPS.map((s, i) => (
               <li key={s} className="flex flex-col gap-1.5">
-                <span className={cx("h-1.5 rounded-full transition-colors duration-500", i <= progressIndex(o) ? "bg-brand" : "bg-line")} />
-                <span className={cx("text-[11px] font-semibold leading-tight", i <= progressIndex(o) ? "text-ink" : "text-faint")}>{PROGRESS_LABEL[s]}</span>
+                <span className={cx("h-1.5 rounded-full transition-colors duration-500", i <= at ? "bg-brand" : "bg-line")} />
+                <span className={cx("text-[11px] font-extrabold uppercase leading-tight tracking-wide", i <= at ? "text-ink" : "text-faint")}>{PROGRESS_LABEL[s]}</span>
               </li>
             ))}
           </ol>
@@ -219,12 +243,12 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
           )}
           {next && (
             <Button
-              variant="primary"
+              variant={o.status === "placed" ? "secondary" : "primary"}
               size="lg"
               className="flex-1"
               onClick={() => {
-                save(withStatus(o, next.to));
-                toast(`${o.code}: ${ORDER_LABEL[next.to]}`);
+                save(next.to);
+                toast(`${o.code}: ${PROGRESS_LABEL[PROGRESS_STEPS[progressIndex(next.to)]!].toUpperCase()}`);
               }}
             >
               {next.icon} {next.label}
@@ -242,9 +266,16 @@ function Body({ order: o, save, shopName }: { order: Order; save: (o: Order) => 
           </p>
         )}
         <div className="mt-2 flex flex-wrap gap-1">
-          {back && o.status !== "cancelled" && (
-            <Button variant="ghost" size="sm" onClick={() => save(withStatus(o, back))}>
-              <ArrowLeft className="size-3.5" /> Back to {ORDER_LABEL[back].toLowerCase()}
+          {back && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                save(back.to);
+                toast(`${o.code}: ${back.label.toLowerCase()}`);
+              }}
+            >
+              <ArrowLeft className="size-3.5" /> {back.label}
             </Button>
           )}
           {o.status !== "cancelled" && o.status !== "delivered" && (

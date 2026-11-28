@@ -6,14 +6,14 @@ import { uid } from "@/lib/calc";
 import { thumb, tk } from "@/lib/site";
 import type { Product, ProductVariant, VariantKind, VariantSize } from "@/lib/types";
 import { purchaseMax, withPurchase } from "@/lib/productPrice";
-import { CUSTOM_MAX, SIZES, SIZE_LABEL, VARIANT_KINDS, clampAmount, customName, hasAmount, kindInfo, sellable, sortVariants, specMissing, variantLabel, withVariants } from "@/lib/variants";
+import { CUSTOM_MAX, FIXED, SIZES, SIZE_LABEL, VARIANT_KINDS, clampAmount, customName, hasAmount, kindInfo, sellable, sortVariants, specMissing, variantLabel, withVariants } from "@/lib/variants";
 import { PriceInput } from "./ProductDetailsDialog";
 import { Input, Select, Switch, cx } from "./ui";
 
 // The product form's "Variants" section: the sizes or amounts a product is sold in (500 ml, 2 kg, Large, Full bag…),
 // each with its own prices, stock, weight, SKU and photo. Customers pick one on the product page.
 
-const SHORT: Record<VariantKind, string> = { kg: "kg", ml: "ml", gm: "gm", l: "Litre", piece: "Piece", pot: "Pot", size: "Size", bag: "Full bag", custom: "Custom name" };
+const SHORT: Record<VariantKind, string> = { kg: "kg", ml: "ml", gm: "gm", l: "Litre", piece: "Piece", pot: "Pot", size: "Size", bag: "Full bag", stem: "10 Stem", pack: "Pack", pad: "Pad", custom: "Custom name" };
 const range = (kind: VariantKind) => {
   const k = kindInfo(kind);
   if (!hasAmount(kind)) return "";
@@ -191,7 +191,7 @@ function VariantRow({
             />
           </span>
         ) : (
-          <span className="text-[13.5px] font-bold">Full bag</span>
+          <span className="text-[13.5px] font-bold">{FIXED[v.kind]}</span>
         )}
         <span className="flex-1" />
         <label className="flex cursor-pointer items-center gap-2 text-[12.5px] font-semibold text-muted">
@@ -322,7 +322,7 @@ export function VariantsEditor({ p, update }: { p: Product; update: (patch: Part
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="mr-1 text-[12.5px] font-semibold text-muted">Add a variant:</span>
         {VARIANT_KINDS.map((k) => {
-          const full = (k.kind === "bag" && list.some((v) => v.kind === "bag")) || (k.kind === "size" && SIZES.every((s) => list.some((v) => v.kind === "size" && v.size === s)));
+          const full = (!!FIXED[k.kind] && list.some((v) => v.kind === k.kind)) || (k.kind === "size" && SIZES.every((s) => list.some((v) => v.kind === "size" && v.size === s)));
           return (
             <button
               key={k.kind}

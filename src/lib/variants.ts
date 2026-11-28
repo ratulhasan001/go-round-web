@@ -23,6 +23,9 @@ export const VARIANT_KINDS: VariantKindInfo[] = [
   { kind: "pot", label: "Pot", unit: "pot", min: 1, max: 10, whole: true },
   { kind: "size", label: "Size", unit: "" },
   { kind: "bag", label: "Full bag", unit: "" },
+  { kind: "stem", label: "10 Stem", unit: "" },
+  { kind: "pack", label: "Pack", unit: "" },
+  { kind: "pad", label: "Pad", unit: "" },
   { kind: "custom", label: "Custom name", unit: "" },
 ];
 /** The longest custom variant name. */
@@ -33,8 +36,10 @@ export const SIZES: VariantSize[] = ["small", "medium", "large"];
 export const SIZE_LABEL: Record<VariantSize, string> = { small: "Small", medium: "Medium", large: "Large" };
 
 export const kindInfo = (kind: VariantKind) => VARIANT_KINDS.find((k) => k.kind === kind) ?? VARIANT_KINDS[0]!;
-/** Kinds sold by an amount (everything but size, full bag and a custom name). */
-export const hasAmount = (kind: VariantKind) => kind !== "size" && kind !== "bag" && kind !== "custom";
+/** Variants with a fixed name and nothing to fill in (a product has at most one of each). */
+export const FIXED: Partial<Record<VariantKind, string>> = { bag: "Full bag", stem: "10 Stem", pack: "Pack", pad: "Pad" };
+/** Kinds sold by an amount (everything but size, the fixed ones and a custom name). */
+export const hasAmount = (kind: VariantKind) => kind !== "size" && kind !== "custom" && !FIXED[kind];
 /** A custom variant's name as it shows: trimmed, single-spaced and not too long. */
 export const customName = (name?: string) => (name ?? "").replace(/\s+/g, " ").trim().slice(0, CUSTOM_MAX);
 
@@ -54,7 +59,7 @@ const fmtAmount = (n: number) => String(Math.round(n * 1000) / 1000);
 /** What a variant is called on the website and on receipts: "500 ml", "0.67 L", "2 pieces", "Large", "Full bag", or its custom name. */
 export function variantLabel(v: VariantSpec): string {
   if (v.kind === "size") return v.size ? SIZE_LABEL[v.size] : "Size";
-  if (v.kind === "bag") return "Full bag";
+  if (FIXED[v.kind]) return FIXED[v.kind]!;
   if (v.kind === "custom") return customName(v.name) || "Custom";
   const n = v.amount;
   const unit = kindInfo(v.kind).unit;

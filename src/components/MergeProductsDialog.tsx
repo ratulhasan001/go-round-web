@@ -10,6 +10,7 @@ import {
   CUSTOM_MAX,
   SIZES,
   SIZE_LABEL,
+  FIXED,
   VARIANT_KINDS,
   type VariantSpec,
   clampAmount,
@@ -166,7 +167,7 @@ function SpecPicker({ spec, onChange, label }: { spec: Spec; onChange: (s: Spec)
           />
         </span>
       ) : (
-        <span className="w-[122px] text-[13px] font-bold">Full bag</span>
+        <span className="w-[122px] text-[13px] font-bold">{FIXED[spec.kind]}</span>
       )}
     </span>
   );

@@ -276,8 +276,8 @@ export interface Product {
 /** The two halves of the admin's product list. */
 export type ProductGroup = "plant" | "accessory";
 
-/** Kilogram, millilitre, gram, litre, piece, pot, size (small / medium / large), a full bag, or a name the admin types. */
-export type VariantKind = "kg" | "ml" | "gm" | "l" | "piece" | "pot" | "size" | "bag" | "custom";
+/** Kilogram, millilitre, gram, litre, piece, pot, size (small / medium / large), a full bag, 10 stem, a pack, a pad, or a name the admin types. */
+export type VariantKind = "kg" | "ml" | "gm" | "l" | "piece" | "pot" | "size" | "bag" | "stem" | "pack" | "pad" | "custom";
 export type VariantSize = "small" | "medium" | "large";
 
 /** One way a product is sold, e.g. 500 ml or Large, with its own price, stock and photo. */

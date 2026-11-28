@@ -22,7 +22,7 @@ const PAY_TONE = {
 
 export function StatusChip({ status, className }: { status: OrderStatus; className?: string }) {
   return (
-    <span className={cx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-bold ring-1 ring-inset", STATUS_TONE[status], className)}>
+    <span className={cx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-extrabold uppercase tracking-wide ring-1 ring-inset", STATUS_TONE[status], className)}>
       <span className="size-1.5 rounded-full bg-current" />
       {status === "placed" ? "To approve" : ORDER_LABEL[status]}
     </span>
@@ -35,7 +35,7 @@ export function PayChip({ order, className }: { order: Order; className?: string
   return (
     <span
       title={PAY_LABEL[s]}
-      className={cx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-bold ring-1 ring-inset", PAY_TONE[s], className)}
+      className={cx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-extrabold uppercase tracking-wide ring-1 ring-inset", PAY_TONE[s], className)}
     >
       {label}
     </span>

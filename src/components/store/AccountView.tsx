@@ -221,7 +221,7 @@ function Dashboard({ account, orders, reload }: { account: Account; orders: Orde
                     </span>
                   </span>
                   <span className="hidden text-right sm:block">
-                    <span className="block text-[13px] font-extrabold">{ORDER_LABEL[o.status]}</span>
+                    <span className="block text-[13px] font-extrabold uppercase tracking-wide">{ORDER_LABEL[o.status]}</span>
                     <span className="block text-[12px] text-sea-muted">{o.status === "cancelled" ? "" : PAY_LABEL[payState(o)]}</span>
                   </span>
                   <ChevronRight className="size-5 text-sea-muted" />
